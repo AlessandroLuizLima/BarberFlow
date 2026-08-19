@@ -1,0 +1,391 @@
+/* ========================================
+   HomePage.css - Cliente
+   Reutiliza variáveis do dashboard mas isolado
+======================================== */
+
+:root {
+  --dark-blue: #3b82f6;
+  --light-blue: #60a5fa;
+  --sidebar-width: 16rem;
+  --success-color: #10b981;
+  --danger-color: #ef4444;
+  --warning-color: #f59e0b;
+  font-family: "Inter", sans-serif;
+}
+
+/* ========================================
+   CONTAINER PRINCIPAL
+======================================== */
+.home-page {
+  min-height: 100vh;
+  background-color: #f4f4f4;
+  padding: 1.5rem;
+  margin-left: var(--sidebar-width);
+  width: calc(100% - var(--sidebar-width));
+  box-sizing: border-box;
+}
+
+body:not(.light-mode) .home-page {
+  background-color: #111827;
+  color: white;
+}
+
+@media (max-width: 1024px) {
+  .home-page {
+    margin-left: 0;
+    width: 100%;
+    padding-top: 5rem;
+  }
+}
+
+.home-page .container {
+  max-width: 80rem;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ========================================
+   HEADER
+======================================== */
+.home-page .header {
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.home-page .greeting {
+  font-size: 1.875rem;
+  font-weight: bold;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+body:not(.light-mode) .home-page .greeting {
+  color: white;
+}
+
+.home-page .date {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+body:not(.light-mode) .home-page .date {
+  color: #94a3b8;
+}
+
+.home-page .notification-btn {
+  background: white;
+  border: 1px solid #e5e7eb;
+  color: #6b7280;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+body:not(.light-mode) .home-page .notification-btn {
+  background: #1f2937;
+  border-color: #374151;
+  color: #9ca3af;
+}
+
+.home-page .notification-btn:hover {
+  background: #f9fafb;
+  color: #374151;
+  transform: translateY(-2px);
+}
+
+body:not(.light-mode) .home-page .notification-btn:hover {
+  background: #374151;
+  color: #d1d5db;
+}
+
+/* ========================================
+   BARRA DE BUSCA
+======================================== */
+.home-page .search-container {
+  margin-bottom: 2rem;
+}
+
+.home-page .search-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+}
+
+.home-page .search-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  width: 1.25rem;
+  height: 1.25rem;
+  pointer-events: none;
+}
+
+body:not(.light-mode) .home-page .search-icon {
+  color: #6b7280;
+}
+
+.home-page .search-input {
+  width: 100%;
+  padding-left: 2.5rem;
+  padding-right: 1rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  transition: all 0.2s;
+  box-sizing: border-box;
+  background-color: white;
+  color: #1f2937;
+  font-size: 0.875rem;
+}
+
+body:not(.light-mode) .home-page .search-input {
+  border: 1px solid #4b5563;
+  background-color: #374151;
+  color: white;
+}
+
+.home-page .search-input:focus {
+  outline: none;
+  border-color: transparent;
+  box-shadow: 0 0 0 2px #3b82f6;
+}
+
+body:not(.light-mode) .home-page .search-input:focus {
+  box-shadow: 0 0 0 2px var(--dark-blue);
+}
+
+.home-page .search-input::placeholder {
+  color: #9ca3af;
+}
+
+body:not(.light-mode) .home-page .search-input::placeholder {
+  color: #6b7280;
+}
+
+/* ========================================
+   CONTEÚDO PRINCIPAL
+======================================== */
+.home-page .main-content {
+  width: 100%;
+}
+
+.home-page .section-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 1.5rem 0;
+}
+
+body:not(.light-mode) .home-page .section-title {
+  color: white;
+}
+
+/* ========================================
+   LISTA DE BARBEARIAS
+======================================== */
+.home-page .barbershop-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 1rem;
+}
+
+.home-page .barbershop-card {
+  background-color: white;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  animation: fadeInUp 0.6s ease-out;
+}
+
+body:not(.light-mode) .home-page .barbershop-card {
+  background-color: #1f2937;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  border: 1px solid #374151;
+}
+
+.home-page .barbershop-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.1);
+}
+
+body:not(.light-mode) .home-page .barbershop-card:hover {
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3);
+}
+
+.home-page .card-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+}
+
+.home-page .avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: #6b46c1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+body.light-mode .home-page .avatar {
+  background-color: #7c3aed;
+}
+
+.home-page .avatar-icon {
+  font-size: 28px;
+}
+
+.home-page .card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.home-page .barbershop-name {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+  color: #1f2937;
+}
+
+body:not(.light-mode) .home-page .barbershop-name {
+  color: white;
+}
+
+.home-page .barbershop-address {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+body:not(.light-mode) .home-page .barbershop-address {
+  color: #9ca3af;
+}
+
+.home-page .card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: 1rem;
+}
+
+.home-page .location-icon {
+  color: #ef4444;
+}
+
+.home-page .distance {
+  font-size: 0.8125rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+body:not(.light-mode) .home-page .distance {
+  color: #9ca3af;
+}
+
+/* ========================================
+   RESPONSIVIDADE
+======================================== */
+@media (max-width: 1200px) {
+  .home-page .barbershop-list {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .home-page {
+    padding: 1rem;
+  }
+
+  .home-page .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .home-page .greeting {
+    font-size: 1.5rem;
+  }
+
+  .home-page .barbershop-list {
+    grid-template-columns: 1fr;
+  }
+
+  .home-page .search-wrapper {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .home-page {
+    padding: 1rem;
+  }
+
+  .home-page .greeting {
+    font-size: 1.25rem;
+  }
+
+  .home-page .barbershop-card {
+    padding: 1rem;
+  }
+
+  .home-page .avatar {
+    width: 48px;
+    height: 48px;
+  }
+
+  .home-page .avatar-icon {
+    font-size: 24px;
+  }
+
+  .home-page .card-left {
+    gap: 0.75rem;
+  }
+}
+
+/* ========================================
+   ANIMAÇÕES
+======================================== */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ========================================
+   ACESSIBILIDADE
+======================================== */
+.home-page button:focus,
+.home-page .barbershop-card:focus {
+  outline: 2px solid var(--dark-blue);
+  outline-offset: 2px;
+}

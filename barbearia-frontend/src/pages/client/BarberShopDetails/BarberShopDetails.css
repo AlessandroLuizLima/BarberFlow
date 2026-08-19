@@ -1,0 +1,656 @@
+/* ========================================
+   BarberShopDetails.css - Cliente
+   Página de detalhes da barbearia
+======================================== */
+
+:root {
+  --dark-blue: #3b82f6;
+  --light-blue: #60a5fa;
+  --sidebar-width: 16rem;
+  --success-color: #10b981;
+  --danger-color: #ef4444;
+  --warning-color: #f59e0b;
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-card: #1f2937;
+  --border-color: #374151;
+  font-family: "Inter", sans-serif;
+}
+
+/* ========================================
+   CONTAINER PRINCIPAL
+======================================== */
+.barbershop-details-page {
+  min-height: 100vh;
+  background-color: var(--bg-primary);
+  color: white;
+  margin-left: var(--sidebar-width);
+  width: calc(100% - var(--sidebar-width));
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+@media (max-width: 1024px) {
+  .barbershop-details-page {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+/* ========================================
+   HEADER COM IMAGEM DE FUNDO
+======================================== */
+.barbershop-details-page .barbershop-header {
+  position: relative;
+  height: 200px;
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+  overflow: hidden;
+}
+
+.barbershop-details-page .barbershop-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(15, 23, 42, 0.3), rgba(15, 23, 42, 0.9));
+  z-index: 1;
+}
+
+.barbershop-details-page .header-background {
+  position: absolute;
+  inset: 0;
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+  opacity: 0.3;
+}
+
+.barbershop-details-page .header-content {
+  position: relative;
+  z-index: 2;
+  padding: 1rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.barbershop-details-page .header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.barbershop-details-page .back-button {
+  background: rgba(31, 41, 55, 0.8);
+  border: 1px solid var(--border-color);
+  color: white;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.barbershop-details-page .back-button:hover {
+  background: rgba(55, 65, 81, 0.9);
+  transform: translateX(-2px);
+  border-color: var(--dark-blue);
+}
+
+.barbershop-details-page .header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.barbershop-details-page .header-action-btn {
+  background: rgba(31, 41, 55, 0.8);
+  border: 1px solid var(--border-color);
+  color: white;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.barbershop-details-page .header-action-btn:hover {
+  background: rgba(55, 65, 81, 0.9);
+  transform: translateY(-2px);
+  border-color: var(--dark-blue);
+}
+
+.barbershop-details-page .header-action-btn.favorite.active {
+  color: var(--danger-color);
+  border-color: var(--danger-color);
+}
+
+/* ========================================
+   LOGO E INFORMAÇÕES DA BARBEARIA
+======================================== */
+.barbershop-details-page .barbershop-info-section {
+  padding: 0 1rem;
+  margin-top: -60px;
+  position: relative;
+  z-index: 3;
+}
+
+.barbershop-details-page .barbershop-logo-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.barbershop-details-page .barbershop-logo {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 4px solid var(--bg-primary);
+  background: white;
+  padding: 0.5rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  object-fit: contain;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.barbershop-details-page .barbershop-title-section {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.barbershop-details-page .barbershop-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 0.5rem 0;
+}
+
+.barbershop-details-page .barbershop-rating {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.barbershop-details-page .rating-star {
+  width: 14px;
+  height: 14px;
+}
+
+.barbershop-details-page .barbershop-address {
+  color: #9ca3af;
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+/* ========================================
+   TABS DE NAVEGAÇÃO
+======================================== */
+.barbershop-details-page .barbershop-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  padding: 0 1rem;
+  background: var(--bg-primary);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.barbershop-details-page .tab-btn {
+  flex: 1;
+  padding: 1rem 0.5rem;
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  text-align: center;
+}
+
+.barbershop-details-page .tab-btn:hover {
+  color: #9ca3af;
+}
+
+.barbershop-details-page .tab-btn.active {
+  color: var(--dark-blue);
+}
+
+.barbershop-details-page .tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--dark-blue);
+}
+
+/* ========================================
+   CONTEÚDO DAS TABS
+======================================== */
+.barbershop-details-page .tab-content-wrapper {
+  padding: 1rem;
+  background: var(--bg-primary);
+}
+
+/* ========================================
+   LISTA DE SERVIÇOS
+======================================== */
+.barbershop-details-page .services-list-barbershop {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.barbershop-details-page .service-card-barbershop {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s ease;
+  animation: fadeInUp 0.4s ease-out;
+}
+
+.barbershop-details-page .service-card-barbershop:hover {
+  background: rgba(31, 41, 55, 0.8);
+  border-color: rgba(59, 130, 246, 0.5);
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.barbershop-details-page .service-info-barbershop {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.barbershop-details-page .service-icon-barbershop {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--light-blue);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.barbershop-details-page .service-details-barbershop {
+  flex: 1;
+  min-width: 0;
+}
+
+.barbershop-details-page .service-name-barbershop {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: white;
+  margin: 0 0 0.25rem 0;
+}
+
+.barbershop-details-page .service-price-barbershop {
+  font-size: 0.75rem;
+  color: var(--success-color);
+  font-weight: 600;
+  margin: 0;
+}
+
+.barbershop-details-page .service-action-barbershop {
+  flex-shrink: 0;
+}
+
+.barbershop-details-page .schedule-button {
+  background: var(--dark-blue);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.barbershop-details-page .schedule-button:hover {
+  background: #2563eb;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+/* ========================================
+   LISTA DE PRODUTOS
+======================================== */
+.barbershop-details-page .products-list-barbershop {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.barbershop-details-page .product-card-barbershop {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s ease;
+  animation: fadeInUp 0.4s ease-out;
+}
+
+.barbershop-details-page .product-card-barbershop:hover {
+  background: rgba(31, 41, 55, 0.8);
+  border-color: rgba(139, 92, 246, 0.5);
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);
+}
+
+.barbershop-details-page .product-info-barbershop {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.barbershop-details-page .product-icon-barbershop {
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.barbershop-details-page .product-details-barbershop {
+  flex: 1;
+  min-width: 0;
+}
+
+.barbershop-details-page .product-name-barbershop {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: white;
+  margin: 0 0 0.25rem 0;
+}
+
+.barbershop-details-page .product-price-barbershop {
+  font-size: 0.75rem;
+  color: var(--success-color);
+  font-weight: 600;
+  margin: 0;
+}
+
+.barbershop-details-page .product-stock-barbershop {
+  font-size: 0.625rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+}
+
+/* ========================================
+   DETALHES DA BARBEARIA
+======================================== */
+.barbershop-details-page .details-section-barbershop {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.barbershop-details-page .detail-card-barbershop {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  animation: fadeInUp 0.4s ease-out;
+}
+
+.barbershop-details-page .detail-card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  margin: 0 0 0.75rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.barbershop-details-page .detail-card-icon {
+  color: var(--dark-blue);
+}
+
+.barbershop-details-page .detail-item-barbershop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(55, 65, 81, 0.5);
+}
+
+.barbershop-details-page .detail-item-barbershop:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.barbershop-details-page .detail-label-barbershop {
+  color: #9ca3af;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.barbershop-details-page .detail-value-barbershop {
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.barbershop-details-page .opening-hours-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.barbershop-details-page .hour-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 0.375rem;
+  border: 1px solid rgba(55, 65, 81, 0.3);
+}
+
+.barbershop-details-page .hour-day {
+  color: #9ca3af;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.barbershop-details-page .hour-time {
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.barbershop-details-page .hour-time.closed {
+  color: #6b7280;
+}
+
+/* ========================================
+   AVALIAÇÃO
+======================================== */
+.barbershop-details-page .rating-section-barbershop {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.barbershop-details-page .rating-overview {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  text-align: center;
+  animation: fadeInUp 0.4s ease-out;
+}
+
+.barbershop-details-page .rating-score {
+  font-size: 3rem;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 0.5rem 0;
+}
+
+.barbershop-details-page .rating-stars-large {
+  display: flex;
+  justify-content: center;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.barbershop-details-page .rating-star-large {
+  width: 24px;
+  height: 24px;
+}
+
+.barbershop-details-page .rating-count {
+  color: #9ca3af;
+  font-size: 0.875rem;
+}
+
+/* ========================================
+   ESTADO VAZIO (EMPTY STATE)
+======================================== */
+.barbershop-details-page .empty-state-barbershop {
+  padding: 3rem 1rem;
+  text-align: center;
+  color: #6b7280;
+}
+
+.barbershop-details-page .empty-icon-barbershop {
+  margin: 0 auto 1rem;
+  color: #4b5563;
+  width: 48px;
+  height: 48px;
+}
+
+.barbershop-details-page .empty-state-barbershop h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #9ca3af;
+  margin-bottom: 0.5rem;
+}
+
+.barbershop-details-page .empty-state-barbershop p {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* ========================================
+   RESPONSIVIDADE
+======================================== */
+@media (max-width: 480px) {
+  .barbershop-details-page .barbershop-header {
+    height: 180px;
+  }
+
+  .barbershop-details-page .barbershop-logo {
+    width: 100px;
+    height: 100px;
+  }
+
+  .barbershop-details-page .barbershop-name {
+    font-size: 1.25rem;
+  }
+
+  .barbershop-details-page .service-card-barbershop,
+  .barbershop-details-page .product-card-barbershop {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .barbershop-details-page .service-action-barbershop {
+    align-self: stretch;
+  }
+
+  .barbershop-details-page .schedule-button {
+    width: 100%;
+  }
+
+  .barbershop-details-page .tab-btn {
+    font-size: 0.75rem;
+    padding: 0.75rem 0.25rem;
+  }
+}
+
+/* ========================================
+   ANIMAÇÕES
+======================================== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.barbershop-details-page .tab-content-wrapper {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* ========================================
+   ACESSIBILIDADE
+======================================== */
+.barbershop-details-page .back-button:focus,
+.barbershop-details-page .header-action-btn:focus,
+.barbershop-details-page .tab-btn:focus,
+.barbershop-details-page .schedule-button:focus {
+  outline: 2px solid var(--dark-blue);
+  outline-offset: 2px;
+}

@@ -1,0 +1,300 @@
+:root {
+    --dark-blue: #3b82f6;
+    --light-blue: #60a5fa;
+    --sidebar-width: 260px;
+    font-family: "Inter", sans-serif;
+  }
+  
+  /* Reset e estilos globais */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+  
+  html {
+    width: 100%;
+    overflow-x: hidden;
+  }
+  
+  body {
+    background-color: #111827;
+    color: white;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    width: 100%;
+  }
+  
+  body.light-mode {
+    background-color: #f4f4f4;
+    color: black;
+  }
+  
+  /* Main content */
+  .main-content {
+    margin-left: var(--sidebar-width);
+    padding: 24px;
+    width: calc(100% - var(--sidebar-width));
+    min-height: 100vh;
+  }
+  
+  @media (max-width: 1024px) {
+    .main-content {
+      margin-left: 0;
+      width: 100%;
+      padding-top: 5rem;
+    }
+  }
+  
+  /* Sidebar */
+  .sidebar {
+    width: var(--sidebar-width);
+    height: 100vh;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 24px 16px;
+    font-family: sans-serif;
+    border-right: 2px solid #2f2f2f;
+    position: fixed;
+    top: 0;
+    left: 0;
+    background-color: #111827;
+    z-index: 1000;
+    overflow-y: auto;
+    overflow-x: hidden;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+  
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  
+  @media (min-width: 1024px) {
+    .sidebar {
+      transform: translateX(0);
+    }
+  }
+  
+  body.light-mode .sidebar {
+    background-color: #f4f4f4;
+    color: #111;
+    border-right: 2px solid #d1d5db;
+  }
+  
+  /* Perfil */
+  .profile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .profile-icon {
+    background-color: #f4f4f4;
+    border-radius: 50%;
+    width: 64px;
+    height: 64px;
+    font-size: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    object-fit: contain;
+    padding: 10px;
+  }
+  
+  body.light-mode .profile-icon {
+    background-color: #111;
+    color: white;
+  }
+  
+  .profile-text h2 {
+    font-size: 16px;
+    font-weight: bold;
+    margin: 0;
+    text-align: center;
+  }
+  
+  .profile-text p {
+    font-size: 12px;
+    color: #94a3b8;
+    margin: 0;
+    text-align: center;
+  }
+  
+  body.light-mode .profile-text p {
+    color: #4b5563;
+  }
+  
+  /* Menu */
+  .menu ul {
+    list-style: none;
+    padding: 0;
+    margin: 32px 0 0 0;
+  }
+  
+  .menu li {
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  
+  .menu li:hover {
+    background-color: #1e293b;
+  }
+  
+  body.light-mode .menu li:hover {
+    background-color: #e2e8f0;
+  }
+  
+  .menu li a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 15px;
+    padding: 10px 8px;
+    text-decoration: none;
+    color: inherit;
+    transition: color 0.2s;
+  }
+  
+  body.light-mode .menu a {
+    color: #111;
+  }
+  
+  .icon {
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  
+  /* Hover com cores azuis */
+  body:not(.light-mode) .menu li:hover a,
+  body:not(.light-mode) .mode-toggle:hover,
+  body:not(.light-mode) .logout:hover {
+    color: var(--dark-blue);
+  }
+  
+  body:not(.light-mode) .menu li:hover .icon,
+  body:not(.light-mode) .mode-toggle:hover .icon,
+  body:not(.light-mode) .logout:hover .icon {
+    color: var(--dark-blue);
+  }
+  
+  body.light-mode .menu li:hover a,
+  body.light-mode .mode-toggle:hover,
+  body.light-mode .logout:hover {
+    color: var(--light-blue);
+  }
+  
+  body.light-mode .menu li:hover .icon,
+  body.light-mode .mode-toggle:hover .icon,
+  body.light-mode .logout:hover .icon {
+    color: var(--light-blue);
+  }
+  
+  /* Rodapé */
+  .bottom-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .mode-toggle,
+  .logout {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 15px;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 6px;
+    transition: background 0.2s;
+  }
+  
+  .mode-toggle:hover,
+  .logout:hover {
+    background-color: #1e293b;
+  }
+  
+  body.light-mode .mode-toggle:hover,
+  body.light-mode .logout:hover {
+    background-color: #e2e8f0;
+  }
+  
+  /* Botão Hambúrguer */
+  .hamburger-btn {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    background: #111827;
+    color: white;
+    border: none;
+    padding: 0.5rem;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    z-index: 101;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+  }
+  
+  body.light-mode .hamburger-btn {
+    background: #f4f4f4;
+    color: #111;
+  }
+  
+  .hamburger-btn:hover {
+    background: #1e293b;
+  }
+  
+  body.light-mode .hamburger-btn:hover {
+    background: #e2e8f0;
+  }
+  
+  @media (min-width: 1024px) {
+    .hamburger-btn {
+      display: none;
+    }
+  }
+  
+  /* Overlay para Mobile */
+  .sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 99;
+    display: block;
+  }
+  
+  @media (min-width: 1024px) {
+    .sidebar-overlay {
+      display: none;
+    }
+  }
+  
+  /* Responsivo */
+  @media (max-width: 1024px) {
+    .sidebar {
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+    }
+    
+    .sidebar.open {
+      transform: translateX(0);
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .sidebar {
+      width: 100%;
+      max-width: 280px;
+    }
+  }

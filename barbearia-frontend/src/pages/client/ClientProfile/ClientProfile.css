@@ -1,0 +1,190 @@
+/* Client.css - Estilos para ClientProfile */
+
+:root {
+    --dark-blue: #3b82f6;
+    --light-blue: #60a5fa;
+  }
+  
+  .client-profile-page {
+    min-height: 100vh;
+    background-color: #f4f4f4;
+    padding: 2rem;
+    margin-left: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  body:not(.light-mode) .client-profile-page {
+    background-color: #111827;
+    color: white;
+  }
+  
+  .container {
+    max-width: 600px;
+    margin: 0 auto;
+    background-color: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    padding: 2rem;
+    animation: fadeInUp 0.6s ease-out;
+  }
+  
+  body:not(.light-mode) .container {
+    background-color: #1f2937;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    border: 1px solid #374151;
+  }
+  
+  .profile-header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  
+  .profile-header h1 {
+    font-size: 1.875rem;
+    font-weight: bold;
+    color: #1f2937;
+    margin-bottom: 0.5rem;
+  }
+  
+  body:not(.light-mode) .profile-header h1 {
+    color: white;
+  }
+  
+  .profile-header p {
+    color: #6b7280;
+  }
+  
+  body:not(.light-mode) .profile-header p {
+    color: #9ca3af;
+  }
+  
+  .profile-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  
+  .form-group {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .form-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 0.5rem;
+  }
+  
+  body:not(.light-mode) .form-label {
+    color: #d1d5db;
+  }
+  
+  .form-input {
+    padding: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    transition: all 0.2s;
+    box-sizing: border-box;
+    background-color: white;
+    color: #1f2937;
+    font-size: 1rem;
+  }
+  
+  body:not(.light-mode) .form-input {
+    border: 1px solid #4b5563;
+    background-color: #374151;
+    color: white;
+  }
+  
+  .form-input:focus {
+    outline: none;
+    border-color: transparent;
+    box-shadow: 0 0 0 2px #3b82f6;
+  }
+  
+  body:not(.light-mode) .form-input:focus {
+    box-shadow: 0 0 0 2px var(--dark-blue);
+  }
+  
+  .form-input.error {
+    border-color: #dc2626;
+  }
+  
+  .error-message {
+    color: #dc2626;
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+  }
+  
+  .submit-button {
+    padding: 0.75rem 1.5rem;
+    background-color: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    align-self: flex-start;
+  }
+  
+  body:not(.light-mode) .submit-button {
+    background-color: var(--dark-blue);
+  }
+  
+  .submit-button:hover {
+    background-color: #2563eb;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  }
+  
+  .submit-button:disabled {
+    background-color: #d1d5db;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+  
+  body:not(.light-mode) .submit-button:disabled {
+    background-color: #4b5563;
+  }
+  
+  /* Responsividade */
+  @media (max-width: 768px) {
+    .client-profile-page {
+      padding: 1rem;
+    }
+  
+    .container {
+      padding: 1.5rem;
+    }
+  
+    .profile-header h1 {
+      font-size: 1.5rem;
+    }
+  
+    .submit-button {
+      align-self: stretch;
+    }
+  }
+  
+  /* Animações */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* Foco para acessibilidade */
+  button:focus,
+  input:focus {
+    outline: 2px solid var(--dark-blue);
+    outline-offset: 2px;
+  }
