@@ -5,7 +5,7 @@ import {
   LuWallet, LuChartBarDecreasing, LuLogOut, LuSun, LuMoon
 } from "react-icons/lu";
 import { GoGear } from "react-icons/go";
-import "./sidebar.css";
+import "./Sidebar.css";
 import Logo from "../../../assets/imagens/logo.png";
 
 const Sidebar = () => {
