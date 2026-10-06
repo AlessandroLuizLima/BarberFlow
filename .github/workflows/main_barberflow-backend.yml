@@ -51,12 +51,13 @@ jobs:
         with:
           name: node-app
 
-      - name: Login to Azure
-        uses: azure/login@v2
+      - name: Azure login
+        uses: azure/login@v3
         with:
-            client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_ }}
-            tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_ }}
-            subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_ }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          mask-client-id: false
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
