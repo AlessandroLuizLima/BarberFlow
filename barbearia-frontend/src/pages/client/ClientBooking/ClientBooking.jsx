@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import './ClientBooking.css';
 import {
   FiCalendar,
   FiClock,
@@ -13,8 +14,15 @@ import {
   FiStar,
   FiInfo
 } from 'react-icons/fi';
+import { listarServicos } from '../../../services/servicoService';
+import { listarProfissionais } from '../../../services/profissionalService';
+import { criarAgendamento } from '../../../services/agendamentoService';
+import { entrarNaListaDeEspera } from '../../../services/listaEsperaService';
+import { obterClienteLogado } from '../../../services/authStorage';
 
 const ClientBooking = () => {
+  const clienteLogado = obterClienteLogado();
+
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedService, setSelectedService] = useState(null);
   const [selectedBarber, setSelectedBarber] = useState(null);
@@ -22,86 +30,42 @@ const ClientBooking = () => {
   const [selectedTime, setSelectedTime] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  const services = [
-    {
-      id: 1,
-      name: 'Corte de Cabelo',
-      price: 35.00,
-      duration: 30,
-      description: 'Corte moderno e personalizado',
-      category: 'Cortes'
-    },
-    {
-      id: 2,
-      name: 'Barba Completa',
-      price: 25.00,
-      duration: 20,
-      description: 'Aparar, desenhar e finalizar',
-      category: 'Barba'
-    },
-    {
-      id: 3,
-      name: 'Corte + Barba',
-      price: 55.00,
-      duration: 50,
-      description: 'Pacote completo de cuidados',
-      category: 'Combos'
-    },
-    {
-      id: 4,
-      name: 'Sobrancelha',
-      price: 15.00,
-      duration: 15,
-      description: 'Design e aparar sobrancelhas',
-      category: 'Extras'
-    },
-    {
-      id: 5,
-      name: 'Lavagem + Hidratação',
-      price: 20.00,
-      duration: 25,
-      description: 'Limpeza profunda e hidratação',
-      category: 'Tratamentos'
-    },
-    {
-      id: 6,
-      name: 'Bigode',
-      price: 12.00,
-      duration: 10,
-      description: 'Aparar e modelar bigode',
-      category: 'Barba'
-    }
-  ];
+  const [services, setServices] = useState([]);
+  const [barbers, setBarbers] = useState([]);
+  const [carregandoDados, setCarregandoDados] = useState(true);
+  const [erroCarregar, setErroCarregar] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [erroAgendamento, setErroAgendamento] = useState('');
+  const [conflito, setConflito] = useState(false);
+  const [agendamentoConfirmado, setAgendamentoConfirmado] = useState(false);
+  const [entrouNaFila, setEntrouNaFila] = useState(false);
 
-  const barbers = [
-    {
-      id: 1,
-      name: 'Carlos Santos',
-      rating: 4.9,
-      totalReviews: 156,
-      specialty: 'Cortes Modernos',
-      experience: '8 anos',
-      image: null
-    },
-    {
-      id: 2,
-      name: 'João Silva',
-      rating: 4.8,
-      totalReviews: 203,
-      specialty: 'Barbas e Bigodes',
-      experience: '10 anos',
-      image: null
-    },
-    {
-      id: 3,
-      name: 'Rafael Costa',
-      rating: 4.7,
-      totalReviews: 98,
-      specialty: 'Cortes Clássicos',
-      experience: '5 anos',
-      image: null
-    }
-  ];
+  useEffect(() => {
+    Promise.all([listarServicos(), listarProfissionais()])
+      .then(([servicosApi, profissionaisApi]) => {
+        setServices(servicosApi.map((s) => ({
+          id: s.id,
+          name: s.nome,
+          price: Number(s.preco),
+          duration: s.duracao_minutos,
+          description: s.descricao,
+          category: s.descricao || 'Serviço'
+        })));
+        setBarbers(profissionaisApi.map((p) => ({
+          id: p.id,
+          name: p.nome_completo,
+          specialty: p.especialidade || 'Barbeiro',
+          rating: 5,
+          totalReviews: 0,
+          experience: ''
+        })));
+      })
+      .catch((error) => {
+        console.error('Erro ao carregar serviços/profissionais:', error);
+        setErroCarregar('Não foi possível carregar os serviços e profissionais. Verifique se o backend está rodando.');
+      })
+      .finally(() => setCarregandoDados(false));
+  }, []);
 
   const availableTimes = [
     '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
@@ -211,16 +175,57 @@ const ClientBooking = () => {
     }
   };
 
-  const handleConfirm = () => {
-    const booking = {
-      service: services.find(s => s.id === selectedService),
-      barber: barbers.find(b => b.id === selectedBarber),
-      date: selectedDate,
-      time: selectedTime
-    };
-    console.log('Agendamento confirmado:', booking);
-    // Aqui você enviaria para o backend
-    alert('Agendamento realizado com sucesso!');
+  const montarDataHoraISO = () => {
+    const [hora, minuto] = selectedTime.split(':').map(Number);
+    const dataHora = new Date(selectedDate);
+    dataHora.setHours(hora, minuto, 0, 0);
+    return dataHora.toISOString();
+  };
+
+  const handleConfirm = async () => {
+    if (!clienteLogado) {
+      setErroAgendamento('Você precisa estar logado para agendar.');
+      return;
+    }
+
+    setEnviando(true);
+    setErroAgendamento('');
+    setConflito(false);
+
+    try {
+      await criarAgendamento({
+        cliente_id: clienteLogado.id,
+        profissional_id: selectedBarber,
+        servico_id: selectedService,
+        data_hora: montarDataHoraISO()
+      });
+      setAgendamentoConfirmado(true);
+    } catch (error) {
+      if (error.response?.status === 409) {
+        setConflito(true);
+      } else {
+        setErroAgendamento(error.response?.data?.error || 'Erro ao criar agendamento.');
+      }
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const handleEntrarNaFila = async () => {
+    setEnviando(true);
+    try {
+      await entrarNaListaDeEspera({
+        cliente_id: clienteLogado.id,
+        profissional_id: selectedBarber,
+        servico_id: selectedService,
+        data_desejada: selectedDate.toISOString().slice(0, 10)
+      });
+      setEntrouNaFila(true);
+    } catch (error) {
+      setErroAgendamento(error.response?.data?.error || 'Erro ao entrar na lista de espera.');
+    } finally {
+      setEnviando(false);
+    }
   };
 
   return (
@@ -262,7 +267,10 @@ const ClientBooking = () => {
 
         {/* Step Content */}
         <div className="booking-content">
-          {currentStep === 1 && (
+          {carregandoDados && <p>Carregando serviços e profissionais...</p>}
+          {erroCarregar && <p className="error-message">{erroCarregar}</p>}
+
+          {!carregandoDados && !erroCarregar && currentStep === 1 && (
             <div className="step-content">
               <h2>Escolha o Serviço</h2>
               <p className="step-description">Selecione o serviço que deseja realizar</p>
@@ -400,11 +408,37 @@ const ClientBooking = () => {
             </div>
           )}
 
-          {currentStep === 4 && (
+          {currentStep === 4 && agendamentoConfirmado && (
+            <div className="step-content">
+              <h2>Agendamento confirmado!</h2>
+              <p className="step-description">
+                Você receberá uma mensagem de confirmação. Chegue com 5 minutos de antecedência.
+              </p>
+            </div>
+          )}
+
+          {currentStep === 4 && !agendamentoConfirmado && conflito && (
+            <div className="step-content">
+              <h2>Horário indisponível</h2>
+              <p className="step-description">
+                Esse horário acabou de ser ocupado por outro cliente para este profissional.
+              </p>
+              {entrouNaFila ? (
+                <p>Você entrou na lista de espera! Avisaremos assim que um horário vagar nesse dia.</p>
+              ) : (
+                <button className="nav-button primary" onClick={handleEntrarNaFila} disabled={enviando}>
+                  {enviando ? 'Entrando...' : 'Entrar na lista de espera'}
+                </button>
+              )}
+            </div>
+          )}
+
+          {currentStep === 4 && !agendamentoConfirmado && !conflito && (
             <div className="step-content">
               <h2>Confirmação do Agendamento</h2>
               <p className="step-description">Revise os detalhes do seu agendamento</p>
-              
+              {erroAgendamento && <p className="error-message">{erroAgendamento}</p>}
+
               <div className="confirmation-card">
                 <div className="confirmation-section">
                   <div className="confirmation-icon">
@@ -487,35 +521,38 @@ const ClientBooking = () => {
         </div>
 
         {/* Navigation Buttons */}
-        <div className="booking-navigation">
-          {currentStep > 1 && (
-            <button className="nav-button secondary" onClick={handleBack}>
-              <FiChevronLeft size={20} />
-              Voltar
-            </button>
-          )}
-          
-          <div className="nav-spacer"></div>
-          
-          {currentStep < 4 ? (
-            <button 
-              className="nav-button primary" 
-              onClick={handleNext}
-              disabled={!canProceed()}
-            >
-              Próximo
-              <FiChevronRight size={20} />
-            </button>
-          ) : (
-            <button 
-              className="nav-button primary confirm" 
-              onClick={handleConfirm}
-            >
-              <FiCheck size={20} />
-              Confirmar Agendamento
-            </button>
-          )}
-        </div>
+        {!agendamentoConfirmado && (
+          <div className="booking-navigation">
+            {currentStep > 1 && !conflito && (
+              <button className="nav-button secondary" onClick={handleBack}>
+                <FiChevronLeft size={20} />
+                Voltar
+              </button>
+            )}
+
+            <div className="nav-spacer"></div>
+
+            {currentStep < 4 ? (
+              <button
+                className="nav-button primary"
+                onClick={handleNext}
+                disabled={!canProceed()}
+              >
+                Próximo
+                <FiChevronRight size={20} />
+              </button>
+            ) : !conflito ? (
+              <button
+                className="nav-button primary confirm"
+                onClick={handleConfirm}
+                disabled={enviando}
+              >
+                <FiCheck size={20} />
+                {enviando ? 'Confirmando...' : 'Confirmar Agendamento'}
+              </button>
+            ) : null}
+          </div>
+        )}
       </div>
     </div>
   );

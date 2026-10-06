@@ -1,6 +1,6 @@
 /* Client.css - Estilos para ClientProfile */
 
-:root {
+.client-profile-page {
     --dark-blue: #3b82f6;
     --light-blue: #60a5fa;
   }
@@ -9,9 +9,17 @@
     min-height: 100vh;
     background-color: #f4f4f4;
     padding: 2rem;
-    margin-left: 0;
-    width: 100%;
+    margin-left: var(--sidebar-width, 16rem);
+    width: calc(100% - var(--sidebar-width, 16rem));
     box-sizing: border-box;
+  }
+
+  @media (max-width: 1024px) {
+    .client-profile-page {
+      margin-left: 0;
+      width: 100%;
+      padding-top: 5rem;
+    }
   }
   
   body:not(.light-mode) .client-profile-page {
@@ -19,7 +27,7 @@
     color: white;
   }
   
-  .container {
+  .client-profile-page .container {
     max-width: 600px;
     margin: 0 auto;
     background-color: white;
@@ -29,7 +37,7 @@
     animation: fadeInUp 0.6s ease-out;
   }
   
-  body:not(.light-mode) .container {
+  body:not(.light-mode) .client-profile-page .container {
     background-color: #1f2937;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
     border: 1px solid #374151;
@@ -65,23 +73,23 @@
     gap: 1.5rem;
   }
   
-  .form-group {
+  .client-profile-page .form-group {
     display: flex;
     flex-direction: column;
   }
   
-  .form-label {
+  .client-profile-page .form-label {
     font-size: 0.875rem;
     font-weight: 500;
     color: #374151;
     margin-bottom: 0.5rem;
   }
   
-  body:not(.light-mode) .form-label {
+  body:not(.light-mode) .client-profile-page .form-label {
     color: #d1d5db;
   }
   
-  .form-input {
+  .client-profile-page .form-input {
     padding: 0.75rem;
     border: 1px solid #d1d5db;
     border-radius: 0.5rem;
@@ -92,27 +100,27 @@
     font-size: 1rem;
   }
   
-  body:not(.light-mode) .form-input {
+  body:not(.light-mode) .client-profile-page .form-input {
     border: 1px solid #4b5563;
     background-color: #374151;
     color: white;
   }
   
-  .form-input:focus {
+  .client-profile-page .form-input:focus {
     outline: none;
     border-color: transparent;
     box-shadow: 0 0 0 2px #3b82f6;
   }
   
-  body:not(.light-mode) .form-input:focus {
+  body:not(.light-mode) .client-profile-page .form-input:focus {
     box-shadow: 0 0 0 2px var(--dark-blue);
   }
   
-  .form-input.error {
+  .client-profile-page .form-input.error {
     border-color: #dc2626;
   }
   
-  .error-message {
+  .client-profile-page .error-message {
     color: #dc2626;
     font-size: 0.75rem;
     margin-top: 0.25rem;
@@ -157,7 +165,7 @@
       padding: 1rem;
     }
   
-    .container {
+    .client-profile-page .container {
       padding: 1.5rem;
     }
   

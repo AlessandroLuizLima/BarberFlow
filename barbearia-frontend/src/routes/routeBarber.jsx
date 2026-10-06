@@ -15,7 +15,7 @@ import Settings from '../pages/dashboardBarber/Settings/Settings';
 // Componente para proteger rotas privadas
 const PrivateRoute = ({ children }) => {
   const isAuth = localStorage.getItem('auth') === 'true';
-  return isAuth ? children : <Navigate to="/auth" />;
+  return isAuth ? children : <Navigate to="/auth/barbeiro" />;
 };
 
 const BarberRoutes = () => {

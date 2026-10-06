@@ -181,9 +181,9 @@ const ScheduleTime = ({
                 ))}
               </div>
               
-              <div className="calendar-days">
+              <div className="time-days">
                 {Array.from({ length: startingDayOfWeek }).map((_, i) => (
-                  <div key={`empty-${i}`} className="calendar-day-empty" />
+                  <div key={`empty-${i}`} className="time-day-empty" />
                 ))}
                 
                 {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -198,7 +198,7 @@ const ScheduleTime = ({
                       key={day}
                       onClick={() => handleDateSelect(day)}
                       disabled={isDisabled}
-                      className={`calendar-day ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
+                      className={`time-day ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
                     >
                       {day}
                     </button>

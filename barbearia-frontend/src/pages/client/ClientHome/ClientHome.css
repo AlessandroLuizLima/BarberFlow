@@ -3,7 +3,7 @@
    Reutiliza variáveis do dashboard mas isolado
 ======================================== */
 
-:root {
+.home-page {
   --dark-blue: #3b82f6;
   --light-blue: #60a5fa;
   --sidebar-width: 16rem;
@@ -388,4 +388,52 @@ body:not(.light-mode) .home-page .distance {
 .home-page .barbershop-card:focus {
   outline: 2px solid var(--dark-blue);
   outline-offset: 2px;
+}
+/* ========================================
+   MEUS AGENDAMENTOS
+======================================== */
+.section-loading,
+.section-empty {
+  color: var(--text-secondary, #6b7280);
+  padding: 12px 20px;
+}
+
+.meus-agendamentos-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 20px 12px;
+}
+
+.agendamento-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border-color, #e5e7eb);
+}
+
+.agendamento-card p {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #6b7280);
+}
+
+.cancelar-btn {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cancelar-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }

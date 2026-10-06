@@ -1,7 +1,7 @@
-const { DataTypes } = require("sequelize")
+const { DataTypes } = require('sequelize');
 const sequelize = require('../../config/sequelize');
 
-const Usuario = sequelize.define('Usuario', {
+const Profissional = sequelize.define('Profissional', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
@@ -23,13 +23,19 @@ const Usuario = sequelize.define('Usuario', {
     type: DataTypes.STRING(20),
     allowNull: true
   },
-  senha: {
+  especialidade: {
     type: DataTypes.STRING(100),
-    allowNull: false
+    allowNull: true
+  },
+  ativo: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: true
   }
 }, {
-  tableName: 'usuarios', // Nome da tabela no banco
-  timestamps: false, // Se não quiser created_at e updated_at
-  freezeTableName: true // Mantém o nome da tabela como definido
+  tableName: 'profissionais',
+  timestamps: false,
+  freezeTableName: true
 });
-module.exports = Usuario;
+
+module.exports = Profissional;

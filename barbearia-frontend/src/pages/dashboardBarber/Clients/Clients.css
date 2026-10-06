@@ -337,11 +337,18 @@ body:not(.light-mode) .client-avatar {
   flex: 1;
 }
 
+.client-name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
 .client-info h3 {
   font-size: 1.125rem;
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: var(--spacing-sm);
+  margin-bottom: 0;
 }
 
 .client-contact {

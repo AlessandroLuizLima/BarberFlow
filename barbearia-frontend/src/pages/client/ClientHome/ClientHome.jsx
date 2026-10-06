@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './ClientHome.css';
 import { FaMapMarkerAlt, FaBell, FaSearch } from 'react-icons/fa';
+import { obterClienteLogado } from '../../../services/authStorage';
+import { listarAgendamentos, cancelarAgendamento } from '../../../services/agendamentoService';
 
 function Header(props) {
   return (
@@ -41,7 +44,7 @@ function SectionTitle(props) {
   return <h2 className="section-title">{props.text}</h2>;
 }
 
-function BarbershopAvatar(props) {
+function BarbershopAvatar() {
   return (
     <div className="avatar">
       <div className="avatar-icon">👤</div>
@@ -110,6 +113,41 @@ function MainContent(props) {
   );
 }
 
+function MeusAgendamentos({ agendamentos, carregando, onCancelar, cancelandoId }) {
+  const formatarDataHora = (iso) =>
+    new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+
+  if (carregando) return <p className="section-loading">Carregando seus agendamentos...</p>;
+
+  const ativos = agendamentos.filter((a) => a.status !== 'cancelado');
+
+  if (ativos.length === 0) {
+    return <p className="section-empty">Você ainda não tem agendamentos.</p>;
+  }
+
+  return (
+    <div className="meus-agendamentos-list">
+      {ativos.map((agendamento) => (
+        <div key={agendamento.id} className="agendamento-card">
+          <div>
+            <strong>{agendamento.servico?.nome}</strong> com {agendamento.profissional?.nome_completo}
+            <p>{formatarDataHora(agendamento.data_hora)} — status: {agendamento.status}</p>
+          </div>
+          {agendamento.status !== 'cancelado' && (
+            <button
+              className="cancelar-btn"
+              onClick={() => onCancelar(agendamento.id)}
+              disabled={cancelandoId === agendamento.id}
+            >
+              {cancelandoId === agendamento.id ? 'Cancelando...' : 'Cancelar'}
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Button(props) {
   return (
     <button 
@@ -124,14 +162,43 @@ function Button(props) {
 }
 
 const HomePage = () => {
+  const navigate = useNavigate();
+  const clienteLogado = obterClienteLogado();
+  const primeiroNome = clienteLogado?.nome_completo?.split(' ')[0] || 'visitante';
   const [searchTerm, setSearchTerm] = useState('');
+  const [agendamentos, setAgendamentos] = useState([]);
+  const [carregandoAgendamentos, setCarregandoAgendamentos] = useState(true);
+  const [cancelandoId, setCancelandoId] = useState(null);
+
+  const carregarAgendamentos = () => {
+    if (!clienteLogado) {
+      setCarregandoAgendamentos(false);
+      return;
+    }
+    setCarregandoAgendamentos(true);
+    listarAgendamentos({ cliente_id: clienteLogado.id })
+      .then(setAgendamentos)
+      .catch((error) => console.error('Erro ao carregar agendamentos:', error))
+      .finally(() => setCarregandoAgendamentos(false));
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(carregarAgendamentos, [clienteLogado?.id]);
+
+  const handleCancelar = async (id) => {
+    setCancelandoId(id);
+    try {
+      await cancelarAgendamento(id);
+      carregarAgendamentos();
+    } catch (error) {
+      console.error('Erro ao cancelar agendamento:', error);
+    } finally {
+      setCancelandoId(null);
+    }
+  };
 
   const barbershops = [
-    { id: 1, name: 'Barbearia Faustino', address: 'Endereço', distance: '1.2km' },
-    { id: 2, name: 'Barbearia 02', address: 'Endereço', distance: '1.6km' },
-    { id: 3, name: 'Barbearia 03', address: 'Endereço', distance: '1.8km' },
-    { id: 4, name: 'Barbearia 04', address: 'Endereço', distance: '2.3km' },
-    { id: 5, name: 'Barbearia 05', address: 'Endereço', distance: '5.2km' }
+    { id: 1, name: 'BarberFlow', address: 'Sua barbearia', distance: '' },
   ];
 
   const filteredBarbershops = barbershops.filter(shop =>
@@ -146,16 +213,15 @@ const HomePage = () => {
     alert('Notificações');
   };
 
-  const handleCardClick = (id) => {
-    console.log('Barbearia clicada:', id);
-    // Aqui você pode navegar para a página de detalhes da barbearia
+  const handleCardClick = () => {
+    navigate('/cliente/agendamentos');
   };
 
   return (
     <div className="home-page">
       <Header 
-        greeting="Olá user"
-        date="Sábado, 5 Abril 2025"
+        greeting={`Olá, ${primeiroNome}`}
+        date={new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
         onNotificationClick={handleNotificationClick}
       />
 
@@ -165,8 +231,16 @@ const HomePage = () => {
         onChange={handleSearchChange}
       />
 
+      <SectionTitle text="Meus Agendamentos" />
+      <MeusAgendamentos
+        agendamentos={agendamentos}
+        carregando={carregandoAgendamentos}
+        onCancelar={handleCancelar}
+        cancelandoId={cancelandoId}
+      />
+
       <MainContent 
-        title="Barbearias Mais Próximas"
+        title="Sua Barbearia"
         barbershops={filteredBarbershops}
         onCardClick={handleCardClick}
       />

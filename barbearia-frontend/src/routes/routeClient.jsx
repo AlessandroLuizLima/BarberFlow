@@ -10,7 +10,7 @@ import BarberShopDetails from '../pages/client/BarberShopDetails/BarberShopDetai
 // Componente para proteger rotas privadas
 const PrivateRoute = ({ children }) => {
   const isAuth = localStorage.getItem('auth') === 'true';
-  return isAuth ? children : <Navigate to="/auth" />;
+  return isAuth ? children : <Navigate to="/auth/cliente" />;
 };
 
 const ClientRoutes = () => {

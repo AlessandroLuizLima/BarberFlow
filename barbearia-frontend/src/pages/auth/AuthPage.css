@@ -7,8 +7,8 @@
   box-sizing: border-box;
 }
 
-/* Variáveis */
-:root {
+/* Variáveis (escopadas a esta página, evitando vazamento global) */
+.auth-container {
   --primary: #3b82f6;
   --primary-dark: #2563eb;
   --success: #10b981;

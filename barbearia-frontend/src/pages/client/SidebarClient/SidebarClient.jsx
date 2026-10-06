@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from "react";
+import "./SidebarClient.css";
 import { Link, useNavigate } from "react-router-dom";
 import {
   FiHome, FiCalendar, FiUser, FiLogOut, FiSun, FiMoon, FiMenu, FiX
 } from "react-icons/fi"; // Ícones do React Icons
+import { obterClienteLogado, encerrarSessaoCliente } from "../../../services/authStorage";
+
 const SidebarClient = () => {  // Renomeei para SidebarClient para consistência com o App.js
+  const clienteLogado = obterClienteLogado();
   const [isLightMode, setIsLightMode] = useState(false);
   const [isOpen, setIsOpen] = useState(false); // Para mobile
 
@@ -48,16 +52,16 @@ const SidebarClient = () => {  // Renomeei para SidebarClient para consistência
             <FiUser size={28} /> {/* Ícone genérico para cliente */}
           </div>
           <div className="profile-text">
-            <h2>Bem-vindo, Cliente</h2>
+            <h2>Bem-vindo, {clienteLogado?.nome_completo?.split(' ')[0] || 'Cliente'}</h2>
             <p>Agende seus serviços</p>
           </div>
         </div>
 
         <nav className="menu">
           <ul>
-            <li><Link to="/client" onClick={closeSidebar}><FiHome className="icon" /> Home</Link></li>
-            <li><Link to="/client/agendamentos" onClick={closeSidebar}><FiCalendar className="icon" /> Agendamentos</Link></li>
-            <li><Link to="/client/perfil" onClick={closeSidebar}><FiUser className="icon" /> Perfil</Link></li>
+            <li><Link to="/cliente" onClick={closeSidebar}><FiHome className="icon" /> Home</Link></li>
+            <li><Link to="/cliente/agendamentos" onClick={closeSidebar}><FiCalendar className="icon" /> Agendamentos</Link></li>
+            <li><Link to="/cliente/perfil" onClick={closeSidebar}><FiUser className="icon" /> Perfil</Link></li>
           </ul>
         </nav>
 
@@ -66,7 +70,7 @@ const SidebarClient = () => {  // Renomeei para SidebarClient para consistência
             {isLightMode ? <FiMoon className="icon" /> : <FiSun className="icon" />}
             {isLightMode ? "Modo Escuro" : "Modo Claro"}
           </div>
-          <div className="logout" onClick={() => navigate('/')}> {/* Pode levar para login ou home */}
+          <div className="logout" onClick={() => { encerrarSessaoCliente(); navigate('/'); }}>
             <FiLogOut className="icon" /> Sair
           </div>
         </div>

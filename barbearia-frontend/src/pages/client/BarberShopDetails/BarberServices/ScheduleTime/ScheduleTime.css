@@ -237,14 +237,14 @@
     padding: 0.875rem 0; /* Aumentado */
   }
   
-  .calendar-days {
+  .time-days {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: 0.375rem; /* Aumentado */
     padding: 0.75rem; /* Aumentado */
   }
   
-  .calendar-day {
+  .time-day {
     padding: 0.875rem; /* Aumentado */
     border-radius: 0.5rem;
     border: none;
@@ -261,26 +261,26 @@
     justify-content: center;
   }
   
-  .calendar-day:hover:not(.disabled) {
+  .time-day:hover:not(.disabled) {
     background: rgba(59, 130, 246, 0.2);
     transform: scale(1.05);
   }
   
-  .calendar-day.selected {
+  .time-day.selected {
     background: #3b82f6;
     color: white;
     font-weight: 700;
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
   }
   
-  .calendar-day.disabled {
+  .time-day.disabled {
     background: transparent;
     color: #4b5563;
     cursor: not-allowed;
     opacity: 0.4;
   }
   
-  .calendar-day-empty {
+  .time-day-empty {
     aspect-ratio: 1;
   }
   
@@ -607,12 +607,12 @@
       width: 100%;
     }
   
-    .calendar-days {
+    .time-days {
       gap: 0.25rem;
       padding: 0.5rem;
     }
   
-    .calendar-day {
+    .time-day {
       padding: 0.625rem;
       font-size: 0.8125rem;
     }
@@ -625,7 +625,7 @@
   /* Accessibility */
   .schedule-close-button:focus-visible,
   .month-nav-button:focus-visible,
-  .calendar-day:focus-visible,
+  .time-day:focus-visible,
   .schedule-time-button:focus-visible,
   .schedule-barber-card:focus-visible,
   .schedule-button-primary:focus-visible,

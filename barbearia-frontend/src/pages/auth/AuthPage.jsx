@@ -11,6 +11,8 @@ import {
   AiOutlineExclamationCircle
 } from 'react-icons/ai';
 import { MdSecurity } from 'react-icons/md';
+import { cadastrarCliente, loginCliente } from '../../services/clienteService';
+import { salvarSessaoCliente } from '../../services/authStorage';
 import './AuthPage.css';
 
 function FormInput({ 
@@ -360,46 +362,39 @@ const AuthPage = () => {
     setIsLoading(true);
 
     try {
-      // Simula chamada API
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      if (isLogin) {
-        console.log('Login realizado:', { 
-          email: form.email, 
-          tipo: isClientRoute ? 'cliente' : 'barbeiro' 
-        });
-        
-        // Define mensagem de sucesso
+      if (!isClientRoute) {
+        // Login/cadastro de barbeiro ainda não tem backend de autenticação
+        // (fora do escopo desta atividade, que é focada no fluxo do cliente).
+        await new Promise(resolve => setTimeout(resolve, 800));
+        setSuccessMessage(isLogin ? 'Login realizado!' : 'Cadastro realizado! Faça login para continuar.');
+        if (isLogin) {
+          localStorage.setItem('auth', 'true');
+          setTimeout(() => navigate('/dashboard'), 1000);
+        } else {
+          setTimeout(() => {
+            setIsLogin(true);
+            setSuccessMessage('');
+          }, 1500);
+        }
+      } else if (isLogin) {
+        const resposta = await loginCliente(form.email, form.senha);
+        salvarSessaoCliente(resposta.cliente);
         setSuccessMessage('Login realizado!');
-        
-        // Redireciona baseado no tipo de usuário
-        setTimeout(() => {
-          if (isClientRoute) {
-            // Se está na rota de cliente, redireciona para área do cliente
-            navigate('/cliente');
-          } else {
-            // Se está na rota de barbeiro, redireciona para dashboard
-            navigate('/dashboard');
-          }
-        }, 1500);
+        setTimeout(() => navigate('/cliente'), 800);
       } else {
-        console.log('Cadastro realizado:', { 
-          nome: form.nome, 
-          email: form.email, 
+        await cadastrarCliente({
+          nome_completo: form.nome,
+          email: form.email,
           telefone: form.telefone,
-          tipo: isClientRoute ? 'cliente' : 'barbeiro'
+          senha: form.senha
         });
-        
         setSuccessMessage('Cadastro realizado! Faça login para continuar.');
-        
-        // Troca para modo login após 2 segundos
         setTimeout(() => {
           setIsLogin(true);
           setSuccessMessage('');
-        }, 2000);
+        }, 1500);
       }
 
-      // Limpa formulário
       setForm({
         nome: '',
         email: '',
@@ -409,8 +404,9 @@ const AuthPage = () => {
       });
 
     } catch (error) {
+      const mensagemApi = error.response?.data?.error;
       console.error('Erro:', error);
-      setErrors({ submit: 'Erro ao processar solicitação. Tente novamente.' });
+      setErrors({ submit: mensagemApi || 'Erro ao processar solicitação. Tente novamente.' });
     } finally {
       setIsLoading(false);
     }

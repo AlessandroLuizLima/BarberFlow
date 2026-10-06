@@ -16,7 +16,7 @@ function App() {
 
   // Verifica se a URL atual está dentro do dashboard barbeiro ou cliente
   const isDashboardBarber = location.pathname.startsWith('/dashboard');
-  const isClient = location.pathname.startsWith('/client');
+  const isClient = location.pathname.startsWith('/cliente');
 
   return (
     <div className="app-container">
