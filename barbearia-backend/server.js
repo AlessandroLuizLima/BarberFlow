@@ -1,6 +1,8 @@
 require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
+
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -18,6 +20,14 @@ const routerMensagens = require('./src/routes/routesMensagens');
 
 app.use(cors());
 app.use(express.json());
+
+// Rota principal para testar o funcionamento da API
+app.get('/', (req, res) => {
+  res.json({
+    message: 'BarberFlow Backend funcionando!',
+    status: 'online'
+  });
+});
 
 // Rotas
 app.use(routerHome);
@@ -44,11 +54,13 @@ app.use((err, req, res, next) => {
 sequelize.authenticate()
   .then(() => {
     console.log('Conexão com o banco de dados estabelecida com sucesso.');
-    return sequelize.sync(); // cria as tabelas que ainda não existem
+    return sequelize.sync();
   })
   .then(() => {
     console.log('Modelos sincronizados com o banco de dados.');
+
     iniciarJobDeLembretes();
+
     app.listen(port, () => {
       console.log(`Servidor rodando na porta ${port}`);
     });
