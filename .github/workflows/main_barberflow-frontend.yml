@@ -30,13 +30,6 @@ jobs:
         working-directory: ./barbearia-frontend
         run: npm run build
 
-<<<<<<< HEAD
-      - name: Upload frontend artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-app
-          path: ./barbearia-frontend/dist
-=======
       - name: Prepare production dependencies
         working-directory: ./barbearia-frontend
         run: npm install --omit=dev
@@ -46,7 +39,6 @@ jobs:
         with:
           name: frontend-app
           path: ./barbearia-frontend
->>>>>>> dd7a3ba0ee7c799853beeeca340f55114a5cd655
 
   deploy:
     runs-on: ubuntu-latest
@@ -61,11 +53,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: frontend-app
-<<<<<<< HEAD
-          path: ./dist
-=======
           path: ./frontend
->>>>>>> dd7a3ba0ee7c799853beeeca340f55114a5cd655
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -79,8 +67,4 @@ jobs:
         with:
           app-name: 'barberflow-frontend'
           slot-name: 'Production'
-<<<<<<< HEAD
-          package: ./dist
-=======
           package: ./frontend
->>>>>>> dd7a3ba0ee7c799853beeeca340f55114a5cd655
