@@ -22,6 +22,19 @@ const routerMensagens = require('./src/routes/routesMensagens');
 app.use(cors());
 app.use(express.json());
 
+// Se o banco/migrações falharem na inicialização, o servidor continua de pé e
+// responde 503 com o motivo, em vez de ficar fora do ar sem explicação.
+let erroDeInicializacao = null;
+app.use((req, res, next) => {
+  if (erroDeInicializacao) {
+    return res.status(503).json({
+      error: 'Backend iniciou com erro',
+      detalhe: erroDeInicializacao.message
+    });
+  }
+  next();
+});
+
 // Rota principal para testar o funcionamento da API
 app.get('/', (req, res) => {
   res.json({
@@ -62,15 +75,16 @@ sequelize.authenticate()
     return executarMigracoes(sequelize);
   })
   .then(() => {
-
     iniciarJobDeLembretes();
-
+  })
+  .catch((error) => {
+    erroDeInicializacao = error;
+    console.error('Falha ao iniciar (banco de dados/migrações):', error);
+  })
+  .finally(() => {
     app.listen(port, () => {
       console.log(`Servidor rodando na porta ${port}`);
     });
-  })
-  .catch((error) => {
-    console.error('Falha ao iniciar (banco de dados/migrações):', error);
   });
 
 module.exports = app;
