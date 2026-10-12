@@ -738,7 +738,7 @@ body:not(.light-mode) .success-message {
 }
 
 /* Modal */
-.modal-overlay {
+.settings-page .modal-overlay {
   position: fixed;
   inset: 0;
   background-color: rgba(0, 0, 0, 0.5);
@@ -750,11 +750,11 @@ body:not(.light-mode) .success-message {
   animation: fadeIn 0.3s ease-out;
 }
 
-body:not(.light-mode) .modal-overlay {
+body:not(.light-mode) .settings-page .modal-overlay {
   background-color: rgba(0, 0, 0, 0.7);
 }
 
-.modal-content {
+.settings-page .modal-content {
   background-color: white;
   border-radius: 0.5rem;
   padding: 0;
@@ -766,12 +766,12 @@ body:not(.light-mode) .modal-overlay {
   animation: slideIn 0.3s ease-out;
 }
 
-body:not(.light-mode) .modal-content {
+body:not(.light-mode) .settings-page .modal-content {
   background-color: #1f2937;
   border: 1px solid #374151;
 }
 
-.modal-header {
+.settings-page .modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -779,11 +779,11 @@ body:not(.light-mode) .modal-content {
   border-bottom: 1px solid #e5e7eb;
 }
 
-body:not(.light-mode) .modal-header {
+body:not(.light-mode) .settings-page .modal-header {
   border-bottom-color: #374151;
 }
 
-.modal-header h3 {
+.settings-page .modal-header h3 {
   font-size: 1.25rem;
   font-weight: 600;
   color: #1f2937;
@@ -794,11 +794,11 @@ body:not(.light-mode) .modal-header {
   gap: 0.5rem;
 }
 
-body:not(.light-mode) .modal-header h3 {
+body:not(.light-mode) .settings-page .modal-header h3 {
   color: white;
 }
 
-.modal-close-button {
+.settings-page .modal-close-button {
   background: none;
   border: none;
   color: #6b7280;
@@ -812,27 +812,27 @@ body:not(.light-mode) .modal-header h3 {
   justify-content: center;
 }
 
-body:not(.light-mode) .modal-close-button {
+body:not(.light-mode) .settings-page .modal-close-button {
   color: #9ca3af;
 }
 
-.modal-close-button:hover {
+.settings-page .modal-close-button:hover {
   color: #374151;
   background-color: #f3f4f6;
 }
 
-body:not(.light-mode) .modal-close-button:hover {
+body:not(.light-mode) .settings-page .modal-close-button:hover {
   color: #d1d5db;
   background-color: #374151;
 }
 
-.modal-body {
+.settings-page .modal-body {
   padding: 1.5rem;
   max-height: 60vh;
   overflow-y: auto;
 }
 
-.modal-footer {
+.settings-page .modal-footer {
   display: flex;
   gap: 0.75rem;
   justify-content: flex-end;
@@ -840,17 +840,17 @@ body:not(.light-mode) .modal-close-button:hover {
   border-top: 1px solid #e5e7eb;
 }
 
-body:not(.light-mode) .modal-footer {
+body:not(.light-mode) .settings-page .modal-footer {
   border-top-color: #374151;
 }
 
 @media (max-width: 480px) {
-  .modal-footer {
+  .settings-page .modal-footer {
     flex-direction: column;
   }
 }
 
-.modal-button {
+.settings-page .modal-button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -863,46 +863,46 @@ body:not(.light-mode) .modal-footer {
   font-size: 0.875rem;
 }
 
-.modal-button.secondary {
+.settings-page .modal-button.secondary {
   border: 1px solid #d1d5db;
   background-color: white;
   color: #374151;
 }
 
-body:not(.light-mode) .modal-button.secondary {
+body:not(.light-mode) .settings-page .modal-button.secondary {
   border: 1px solid #4b5563;
   background-color: #374151;
   color: #d1d5db;
 }
 
-.modal-button.secondary:hover {
+.settings-page .modal-button.secondary:hover {
   background-color: #f9fafb;
 }
 
-body:not(.light-mode) .modal-button.secondary:hover {
+body:not(.light-mode) .settings-page .modal-button.secondary:hover {
   background-color: #4b5563;
 }
 
-.modal-button.primary {
+.settings-page .modal-button.primary {
   background-color: #3b82f6;
   color: white;
   border: none;
 }
 
-.modal-button.primary:hover {
+.settings-page .modal-button.primary:hover {
   background-color: #2563eb;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
-.modal-button.primary:disabled {
+.settings-page .modal-button.primary:disabled {
   background-color: #d1d5db;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
 }
 
-body:not(.light-mode) .modal-button.primary:disabled {
+body:not(.light-mode) .settings-page .modal-button.primary:disabled {
   background-color: #4b5563;
 }
 
@@ -967,7 +967,7 @@ body:not(.light-mode) .modal-button.primary:disabled {
     justify-content: center;
   }
 
-  .modal-content {
+  .settings-page .modal-content {
     margin: 0.5rem;
     max-width: calc(100% - 1rem);
   }
@@ -1037,33 +1037,33 @@ select:focus,
 }
 
 /* Scrollbar styling */
-.modal-body::-webkit-scrollbar {
+.settings-page .modal-body::-webkit-scrollbar {
   width: 6px;
 }
 
-.modal-body::-webkit-scrollbar-track {
+.settings-page .modal-body::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 3px;
 }
 
-.modal-body::-webkit-scrollbar-thumb {
+.settings-page .modal-body::-webkit-scrollbar-thumb {
   background: #c1c1c1;
   border-radius: 3px;
 }
 
-.modal-body::-webkit-scrollbar-thumb:hover {
+.settings-page .modal-body::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
 
-body:not(.light-mode) .modal-body::-webkit-scrollbar-track {
+body:not(.light-mode) .settings-page .modal-body::-webkit-scrollbar-track {
   background: #374151;
 }
 
-body:not(.light-mode) .modal-body::-webkit-scrollbar-thumb {
+body:not(.light-mode) .settings-page .modal-body::-webkit-scrollbar-thumb {
   background: #6b7280;
 }
 
-body:not(.light-mode) .modal-body::-webkit-scrollbar-thumb:hover {
+body:not(.light-mode) .settings-page .modal-body::-webkit-scrollbar-thumb:hover {
   background: #9ca3af;
 }
 
@@ -1077,7 +1077,7 @@ body:not(.light-mode) .modal-body::-webkit-scrollbar-thumb:hover {
   }
   
   .save-button,
-  .modal-overlay {
+  .settings-page .modal-overlay {
     display: none;
   }
 }

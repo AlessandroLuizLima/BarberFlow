@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatarTelefone, telefoneValido } from '../../../utils/telefone';
 import { 
   FiSearch, 
   FiPlus, 
@@ -208,7 +209,7 @@ const Clients = () => {
   const filteredClients = getFilteredAndSortedClients();
 
   const handleAddClient = () => {
-    if (newClient.name && newClient.phone) {
+    if (newClient.name && telefoneValido(newClient.phone)) {
       const client = {
         id: Math.max(...clients.map(c => c.id)) + 1,
         name: newClient.name,
@@ -230,7 +231,7 @@ const Clients = () => {
   };
 
   const handleEditClient = () => {
-    if (selectedClient && newClient.name && newClient.phone) {
+    if (selectedClient && newClient.name && telefoneValido(newClient.phone)) {
       const updatedClients = clients.map(client =>
         client.id === selectedClient.id
           ? { ...client, ...newClient }
@@ -560,9 +561,11 @@ const Clients = () => {
                   <input
                     type="tel"
                     value={newClient.phone}
-                    onChange={(e) => setNewClient({...newClient, phone: e.target.value})}
+                    onChange={(e) => setNewClient({...newClient, phone: formatarTelefone(e.target.value)})}
                     className="form-input"
                     placeholder="(11) 99999-9999"
+                    inputMode="tel"
+                    maxLength={15}
                     required
                   />
                 </div>
@@ -600,7 +603,7 @@ const Clients = () => {
               </button>
               <button
                 onClick={handleAddClient}
-                disabled={!newClient.name || !newClient.phone}
+                disabled={!newClient.name || !telefoneValido(newClient.phone)}
                 className="button-primary"
               >
                 Cadastrar Cliente
@@ -643,9 +646,11 @@ const Clients = () => {
                   <input
                     type="tel"
                     value={newClient.phone}
-                    onChange={(e) => setNewClient({...newClient, phone: e.target.value})}
+                    onChange={(e) => setNewClient({...newClient, phone: formatarTelefone(e.target.value)})}
                     className="form-input"
                     placeholder="(11) 99999-9999"
+                    inputMode="tel"
+                    maxLength={15}
                     required
                   />
                 </div>
@@ -683,7 +688,7 @@ const Clients = () => {
               </button>
               <button
                 onClick={handleEditClient}
-                disabled={!newClient.name || !newClient.phone}
+                disabled={!newClient.name || !telefoneValido(newClient.phone)}
                 className="button-primary"
               >
                 Salvar Alterações

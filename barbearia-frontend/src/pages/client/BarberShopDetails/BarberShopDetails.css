@@ -121,6 +121,10 @@
   backdrop-filter: blur(10px);
 }
 
+.barbershop-details-page a.header-action-btn {
+  text-decoration: none;
+}
+
 .barbershop-details-page .header-action-btn:hover {
   background: rgba(55, 65, 81, 0.9);
   transform: translateY(-2px);

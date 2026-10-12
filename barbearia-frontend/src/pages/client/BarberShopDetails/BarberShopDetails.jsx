@@ -53,6 +53,16 @@ const BarberShopDetails = ({ barbershop, onBack = () => {} }) => {
     totalReviews: 127
   };
 
+  // Endereço completo usado para abrir a localização no Google Maps
+  const enderecoMaps = (() => {
+    const e = barbershopData.details?.address;
+    const partes = e
+      ? [e.street, e.neighborhood, e.city, e.state]
+      : [barbershopData.address];
+    return partes.filter(Boolean).join(', ');
+  })();
+  const linkMaps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(enderecoMaps)}`;
+
   const toggleFavorite = () => {
     setIsFavorite(!isFavorite);
   };
@@ -133,9 +143,16 @@ const BarberShopDetails = ({ barbershop, onBack = () => {} }) => {
               <IoArrowBack size={20} />
             </button>
             <div className="header-actions">
-              <button className="header-action-btn">
+              <a
+                className="header-action-btn"
+                href={linkMaps}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Abrir no Google Maps"
+                aria-label="Abrir localização no Google Maps"
+              >
                 <IoLocationSharp size={20} />
-              </button>
+              </a>
               <button 
                 className={`header-action-btn favorite ${isFavorite ? 'active' : ''}`}
                 onClick={toggleFavorite}

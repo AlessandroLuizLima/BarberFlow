@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './ClientProfile.css';
 import { buscarCliente, atualizarCliente, consultarCep } from '../../../services/clienteService';
 import { obterClienteLogado, salvarSessaoCliente } from '../../../services/authStorage';
+import { formatarTelefone, telefoneValido } from '../../../utils/telefone';
 
 function ClientProfile() {
   const clienteLogado = obterClienteLogado();
@@ -44,7 +45,8 @@ function ClientProfile() {
   }, []);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name } = e.target;
+    const value = name === 'telefone' ? formatarTelefone(e.target.value) : e.target.value;
     setProfile({ ...profile, [name]: value });
     if (errors[name]) {
       setErrors({ ...errors, [name]: '' });
@@ -80,6 +82,7 @@ function ClientProfile() {
     if (!profile.nome_completo?.trim()) newErrors.nome_completo = 'Nome é obrigatório.';
     if (!profile.email?.trim()) newErrors.email = 'Email é obrigatório.';
     if (!profile.telefone?.trim()) newErrors.telefone = 'Telefone é obrigatório.';
+    else if (!telefoneValido(profile.telefone)) newErrors.telefone = 'Telefone inválido. Use DDD + número.';
     return newErrors;
   };
 
@@ -178,6 +181,8 @@ function ClientProfile() {
               onChange={handleChange}
               className={`form-input ${errors.telefone ? 'error' : ''}`}
               placeholder="(11) 99999-9999"
+              inputMode="tel"
+              maxLength={15}
             />
             {errors.telefone && <span className="error-message">{errors.telefone}</span>}
           </div>
