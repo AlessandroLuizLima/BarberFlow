@@ -9,15 +9,18 @@
 -- 3. Cole todo este arquivo e execute (F5)
 --
 -- Observação: o backend também cria essas tabelas sozinho ao
--- rodar (sequelize.sync()), então este script é útil para
--- quem quer visualizar/documentar o modelo direto no pgAdmin
--- antes mesmo de rodar o servidor.
+-- rodar (sequelize.sync()) e aplica as migrações em
+-- src/database/migrations.js. Este script espelha o resultado
+-- final, útil para visualizar/documentar o modelo no pgAdmin.
+-- (Se usar este script, os nomes dos tipos abaixo são os mesmos
+-- que o Sequelize cria, então o backend continua compatível.)
 -- ============================================================
 
 -- Tipos ENUM usados pelas tabelas
-CREATE TYPE status_agendamento AS ENUM ('agendado', 'confirmado', 'cancelado', 'concluido');
-CREATE TYPE status_lista_espera AS ENUM ('aguardando', 'notificado', 'expirado');
-CREATE TYPE tipo_mensagem AS ENUM ('confirmacao', 'lembrete', 'lista_espera');
+-- agendado/confirmado/remarcado = ativos (ocupam o horário); concluido/cancelado = finais
+CREATE TYPE enum_agendamentos_status AS ENUM ('agendado', 'confirmado', 'remarcado', 'cancelado', 'concluido');
+CREATE TYPE enum_lista_espera_status AS ENUM ('aguardando', 'notificado', 'expirado');
+CREATE TYPE enum_mensagens_tipo AS ENUM ('confirmacao', 'lembrete', 'lista_espera', 'remarcacao');
 
 -- ============================================================
 -- Tabela: clientes
@@ -59,8 +62,9 @@ CREATE TABLE servicos (
     nome              VARCHAR(100) NOT NULL,
     descricao         VARCHAR(255),
     duracao_minutos   INTEGER NOT NULL,
-    preco             DECIMAL(10, 2) NOT NULL,
-    ativo             BOOLEAN NOT NULL DEFAULT TRUE
+    preco             DECIMAL(10, 2) NOT NULL CHECK (preco >= 0),
+    ativo             BOOLEAN NOT NULL DEFAULT TRUE,
+    CHECK (duracao_minutos > 0)
 );
 
 -- ============================================================
@@ -68,11 +72,14 @@ CREATE TABLE servicos (
 -- ============================================================
 CREATE TABLE agendamentos (
     id                 SERIAL PRIMARY KEY,
-    cliente_id         INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
-    profissional_id    INTEGER NOT NULL REFERENCES profissionais(id) ON DELETE CASCADE,
-    servico_id         INTEGER NOT NULL REFERENCES servicos(id) ON DELETE CASCADE,
-    data_hora          TIMESTAMP NOT NULL,
-    status             status_agendamento NOT NULL DEFAULT 'agendado',
+    -- RESTRICT: quem tem histórico não pode ser apagado (profissionais/serviços são desativados)
+    cliente_id         INTEGER NOT NULL REFERENCES clientes(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    profissional_id    INTEGER NOT NULL REFERENCES profissionais(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    servico_id         INTEGER NOT NULL REFERENCES servicos(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    data_hora          TIMESTAMPTZ NOT NULL,
+    status             enum_agendamentos_status NOT NULL DEFAULT 'agendado',
+    -- valor cobrado no momento do agendamento (não muda se o preço do serviço mudar depois)
+    preco_cobrado      DECIMAL(10, 2) NOT NULL CHECK (preco_cobrado >= 0),
     lembrete_enviado   BOOLEAN NOT NULL DEFAULT FALSE
 );
 
@@ -88,7 +95,7 @@ CREATE TABLE lista_espera (
     profissional_id    INTEGER NOT NULL REFERENCES profissionais(id) ON DELETE CASCADE,
     servico_id         INTEGER NOT NULL REFERENCES servicos(id) ON DELETE CASCADE,
     data_desejada      DATE NOT NULL,
-    status             status_lista_espera NOT NULL DEFAULT 'aguardando'
+    status             enum_lista_espera_status NOT NULL DEFAULT 'aguardando'
 );
 
 CREATE INDEX idx_lista_espera_busca ON lista_espera (profissional_id, servico_id, data_desejada, status);
@@ -100,9 +107,9 @@ CREATE TABLE mensagens (
     id               SERIAL PRIMARY KEY,
     cliente_id       INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
     agendamento_id   INTEGER REFERENCES agendamentos(id) ON DELETE SET NULL,
-    tipo             tipo_mensagem NOT NULL,
+    tipo             enum_mensagens_tipo NOT NULL,
     conteudo         TEXT NOT NULL,
-    enviada_em       TIMESTAMP NOT NULL DEFAULT NOW()
+    enviada_em       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_mensagens_cliente ON mensagens (cliente_id);

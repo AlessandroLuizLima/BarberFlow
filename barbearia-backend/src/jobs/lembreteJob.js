@@ -16,7 +16,7 @@ async function verificarLembretes() {
 
   const agendamentos = await Agendamento.findAll({
     where: {
-      status: { [Op.in]: ['agendado', 'confirmado'] },
+      status: { [Op.in]: ['agendado', 'confirmado', 'remarcado'] },
       lembrete_enviado: false,
       data_hora: { [Op.gt]: agora, [Op.lte]: limite }
     }

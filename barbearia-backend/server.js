@@ -8,6 +8,7 @@ const port = process.env.PORT || 3000;
 
 const { sequelize } = require('./src/models');
 const { iniciarJobDeLembretes } = require('./src/jobs/lembreteJob');
+const { executarMigracoes } = require('./src/database/migrations');
 
 const routerHome = require('./src/routes/routesHome');
 const routerBarber = require('./src/routes/routesBarber');
@@ -58,6 +59,9 @@ sequelize.authenticate()
   })
   .then(() => {
     console.log('Modelos sincronizados com o banco de dados.');
+    return executarMigracoes(sequelize);
+  })
+  .then(() => {
 
     iniciarJobDeLembretes();
 
@@ -66,7 +70,7 @@ sequelize.authenticate()
     });
   })
   .catch((error) => {
-    console.error('Não foi possível conectar ao banco de dados:', error);
+    console.error('Falha ao iniciar (banco de dados/migrações):', error);
   });
 
 module.exports = app;

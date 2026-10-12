@@ -19,7 +19,8 @@ const Mensagem = sequelize.define('Mensagem', {
     // confirmacao: enviada ao criar o agendamento
     // lembrete: enviada 2h antes do horário
     // lista_espera: enviada quando um horário vaga
-    type: DataTypes.ENUM('confirmacao', 'lembrete', 'lista_espera'),
+    // remarcacao: enviada quando o agendamento muda de horário/profissional
+    type: DataTypes.ENUM('confirmacao', 'lembrete', 'lista_espera', 'remarcacao'),
     allowNull: false
   },
   conteudo: {

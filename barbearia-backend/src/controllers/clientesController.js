@@ -134,6 +134,9 @@ exports.deletarCliente = async (req, res) => {
 
     res.status(200).json({ message: `Cliente ${cliente.nome_completo} deletado com sucesso!` });
   } catch (error) {
+    if (error.name === 'SequelizeForeignKeyConstraintError') {
+      return res.status(409).json({ error: 'Este cliente possui agendamentos e não pode ser excluído.' });
+    }
     res.status(500).json({ error: error.message });
   }
 };

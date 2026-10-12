@@ -205,6 +205,7 @@
 
 .status-agendado { background: #fef3c7; color: #b45309; }
 .status-confirmado { background: #d1fae5; color: #047857; }
+.status-remarcado { background: #ede9fe; color: #6d28d9; }
 
 /* Modo escuro */
 [data-theme="dark"] .dashboard-service-badge,

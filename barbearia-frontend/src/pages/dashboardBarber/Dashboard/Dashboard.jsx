@@ -20,9 +20,13 @@ const formatarMoeda = (valor) =>
 const STATUS_LABEL = {
   agendado: 'Agendado',
   confirmado: 'Confirmado',
+  remarcado: 'Remarcado',
   concluido: 'Concluído',
   cancelado: 'Cancelado',
 };
+
+// Valor cobrado no momento do agendamento (não muda se o preço do serviço mudar depois)
+const valorDoAgendamento = (a) => Number(a.preco_cobrado ?? a.servico?.preco ?? 0);
 
 function Dashboard() {
   const [dados, setDados] = useState({
@@ -63,12 +67,12 @@ function Dashboard() {
   // Lucro do dia = soma do preço dos serviços já concluídos hoje
   const lucroHoje = agendamentosHoje
     .filter((a) => a.status === 'concluido')
-    .reduce((total, a) => total + Number(a.servico?.preco || 0), 0);
+    .reduce((total, a) => total + valorDoAgendamento(a), 0);
 
   // Previsto = o que ainda falta receber hoje
   const previstoHoje = agendamentosHoje
-    .filter((a) => a.status === 'agendado' || a.status === 'confirmado')
-    .reduce((total, a) => total + Number(a.servico?.preco || 0), 0);
+    .filter((a) => ['agendado', 'confirmado', 'remarcado'].includes(a.status))
+    .reduce((total, a) => total + valorDoAgendamento(a), 0);
 
   const proximosAgendamentos = dados.agendamentos
     .filter(
@@ -192,7 +196,7 @@ function Dashboard() {
 
                 <div className="dashboard-item-side">
                   <span className="dashboard-item-price">
-                    {formatarMoeda(agendamento.servico?.preco)}
+                    {formatarMoeda(valorDoAgendamento(agendamento))}
                   </span>
                   <span className={`dashboard-status status-${agendamento.status}`}>
                     {STATUS_LABEL[agendamento.status] || agendamento.status}

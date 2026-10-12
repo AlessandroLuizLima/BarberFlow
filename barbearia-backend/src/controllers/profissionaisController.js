@@ -60,6 +60,9 @@ exports.deletarProfissional = async (req, res) => {
     await profissional.destroy();
     res.status(200).json({ message: `Profissional ${profissional.nome_completo} deletado com sucesso!` });
   } catch (error) {
+    if (error.name === 'SequelizeForeignKeyConstraintError') {
+      return res.status(409).json({ error: 'Este profissional possui agendamentos. Desative-o em vez de excluir.' });
+    }
     res.status(500).json({ error: error.message });
   }
 };

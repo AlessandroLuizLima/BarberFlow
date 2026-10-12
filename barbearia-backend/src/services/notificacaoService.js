@@ -1,4 +1,5 @@
 const { Mensagem } = require('../models');
+const { formatarDataHora, formatarHora } = require('../utils/datas');
 
 /**
  * Serviço de notificações. Nesta versão, "enviar" significa registrar a
@@ -9,50 +10,50 @@ const { Mensagem } = require('../models');
  */
 
 async function registrarEnvio({ cliente_id, agendamento_id = null, tipo, conteudo }) {
-  const mensagem = await Mensagem.create({
-    cliente_id,
-    agendamento_id,
-    tipo,
-    conteudo
-  });
-
+  const mensagem = await Mensagem.create({ cliente_id, agendamento_id, tipo, conteudo });
   console.log(`[MENSAGEM:${tipo}] cliente ${cliente_id} -> ${conteudo}`);
-
   return mensagem;
 }
 
 async function enviarConfirmacao(agendamento) {
-  const dataFormatada = new Date(agendamento.data_hora).toLocaleString('pt-BR');
   return registrarEnvio({
     cliente_id: agendamento.cliente_id,
     agendamento_id: agendamento.id,
     tipo: 'confirmacao',
-    conteudo: `Seu agendamento foi confirmado para ${dataFormatada}.`
+    conteudo: `Seu agendamento foi confirmado para ${formatarDataHora(agendamento.data_hora)}.`
+  });
+}
+
+async function enviarRemarcacao(agendamento) {
+  return registrarEnvio({
+    cliente_id: agendamento.cliente_id,
+    agendamento_id: agendamento.id,
+    tipo: 'remarcacao',
+    conteudo: `Seu agendamento foi remarcado para ${formatarDataHora(agendamento.data_hora)}.`
   });
 }
 
 async function enviarLembrete(agendamento) {
-  const dataFormatada = new Date(agendamento.data_hora).toLocaleString('pt-BR');
   return registrarEnvio({
     cliente_id: agendamento.cliente_id,
     agendamento_id: agendamento.id,
     tipo: 'lembrete',
-    conteudo: `Lembrete: você tem um horário marcado hoje às ${dataFormatada}. Não se atrase!`
+    conteudo: `Lembrete: você tem um horário marcado hoje às ${formatarHora(agendamento.data_hora)}. Não se atrase!`
   });
 }
 
 async function avisarListaEspera(entradaListaEspera, horarioDisponivel) {
-  const dataFormatada = new Date(horarioDisponivel).toLocaleString('pt-BR');
   return registrarEnvio({
     cliente_id: entradaListaEspera.cliente_id,
     agendamento_id: null,
     tipo: 'lista_espera',
-    conteudo: `Boas notícias! Um horário vagou em ${dataFormatada}. Acesse o app para confirmar seu agendamento.`
+    conteudo: `Boas notícias! Um horário vagou em ${formatarDataHora(horarioDisponivel)}. Acesse o app para confirmar seu agendamento.`
   });
 }
 
 module.exports = {
   enviarConfirmacao,
+  enviarRemarcacao,
   enviarLembrete,
   avisarListaEspera
 };

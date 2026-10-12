@@ -1,52 +1,39 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  IoChevronBack, IoChevronForward, IoTime, IoPerson, IoCut, IoDocumentText,
+  IoChevronBack, IoChevronForward, IoTime, IoPerson, IoCut, IoCash,
   IoCheckmarkCircle, IoCloseCircle, IoRefresh, IoFilterOutline, IoPersonOutline
 } from 'react-icons/io5';
-import { listarAgendamentos, cancelarAgendamento } from '../../../services/agendamentoService';
+import {
+  listarAgendamentos, cancelarAgendamento, concluirAgendamento, remarcarAgendamento
+} from '../../../services/agendamentoService';
+import { listarProfissionais } from '../../../services/profissionalService';
 import './Schedule.css';
 
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const DIAS_SEMANA = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 const CORES = ['#10b981','#f59e0b','#8b5cf6','#ec4899','#06b6d4','#ef4444'];
 
-const STATUS_MAP = {
-  agendado: 'agendado', confirmado: 'agendado', pendente: 'agendado',
-  concluido: 'concluido', 'concluído': 'concluido', finalizado: 'concluido',
-  cancelado: 'cancelado', cancelada: 'cancelado',
-  remarcado: 'remarcado', reagendado: 'remarcado'
-};
-
 const pad = (n) => String(n).padStart(2, '0');
 const toKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const toTime = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const moeda = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const mensagemDeErro = (e, padrao) => e?.response?.data?.error || e?.response?.data?.message || padrao;
 
-// Converte o formato do backend para o formato usado na tela.
-// Se algum campo vier com outro nome, ajuste somente aqui.
+// Converte o agendamento do backend para o formato usado na tela.
+// "confirmado" (criado pelo cliente) é exibido como "Agendado".
 const normalizar = (a) => {
-  let date = '';
-  let time = '';
-  const dh = a.data_hora || a.dataHora || a.data_agendamento || a.inicio;
-  if (dh) {
-    const d = new Date(dh);
-    date = toKey(d);
-    time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  } else {
-    date = String(a.data || '').slice(0, 10);
-    time = String(a.hora || a.horario || '').slice(0, 5);
-  }
-  const cliente = a.cliente || a.Cliente || {};
-  const servico = a.servico || a.Servico || {};
-  const prof = a.profissional || a.Profissional || {};
+  const d = new Date(a.data_hora);
   return {
-    id: a.id ?? a.agendamento_id,
-    date,
-    time,
-    clientName: cliente.nome || a.cliente_nome || 'Cliente',
-    service: servico.nome || a.servico_nome || 'Serviço',
-    barber: prof.nome || a.profissional_nome || 'Profissional',
-    description: a.observacao || a.descricao || '',
-    status: STATUS_MAP[String(a.status || 'agendado').toLowerCase()] || 'agendado',
-    duration: servico.duracao || servico.duracao_minutos || a.duracao || null
+    id: a.id,
+    date: toKey(d),
+    time: toTime(d),
+    clientName: a.cliente?.nome_completo || 'Cliente',
+    service: a.servico?.nome || 'Serviço',
+    barberId: a.profissional_id,
+    barber: a.profissional?.nome_completo || 'Profissional',
+    price: a.preco_cobrado ?? a.servico?.preco ?? null,
+    duration: a.servico?.duracao_minutos || null,
+    status: a.status === 'confirmado' ? 'agendado' : a.status
   };
 };
 
@@ -60,10 +47,12 @@ const getStatusIcon = (status) => {
 };
 
 const getStatusText = (status) => ({
-  concluido: 'Concluído', cancelado: 'Cancelado', remarcado: 'Remarcado'
+  agendado: 'Agendado', remarcado: 'Remarcado', concluido: 'Concluído', cancelado: 'Cancelado'
 }[status] || 'Agendado');
 
-const AppointmentCard = ({ apt, color, showDate, onStatus, onCancel }) => (
+const isAtivo = (status) => status === 'agendado' || status === 'remarcado';
+
+const AppointmentCard = ({ apt, color, showDate, todayKey, busy, onConcluir, onRemarcar, onCancel }) => (
   <div className={`appointment-card ${apt.status}`} style={{ borderLeftColor: color }}>
     <div className="appointment-header">
       <div className="appointment-time">
@@ -92,11 +81,11 @@ const AppointmentCard = ({ apt, color, showDate, onStatus, onCancel }) => (
         <span className="label">Barbeiro:</span>
         <span className="value barber-name" style={{ color }}>{apt.barber}</span>
       </div>
-      {apt.description && (
+      {apt.price !== null && (
         <div className="detail-row">
-          <IoDocumentText className="icon" />
-          <span className="label">Descrição:</span>
-          <span className="value">{apt.description}</span>
+          <IoCash className="icon" />
+          <span className="label">Valor:</span>
+          <span className="value">{moeda(apt.price)}</span>
         </div>
       )}
       {apt.duration && (
@@ -108,15 +97,17 @@ const AppointmentCard = ({ apt, color, showDate, onStatus, onCancel }) => (
       )}
     </div>
 
-    {onStatus && apt.status === 'agendado' && (
+    {onConcluir && isAtivo(apt.status) && (
       <div className="appointment-actions">
-        <button className="action-btn completed" onClick={() => onStatus(apt.id, 'concluido')}>
-          <IoCheckmarkCircle className="btn-icon" /> Concluir
-        </button>
-        <button className="action-btn rescheduled" onClick={() => onStatus(apt.id, 'remarcado')}>
+        {apt.date <= todayKey && (
+          <button className="action-btn completed" disabled={busy} onClick={() => onConcluir(apt)}>
+            <IoCheckmarkCircle className="btn-icon" /> Concluir
+          </button>
+        )}
+        <button className="action-btn rescheduled" disabled={busy} onClick={() => onRemarcar(apt)}>
           <IoRefresh className="btn-icon" /> Remarcar
         </button>
-        <button className="action-btn cancelled" onClick={() => onCancel(apt.id)}>
+        <button className="action-btn cancelled" disabled={busy} onClick={() => onCancel(apt)}>
           <IoCloseCircle className="btn-icon" /> Cancelar
         </button>
       </div>
@@ -130,16 +121,24 @@ const Agenda = () => {
   const [selectedStatus, setSelectedStatus] = useState(null);
   const [selectedBarber, setSelectedBarber] = useState('todos');
   const [appointments, setAppointments] = useState([]);
+  const [profissionais, setProfissionais] = useState([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
+  const [busyId, setBusyId] = useState(null);
+
+  // Remarcar
+  const [remarcando, setRemarcando] = useState(null);
+  const [form, setForm] = useState({ data: '', hora: '', profissionalId: '' });
+  const [erroRemarcar, setErroRemarcar] = useState('');
+
+  const todayKey = toKey(new Date());
 
   const carregar = useCallback(async () => {
     try {
       setErro('');
-      const resp = await listarAgendamentos();
-      const lista = Array.isArray(resp) ? resp : (resp?.agendamentos || []);
-      if (lista[0]) console.log('[Agenda] exemplo bruto do backend:', lista[0]); // remover depois
-      setAppointments(lista.map(normalizar));
+      const [lista, profs] = await Promise.all([listarAgendamentos(), listarProfissionais()]);
+      setAppointments((Array.isArray(lista) ? lista : []).map(normalizar));
+      setProfissionais(Array.isArray(profs) ? profs : []);
     } catch (e) {
       console.error(e);
       setErro('Não foi possível carregar os agendamentos.');
@@ -150,20 +149,17 @@ const Agenda = () => {
 
   useEffect(() => { carregar(); }, [carregar]);
 
-  const barbers = useMemo(() => {
-    const nomes = [...new Set(appointments.map(a => a.barber))].sort();
-    return [
-      { id: 'todos', name: 'Todos os Barbeiros', color: '#3b82f6' },
-      ...nomes.map((n, i) => ({ id: n, name: n, color: CORES[i % CORES.length] }))
-    ];
-  }, [appointments]);
+  const barbers = useMemo(() => [
+    { id: 'todos', name: 'Todos os Barbeiros', color: '#3b82f6' },
+    ...profissionais.map((p, i) => ({ id: String(p.id), name: p.nome_completo, color: CORES[i % CORES.length], ativo: p.ativo !== false }))
+  ], [profissionais]);
 
   const filtered = useMemo(
-    () => selectedBarber === 'todos' ? appointments : appointments.filter(a => a.barber === selectedBarber),
+    () => selectedBarber === 'todos' ? appointments : appointments.filter(a => String(a.barberId) === selectedBarber),
     [appointments, selectedBarber]
   );
 
-  const getBarberColor = (name) => barbers.find(b => b.id === name)?.color || '#3b82f6';
+  const getBarberColor = (id) => barbers.find(b => b.id === String(id))?.color || '#3b82f6';
   const selectedBarberInfo = barbers.find(b => b.id === selectedBarber) || barbers[0];
 
   const getAppointmentsForDate = (date) =>
@@ -171,23 +167,59 @@ const Agenda = () => {
 
   const statusCounts = {
     agendado: filtered.filter(a => a.status === 'agendado').length,
+    remarcado: filtered.filter(a => a.status === 'remarcado').length,
     concluido: filtered.filter(a => a.status === 'concluido').length,
-    cancelado: filtered.filter(a => a.status === 'cancelado').length,
-    remarcado: filtered.filter(a => a.status === 'remarcado').length
+    cancelado: filtered.filter(a => a.status === 'cancelado').length
   };
 
-  // Concluir/Remarcar ainda só alteram a tela (próximo passo: salvar no backend)
-  const updateStatus = (id, status) =>
-    setAppointments(prev => prev.map(a => (a.id === id ? { ...a, status } : a)));
-
-  const handleCancel = async (id) => {
-    if (!window.confirm('Cancelar este agendamento? A lista de espera será avisada.')) return;
+  const executar = async (apt, acao, mensagemPadrao) => {
     try {
-      await cancelarAgendamento(id);
+      setBusyId(apt.id);
+      await acao();
       await carregar();
     } catch (e) {
       console.error(e);
-      alert('Não foi possível cancelar o agendamento.');
+      alert(mensagemDeErro(e, mensagemPadrao));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleConcluir = (apt) => {
+    if (!window.confirm(`Concluir o atendimento de ${apt.clientName}? O valor entra no lucro do dia.`)) return;
+    executar(apt, () => concluirAgendamento(apt.id), 'Não foi possível concluir o atendimento.');
+  };
+
+  const handleCancel = (apt) => {
+    if (!window.confirm('Cancelar este agendamento? A lista de espera será avisada.')) return;
+    executar(apt, () => cancelarAgendamento(apt.id), 'Não foi possível cancelar o agendamento.');
+  };
+
+  const abrirRemarcar = (apt) => {
+    setErroRemarcar('');
+    setForm({ data: apt.date, hora: apt.time, profissionalId: String(apt.barberId) });
+    setRemarcando(apt);
+  };
+
+  const confirmarRemarcar = async () => {
+    if (!form.data || !form.hora) {
+      setErroRemarcar('Informe a nova data e o horário.');
+      return;
+    }
+    try {
+      setBusyId(remarcando.id);
+      setErroRemarcar('');
+      await remarcarAgendamento(remarcando.id, {
+        data_hora: new Date(`${form.data}T${form.hora}:00`).toISOString(),
+        profissional_id: Number(form.profissionalId)
+      });
+      setRemarcando(null);
+      await carregar();
+    } catch (e) {
+      console.error(e);
+      setErroRemarcar(mensagemDeErro(e, 'Não foi possível remarcar o agendamento.'));
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -203,7 +235,6 @@ const Agenda = () => {
     const m = currentDate.getMonth();
     const daysInMonth = new Date(y, m + 1, 0).getDate();
     const firstDay = new Date(y, m, 1).getDay();
-    const todayKey = toKey(new Date());
     const cells = [];
 
     for (let i = 0; i < firstDay; i++) {
@@ -212,7 +243,8 @@ const Agenda = () => {
 
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(y, m, day);
-      const dayApts = getAppointmentsForDate(date);
+      // Cancelados não contam no calendário (continuam no relatório do dia)
+      const dayApts = getAppointmentsForDate(date).filter(a => a.status !== 'cancelado');
       const has = dayApts.length > 0;
       cells.push(
         <div
@@ -225,8 +257,8 @@ const Agenda = () => {
             <div className="appointment-indicators">
               <div className="appointment-count-badge">{dayApts.length}</div>
               <div className="barber-dots">
-                {[...new Set(dayApts.map(a => a.barber))].slice(0, 3).map(b => (
-                  <div key={b} className="barber-dot" style={{ backgroundColor: getBarberColor(b) }} title={b}></div>
+                {[...new Set(dayApts.map(a => a.barberId))].slice(0, 3).map(id => (
+                  <div key={id} className="barber-dot" style={{ backgroundColor: getBarberColor(id) }}></div>
                 ))}
               </div>
             </div>
@@ -247,6 +279,13 @@ const Agenda = () => {
       {selectedBarberInfo.name}
     </span>
   );
+
+  const cardProps = {
+    todayKey,
+    onConcluir: handleConcluir,
+    onRemarcar: abrirRemarcar,
+    onCancel: handleCancel
+  };
 
   return (
     <div className="barber-schedule">
@@ -326,9 +365,9 @@ const Agenda = () => {
                     <AppointmentCard
                       key={apt.id}
                       apt={apt}
-                      color={getBarberColor(apt.barber)}
-                      onStatus={updateStatus}
-                      onCancel={handleCancel}
+                      color={getBarberColor(apt.barberId)}
+                      busy={busyId === apt.id}
+                      {...cardProps}
                     />
                   ))}
                 </div>
@@ -359,10 +398,63 @@ const Agenda = () => {
               ) : (
                 <div className="appointments-list">
                   {statusList.map(apt => (
-                    <AppointmentCard key={apt.id} apt={apt} color={getBarberColor(apt.barber)} showDate />
+                    <AppointmentCard key={apt.id} apt={apt} color={getBarberColor(apt.barberId)} showDate />
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remarcar */}
+      {remarcando && (
+        <div className="modal-overlay reschedule-overlay" onClick={() => setRemarcando(null)}>
+          <div className="appointment-modal reschedule-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>
+                Remarcar agendamento
+                <span className="modal-barber">{remarcando.clientName} · {remarcando.service}</span>
+              </h3>
+              <button className="close-btn" onClick={() => setRemarcando(null)}>×</button>
+            </div>
+            <div className="reschedule-form">
+              <label>
+                Nova data
+                <input
+                  type="date"
+                  min={todayKey}
+                  value={form.data}
+                  onChange={(e) => setForm({ ...form, data: e.target.value })}
+                />
+              </label>
+              <label>
+                Novo horário
+                <input
+                  type="time"
+                  step="900"
+                  value={form.hora}
+                  onChange={(e) => setForm({ ...form, hora: e.target.value })}
+                />
+              </label>
+              <label>
+                Barbeiro
+                <select
+                  value={form.profissionalId}
+                  onChange={(e) => setForm({ ...form, profissionalId: e.target.value })}
+                >
+                  {barbers.slice(1)
+                    .filter(b => b.ativo || b.id === String(remarcando.barberId))
+                    .map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </label>
+              {erroRemarcar && <div className="reschedule-error">{erroRemarcar}</div>}
+              <div className="reschedule-actions">
+                <button className="btn-secondary" onClick={() => setRemarcando(null)}>Voltar</button>
+                <button className="btn-primary" disabled={busyId === remarcando.id} onClick={confirmarRemarcar}>
+                  {busyId === remarcando.id ? 'Salvando...' : 'Confirmar remarcação'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -373,9 +465,9 @@ const Agenda = () => {
           <h4>Status dos Agendamentos:</h4>
           <div className="legend-items">
             <div className="legend-item"><div className="legend-color scheduled"></div><span>Agendado</span></div>
+            <div className="legend-item"><div className="legend-color rescheduled"></div><span>Remarcado</span></div>
             <div className="legend-item"><div className="legend-color completed"></div><span>Concluído</span></div>
             <div className="legend-item"><div className="legend-color cancelled"></div><span>Cancelado</span></div>
-            <div className="legend-item"><div className="legend-color rescheduled"></div><span>Remarcado</span></div>
           </div>
         </div>
         <div className="legend-section">

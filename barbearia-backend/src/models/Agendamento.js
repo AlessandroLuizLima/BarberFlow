@@ -24,9 +24,16 @@ const Agendamento = sequelize.define('Agendamento', {
     allowNull: false
   },
   status: {
-    type: DataTypes.ENUM('agendado', 'confirmado', 'cancelado', 'concluido'),
+    // agendado/confirmado/remarcado = ativos (ocupam o horário)
+    // concluido/cancelado = finais (não mudam mais)
+    type: DataTypes.ENUM('agendado', 'confirmado', 'remarcado', 'cancelado', 'concluido'),
     allowNull: false,
     defaultValue: 'agendado'
+  },
+  preco_cobrado: {
+    // Valor do serviço no momento do agendamento (não muda se o preço do serviço mudar depois)
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false
   },
   lembrete_enviado: {
     type: DataTypes.BOOLEAN,

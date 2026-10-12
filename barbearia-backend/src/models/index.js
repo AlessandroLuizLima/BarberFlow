@@ -7,12 +7,14 @@ const ListaEspera = require('./ListaEspera');
 const Mensagem = require('./Mensagem');
 
 // Agendamento pertence a Cliente, Profissional e Servico
-Agendamento.belongsTo(Cliente, { foreignKey: 'cliente_id', as: 'cliente' });
-Agendamento.belongsTo(Profissional, { foreignKey: 'profissional_id', as: 'profissional' });
-Agendamento.belongsTo(Servico, { foreignKey: 'servico_id', as: 'servico' });
-Cliente.hasMany(Agendamento, { foreignKey: 'cliente_id', as: 'agendamentos' });
-Profissional.hasMany(Agendamento, { foreignKey: 'profissional_id', as: 'agendamentos' });
-Servico.hasMany(Agendamento, { foreignKey: 'servico_id', as: 'agendamentos' });
+// RESTRICT: não deixa apagar quem tem histórico (profissionais/serviços devem ser desativados)
+const restrict = { onDelete: 'RESTRICT', onUpdate: 'CASCADE' };
+Agendamento.belongsTo(Cliente, { foreignKey: 'cliente_id', as: 'cliente', ...restrict });
+Agendamento.belongsTo(Profissional, { foreignKey: 'profissional_id', as: 'profissional', ...restrict });
+Agendamento.belongsTo(Servico, { foreignKey: 'servico_id', as: 'servico', ...restrict });
+Cliente.hasMany(Agendamento, { foreignKey: 'cliente_id', as: 'agendamentos', ...restrict });
+Profissional.hasMany(Agendamento, { foreignKey: 'profissional_id', as: 'agendamentos', ...restrict });
+Servico.hasMany(Agendamento, { foreignKey: 'servico_id', as: 'agendamentos', ...restrict });
 
 // ListaEspera pertence a Cliente, Profissional e Servico
 ListaEspera.belongsTo(Cliente, { foreignKey: 'cliente_id', as: 'cliente' });

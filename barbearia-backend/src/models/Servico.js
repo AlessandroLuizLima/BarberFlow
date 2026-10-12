@@ -17,11 +17,13 @@ const Servico = sequelize.define('Servico', {
   },
   duracao_minutos: {
     type: DataTypes.INTEGER,
-    allowNull: false
+    allowNull: false,
+    validate: { min: { args: [1], msg: 'A duração deve ser de pelo menos 1 minuto' } }
   },
   preco: {
     type: DataTypes.DECIMAL(10, 2),
-    allowNull: false
+    allowNull: false,
+    validate: { min: { args: [0], msg: 'O preço não pode ser negativo' } }
   },
   ativo: {
     type: DataTypes.BOOLEAN,
