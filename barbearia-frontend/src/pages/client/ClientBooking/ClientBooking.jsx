@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import './ClientBooking.css';
 import {
   FiCalendar,
@@ -7,22 +8,45 @@ import {
   FiScissors,
   FiDollarSign,
   FiMapPin,
-  FiPhone,
   FiCheck,
+  FiCheckCircle,
   FiChevronLeft,
   FiChevronRight,
+  FiInfo,
+  FiPlus,
+  FiTrendingUp,
   FiStar,
-  FiInfo
+  FiExternalLink
 } from 'react-icons/fi';
 import { listarServicos } from '../../../services/servicoService';
 import { listarProfissionais } from '../../../services/profissionalService';
-import { criarAgendamento } from '../../../services/agendamentoService';
+import { criarAgendamento, listarAgendamentos, cancelarAgendamento } from '../../../services/agendamentoService';
 import { entrarNaListaDeEspera } from '../../../services/listaEsperaService';
 import { obterClienteLogado } from '../../../services/authStorage';
+import { proximosAgendamentos, gerarRelatorio, formatarMoeda } from '../../../utils/agendamentosCliente';
+import { barbearias, BARBEARIA_REAL_ID, linkGoogleMaps } from '../../../data/barbearias';
+import AgendamentoItem from '../components/AgendamentoItem/AgendamentoItem';
+
+const barbeariaReal = barbearias.find((b) => b.id === BARBEARIA_REAL_ID);
+
+const HORARIOS = [
+  '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
+  '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
+  '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
+  '17:00', '17:30', '18:00'
+];
 
 const ClientBooking = () => {
   const clienteLogado = obterClienteLogado();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const aba = searchParams.get('aba') === 'novo' ? 'novo' : 'meus';
 
+  // ---- Meus agendamentos / histórico
+  const [agendamentos, setAgendamentos] = useState([]);
+  const [carregandoAgendamentos, setCarregandoAgendamentos] = useState(true);
+  const [cancelandoId, setCancelandoId] = useState(null);
+
+  // ---- Novo agendamento (wizard)
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedService, setSelectedService] = useState(null);
   const [selectedBarber, setSelectedBarber] = useState(null);
@@ -40,24 +64,35 @@ const ClientBooking = () => {
   const [agendamentoConfirmado, setAgendamentoConfirmado] = useState(false);
   const [entrouNaFila, setEntrouNaFila] = useState(false);
 
+  const carregarAgendamentos = () => {
+    if (!clienteLogado) {
+      setCarregandoAgendamentos(false);
+      return;
+    }
+    setCarregandoAgendamentos(true);
+    listarAgendamentos({ cliente_id: clienteLogado.id })
+      .then(setAgendamentos)
+      .catch((error) => console.error('Erro ao carregar agendamentos:', error))
+      .finally(() => setCarregandoAgendamentos(false));
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(carregarAgendamentos, [clienteLogado?.id]);
+
   useEffect(() => {
     Promise.all([listarServicos(), listarProfissionais()])
       .then(([servicosApi, profissionaisApi]) => {
-        setServices(servicosApi.map((s) => ({
+        setServices(servicosApi.filter((s) => s.ativo !== false).map((s) => ({
           id: s.id,
           name: s.nome,
           price: Number(s.preco),
           duration: s.duracao_minutos,
-          description: s.descricao,
-          category: s.descricao || 'Serviço'
+          description: s.descricao
         })));
-        setBarbers(profissionaisApi.map((p) => ({
+        setBarbers(profissionaisApi.filter((p) => p.ativo !== false).map((p) => ({
           id: p.id,
           name: p.nome_completo,
-          specialty: p.especialidade || 'Barbeiro',
-          rating: 5,
-          totalReviews: 0,
-          experience: ''
+          specialty: p.especialidade || 'Barbeiro'
         })));
       })
       .catch((error) => {
@@ -67,51 +102,49 @@ const ClientBooking = () => {
       .finally(() => setCarregandoDados(false));
   }, []);
 
-  const availableTimes = [
-    '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
-    '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
-    '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
-    '17:00', '17:30', '18:00'
-  ];
-
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
+  const irParaAba = (nova) => {
+    if (nova === 'novo') setSearchParams({ aba: 'novo' });
+    else setSearchParams({});
   };
 
-  const renderStars = (rating) => {
-    return Array.from({ length: 5 }, (_, i) => (
-      <FiStar
-        key={i}
-        size={14}
-        className={i < Math.floor(rating) ? 'star-filled' : 'star-empty'}
-      />
-    ));
+  const handleCancelar = async (id) => {
+    setCancelandoId(id);
+    try {
+      await cancelarAgendamento(id);
+      carregarAgendamentos();
+    } catch (error) {
+      console.error('Erro ao cancelar agendamento:', error);
+    } finally {
+      setCancelandoId(null);
+    }
   };
 
-  const getDaysInMonth = (date) => {
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-  };
+  // ---- Calendário
+  const getDaysInMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  const getFirstDayOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
 
-  const getFirstDayOfMonth = (date) => {
-    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
-  };
-
-  const formatDate = (date) => {
-    return date.toLocaleDateString('pt-BR', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-  };
+  const formatDate = (date) =>
+    date.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   const navigateMonth = (direction) => {
     const newDate = new Date(currentMonth);
     newDate.setMonth(currentMonth.getMonth() + direction);
     setCurrentMonth(newDate);
+  };
+
+  const selecionarData = (date) => {
+    setSelectedDate(date);
+    setSelectedTime(null);
+  };
+
+  const horarioPassou = (time) => {
+    if (!selectedDate) return false;
+    const agora = new Date();
+    if (selectedDate.toDateString() !== agora.toDateString()) return false;
+    const [h, m] = time.split(':').map(Number);
+    const slot = new Date(selectedDate);
+    slot.setHours(h, m, 0, 0);
+    return slot <= agora;
   };
 
   const renderCalendar = () => {
@@ -121,25 +154,21 @@ const ClientBooking = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Dias vazios
     for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
+      days.push(<div key={`empty-${i}`} className="cb-day cb-day--empty"></div>);
     }
 
-    // Dias do mês
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
       const isPast = date < today;
-      const isSelected = selectedDate && 
-        date.getDate() === selectedDate.getDate() &&
-        date.getMonth() === selectedDate.getMonth() &&
-        date.getFullYear() === selectedDate.getFullYear();
+      const isSelected = selectedDate && date.toDateString() === selectedDate.toDateString();
 
       days.push(
         <button
+          type="button"
           key={day}
-          className={`calendar-day ${isPast ? 'past' : ''} ${isSelected ? 'selected' : ''}`}
-          onClick={() => !isPast && setSelectedDate(date)}
+          className={`cb-day ${isPast ? 'cb-day--past' : ''} ${isSelected ? 'cb-day--selected' : ''}`}
+          onClick={() => !isPast && selecionarData(date)}
           disabled={isPast}
         >
           {day}
@@ -150,28 +179,21 @@ const ClientBooking = () => {
     return days;
   };
 
+  // ---- Navegação do wizard
   const handleNext = () => {
-    if (currentStep < 4) {
-      setCurrentStep(currentStep + 1);
-    }
+    if (currentStep < 4) setCurrentStep(currentStep + 1);
   };
 
   const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    }
+    if (currentStep > 1) setCurrentStep(currentStep - 1);
   };
 
   const canProceed = () => {
     switch (currentStep) {
-      case 1:
-        return selectedService !== null;
-      case 2:
-        return selectedBarber !== null;
-      case 3:
-        return selectedDate !== null && selectedTime !== null;
-      default:
-        return false;
+      case 1: return selectedService !== null;
+      case 2: return selectedBarber !== null;
+      case 3: return selectedDate !== null && selectedTime !== null;
+      default: return false;
     }
   };
 
@@ -180,6 +202,18 @@ const ClientBooking = () => {
     const dataHora = new Date(selectedDate);
     dataHora.setHours(hora, minuto, 0, 0);
     return dataHora.toISOString();
+  };
+
+  const reiniciarWizard = () => {
+    setCurrentStep(1);
+    setSelectedService(null);
+    setSelectedBarber(null);
+    setSelectedDate(null);
+    setSelectedTime(null);
+    setConflito(false);
+    setEntrouNaFila(false);
+    setErroAgendamento('');
+    setAgendamentoConfirmado(false);
   };
 
   const handleConfirm = async () => {
@@ -200,6 +234,7 @@ const ClientBooking = () => {
         data_hora: montarDataHoraISO()
       });
       setAgendamentoConfirmado(true);
+      carregarAgendamentos();
     } catch (error) {
       if (error.response?.status === 409) {
         setConflito(true);
@@ -228,331 +263,439 @@ const ClientBooking = () => {
     }
   };
 
-  return (
-    <div className="client-booking">
-      <div className="container">
-        <div className="booking-header">
-          <h1>Novo Agendamento</h1>
-          <p>Escolha seu serviço, barbeiro e horário preferido</p>
-        </div>
+  const servicoEscolhido = services.find((s) => s.id === selectedService);
+  const barbeiroEscolhido = barbers.find((b) => b.id === selectedBarber);
 
-        {/* Progress Steps */}
-        <div className="progress-steps">
-          <div className={`step ${currentStep >= 1 ? 'active' : ''} ${currentStep > 1 ? 'completed' : ''}`}>
-            <div className="step-number">
-              {currentStep > 1 ? <FiCheck size={16} /> : '1'}
-            </div>
-            <span>Serviço</span>
-          </div>
-          <div className="step-line"></div>
-          <div className={`step ${currentStep >= 2 ? 'active' : ''} ${currentStep > 2 ? 'completed' : ''}`}>
-            <div className="step-number">
-              {currentStep > 2 ? <FiCheck size={16} /> : '2'}
-            </div>
-            <span>Barbeiro</span>
-          </div>
-          <div className="step-line"></div>
-          <div className={`step ${currentStep >= 3 ? 'active' : ''} ${currentStep > 3 ? 'completed' : ''}`}>
-            <div className="step-number">
-              {currentStep > 3 ? <FiCheck size={16} /> : '3'}
-            </div>
-            <span>Data e Hora</span>
-          </div>
-          <div className="step-line"></div>
-          <div className={`step ${currentStep >= 4 ? 'active' : ''}`}>
-            <div className="step-number">4</div>
-            <span>Confirmação</span>
-          </div>
-        </div>
+  const etapas = [
+    { n: 1, titulo: 'Serviço' },
+    { n: 2, titulo: 'Barbeiro' },
+    { n: 3, titulo: 'Data e Hora' },
+    { n: 4, titulo: 'Confirmação' }
+  ];
 
-        {/* Step Content */}
-        <div className="booking-content">
-          {carregandoDados && <p>Carregando serviços e profissionais...</p>}
-          {erroCarregar && <p className="error-message">{erroCarregar}</p>}
+  // ---- Dados da aba "Meus agendamentos"
+  const proximos = proximosAgendamentos(agendamentos);
+  const proximo = proximos[0];
+  const demais = proximos.slice(1, 6);
+  const relatorio = gerarRelatorio(agendamentos);
 
-          {!carregandoDados && !erroCarregar && currentStep === 1 && (
-            <div className="step-content">
-              <h2>Escolha o Serviço</h2>
-              <p className="step-description">Selecione o serviço que deseja realizar</p>
-              
-              <div className="services-grid">
-                {services.map(service => (
+  const renderMeusAgendamentos = () => (
+    <div className="cb-overview">
+      <section className="cb-section">
+        <h2 className="cb-section-title">Próximo agendamento</h2>
+        {carregandoAgendamentos ? (
+          <p className="cb-muted">Carregando seus agendamentos...</p>
+        ) : proximo ? (
+          <AgendamentoItem
+            agendamento={proximo}
+            destaque
+            onCancelar={handleCancelar}
+            cancelando={cancelandoId === proximo.id}
+          />
+        ) : (
+          <div className="cb-empty">
+            <FiCalendar size={36} />
+            <p>Você não tem nenhum agendamento marcado.</p>
+            <button type="button" className="cb-btn cb-btn--primary" onClick={() => irParaAba('novo')}>
+              <FiPlus size={18} /> Agendar agora
+            </button>
+          </div>
+        )}
+      </section>
+
+      {demais.length > 0 && (
+        <section className="cb-section">
+          <h2 className="cb-section-title">Outros agendamentos</h2>
+          <div className="cb-list">
+            {demais.map((a) => (
+              <AgendamentoItem
+                key={a.id}
+                agendamento={a}
+                onCancelar={handleCancelar}
+                cancelando={cancelandoId === a.id}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="cb-section">
+        <h2 className="cb-section-title">Meu histórico</h2>
+        {carregandoAgendamentos ? (
+          <p className="cb-muted">Carregando histórico...</p>
+        ) : relatorio.visitas === 0 ? (
+          <div className="cb-empty">
+            <FiTrendingUp size={36} />
+            <p>Seus atendimentos concluídos aparecerão aqui, com as barbearias, serviços e valores.</p>
+          </div>
+        ) : (
+          <>
+            <div className="cb-stats">
+              <div className="cb-stat">
+                <span className="cb-stat-icon cb-stat-icon--blue"><FiCheckCircle size={20} /></span>
+                <div>
+                  <strong>{relatorio.visitas}</strong>
+                  <span>{relatorio.visitas === 1 ? 'Atendimento' : 'Atendimentos'}</span>
+                </div>
+              </div>
+              <div className="cb-stat">
+                <span className="cb-stat-icon cb-stat-icon--green"><FiDollarSign size={20} /></span>
+                <div>
+                  <strong>{formatarMoeda(relatorio.totalGasto)}</strong>
+                  <span>Total investido</span>
+                </div>
+              </div>
+              <div className="cb-stat">
+                <span className="cb-stat-icon cb-stat-icon--purple"><FiTrendingUp size={20} /></span>
+                <div>
+                  <strong>{formatarMoeda(relatorio.ticketMedio)}</strong>
+                  <span>Média por visita</span>
+                </div>
+              </div>
+              <div className="cb-stat">
+                <span className="cb-stat-icon cb-stat-icon--orange"><FiStar size={20} /></span>
+                <div>
+                  <strong>{relatorio.servicoFavorito}</strong>
+                  <span>Serviço favorito</span>
+                </div>
+              </div>
+            </div>
+
+            {relatorio.barbearias.map((b) => (
+              <div key={b.nome} className="cb-report-card">
+                <div className="cb-report-head">
+                  <div>
+                    <h3><FiMapPin size={16} /> {b.nome}</h3>
+                    <span className="cb-muted">
+                      {b.visitas} {b.visitas === 1 ? 'atendimento' : 'atendimentos'}
+                      {b.ultima && ` · última visita em ${b.ultima.toLocaleDateString('pt-BR')}`}
+                    </span>
+                  </div>
+                  <strong className="cb-report-total">{formatarMoeda(b.total)}</strong>
+                </div>
+                <ul className="cb-report-list">
+                  {b.servicos.map((s) => (
+                    <li key={s.nome}>
+                      <span className="cb-report-service"><FiScissors size={14} /> {s.nome}</span>
+                      <span className="cb-report-qty">{s.quantidade}x</span>
+                      <strong>{formatarMoeda(s.total)}</strong>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </>
+        )}
+      </section>
+    </div>
+  );
+
+  const renderWizard = () => (
+    <>
+      <div className="cb-progress">
+        {etapas.map((etapa, i) => (
+          <React.Fragment key={etapa.n}>
+            {i > 0 && <div className={`cb-step-line ${currentStep >= etapa.n ? 'cb-step-line--active' : ''}`}></div>}
+            <div className={`cb-step ${currentStep >= etapa.n ? 'cb-step--active' : ''} ${currentStep > etapa.n ? 'cb-step--done' : ''}`}>
+              <div className="cb-step-number">
+                {currentStep > etapa.n ? <FiCheck size={16} /> : etapa.n}
+              </div>
+              <span>{etapa.titulo}</span>
+            </div>
+          </React.Fragment>
+        ))}
+      </div>
+
+      <div className="cb-content">
+        {carregandoDados && <p className="cb-muted">Carregando serviços e profissionais...</p>}
+        {erroCarregar && <p className="cb-error">{erroCarregar}</p>}
+
+        {!carregandoDados && !erroCarregar && currentStep === 1 && (
+          <div>
+            <h2 className="cb-title">Escolha o Serviço</h2>
+            <p className="cb-subtitle">Selecione o serviço que deseja realizar</p>
+
+            {services.length === 0 ? (
+              <p className="cb-muted">Nenhum serviço disponível no momento.</p>
+            ) : (
+              <div className="cb-grid">
+                {services.map((service) => (
                   <button
+                    type="button"
                     key={service.id}
-                    className={`service-card ${selectedService === service.id ? 'selected' : ''}`}
+                    className={`cb-card ${selectedService === service.id ? 'cb-card--selected' : ''}`}
                     onClick={() => setSelectedService(service.id)}
                   >
-                    <div className="service-icon">
-                      <FiScissors size={24} />
-                    </div>
-                    <div className="service-info">
+                    <div className="cb-card-icon"><FiScissors size={22} /></div>
+                    <div className="cb-card-body">
                       <h3>{service.name}</h3>
-                      <p className="service-category">{service.category}</p>
-                      <p className="service-description">{service.description}</p>
-                      <div className="service-details">
-                        <span className="service-duration">
-                          <FiClock size={14} />
-                          {service.duration} min
-                        </span>
-                        <span className="service-price">
-                          {formatCurrency(service.price)}
-                        </span>
+                      {service.description && <p className="cb-card-desc">{service.description}</p>}
+                      <div className="cb-card-meta">
+                        <span><FiClock size={14} /> {service.duration} min</span>
+                        <strong>{formatarMoeda(service.price)}</strong>
                       </div>
                     </div>
                     {selectedService === service.id && (
-                      <div className="selected-indicator">
-                        <FiCheck size={20} />
-                      </div>
+                      <span className="cb-check"><FiCheck size={16} /></span>
                     )}
                   </button>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        )}
 
-          {currentStep === 2 && (
-            <div className="step-content">
-              <h2>Escolha o Barbeiro</h2>
-              <p className="step-description">Selecione o profissional de sua preferência</p>
-              
-              <div className="barbers-grid">
-                {barbers.map(barber => (
+        {!carregandoDados && !erroCarregar && currentStep === 2 && (
+          <div>
+            <h2 className="cb-title">Escolha o Barbeiro</h2>
+            <p className="cb-subtitle">Selecione o profissional de sua preferência</p>
+
+            {barbers.length === 0 ? (
+              <p className="cb-muted">Nenhum profissional disponível no momento.</p>
+            ) : (
+              <div className="cb-grid">
+                {barbers.map((barber) => (
                   <button
+                    type="button"
                     key={barber.id}
-                    className={`barber-card ${selectedBarber === barber.id ? 'selected' : ''}`}
+                    className={`cb-card ${selectedBarber === barber.id ? 'cb-card--selected' : ''}`}
                     onClick={() => setSelectedBarber(barber.id)}
                   >
-                    <div className="barber-avatar">
-                      <FiUser size={32} />
-                    </div>
-                    <div className="barber-info">
+                    <div className="cb-card-icon cb-card-icon--round"><FiUser size={22} /></div>
+                    <div className="cb-card-body">
                       <h3>{barber.name}</h3>
-                      <p className="barber-specialty">{barber.specialty}</p>
-                      <div className="barber-rating">
-                        <div className="stars">
-                          {renderStars(barber.rating)}
-                        </div>
-                        <span className="rating-text">
-                          {barber.rating} ({barber.totalReviews} avaliações)
-                        </span>
-                      </div>
-                      <p className="barber-experience">
-                        <FiInfo size={14} />
-                        {barber.experience} de experiência
-                      </p>
+                      <p className="cb-card-desc">{barber.specialty}</p>
                     </div>
                     {selectedBarber === barber.id && (
-                      <div className="selected-indicator">
-                        <FiCheck size={20} />
-                      </div>
+                      <span className="cb-check"><FiCheck size={16} /></span>
                     )}
                   </button>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        )}
 
-          {currentStep === 3 && (
-            <div className="step-content">
-              <h2>Escolha Data e Horário</h2>
-              <p className="step-description">Selecione quando deseja ser atendido</p>
-              
-              <div className="datetime-container">
-                <div className="calendar-section">
-                  <div className="calendar-header">
-                    <button onClick={() => navigateMonth(-1)} className="nav-btn">
-                      <FiChevronLeft />
-                    </button>
-                    <h3>
-                      {currentMonth.toLocaleDateString('pt-BR', { 
-                        month: 'long', 
-                        year: 'numeric' 
-                      })}
-                    </h3>
-                    <button onClick={() => navigateMonth(1)} className="nav-btn">
-                      <FiChevronRight />
-                    </button>
-                  </div>
-                  
-                  <div className="calendar-weekdays">
-                    {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
-                      <div key={day} className="weekday">{day}</div>
-                    ))}
-                  </div>
-                  
-                  <div className="calendar-grid">
-                    {renderCalendar()}
-                  </div>
+        {!carregandoDados && !erroCarregar && currentStep === 3 && (
+          <div>
+            <h2 className="cb-title">Escolha Data e Horário</h2>
+            <p className="cb-subtitle">Selecione quando deseja ser atendido</p>
+
+            <div className="cb-datetime">
+              <div className="cb-calendar">
+                <div className="cb-calendar-head">
+                  <button type="button" onClick={() => navigateMonth(-1)} className="cb-nav-btn" aria-label="Mês anterior">
+                    <FiChevronLeft />
+                  </button>
+                  <h3>
+                    {currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                  </h3>
+                  <button type="button" onClick={() => navigateMonth(1)} className="cb-nav-btn" aria-label="Próximo mês">
+                    <FiChevronRight />
+                  </button>
                 </div>
 
-                {selectedDate && (
-                  <div className="time-section">
-                    <h3>Horários Disponíveis</h3>
-                    <p className="selected-date-text">
-                      {formatDate(selectedDate)}
-                    </p>
-                    <div className="time-slots">
-                      {availableTimes.map(time => (
-                        <button
-                          key={time}
-                          className={`time-slot ${selectedTime === time ? 'selected' : ''}`}
-                          onClick={() => setSelectedTime(time)}
-                        >
-                          {time}
-                        </button>
-                      ))}
+                <div className="cb-weekdays">
+                  {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
+                    <div key={day}>{day}</div>
+                  ))}
+                </div>
+
+                <div className="cb-days">{renderCalendar()}</div>
+              </div>
+
+              <div className="cb-times">
+                <h3>Horários Disponíveis</h3>
+                {selectedDate ? (
+                  <>
+                    <p className="cb-selected-date">{formatDate(selectedDate)}</p>
+                    <div className="cb-time-grid">
+                      {HORARIOS.map((time) => {
+                        const passou = horarioPassou(time);
+                        return (
+                          <button
+                            type="button"
+                            key={time}
+                            className={`cb-time ${selectedTime === time ? 'cb-time--selected' : ''}`}
+                            onClick={() => setSelectedTime(time)}
+                            disabled={passou}
+                          >
+                            {time}
+                          </button>
+                        );
+                      })}
                     </div>
-                  </div>
+                  </>
+                ) : (
+                  <p className="cb-muted">Escolha um dia no calendário para ver os horários.</p>
                 )}
               </div>
             </div>
-          )}
-
-          {currentStep === 4 && agendamentoConfirmado && (
-            <div className="step-content">
-              <h2>Agendamento confirmado!</h2>
-              <p className="step-description">
-                Você receberá uma mensagem de confirmação. Chegue com 5 minutos de antecedência.
-              </p>
-            </div>
-          )}
-
-          {currentStep === 4 && !agendamentoConfirmado && conflito && (
-            <div className="step-content">
-              <h2>Horário indisponível</h2>
-              <p className="step-description">
-                Esse horário acabou de ser ocupado por outro cliente para este profissional.
-              </p>
-              {entrouNaFila ? (
-                <p>Você entrou na lista de espera! Avisaremos assim que um horário vagar nesse dia.</p>
-              ) : (
-                <button className="nav-button primary" onClick={handleEntrarNaFila} disabled={enviando}>
-                  {enviando ? 'Entrando...' : 'Entrar na lista de espera'}
-                </button>
-              )}
-            </div>
-          )}
-
-          {currentStep === 4 && !agendamentoConfirmado && !conflito && (
-            <div className="step-content">
-              <h2>Confirmação do Agendamento</h2>
-              <p className="step-description">Revise os detalhes do seu agendamento</p>
-              {erroAgendamento && <p className="error-message">{erroAgendamento}</p>}
-
-              <div className="confirmation-card">
-                <div className="confirmation-section">
-                  <div className="confirmation-icon">
-                    <FiScissors size={24} />
-                  </div>
-                  <div>
-                    <h4>Serviço</h4>
-                    <p>{services.find(s => s.id === selectedService)?.name}</p>
-                    <span className="confirmation-detail">
-                      <FiClock size={14} />
-                      {services.find(s => s.id === selectedService)?.duration} minutos
-                    </span>
-                    <span className="confirmation-detail">
-                      <FiDollarSign size={14} />
-                      {formatCurrency(services.find(s => s.id === selectedService)?.price || 0)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="confirmation-divider"></div>
-
-                <div className="confirmation-section">
-                  <div className="confirmation-icon">
-                    <FiUser size={24} />
-                  </div>
-                  <div>
-                    <h4>Barbeiro</h4>
-                    <p>{barbers.find(b => b.id === selectedBarber)?.name}</p>
-                    <span className="confirmation-detail">
-                      {barbers.find(b => b.id === selectedBarber)?.specialty}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="confirmation-divider"></div>
-
-                <div className="confirmation-section">
-                  <div className="confirmation-icon">
-                    <FiCalendar size={24} />
-                  </div>
-                  <div>
-                    <h4>Data e Horário</h4>
-                    <p>{selectedDate && formatDate(selectedDate)}</p>
-                    <span className="confirmation-detail">
-                      <FiClock size={14} />
-                      {selectedTime}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="confirmation-divider"></div>
-
-                <div className="confirmation-section">
-                  <div className="confirmation-icon">
-                    <FiMapPin size={24} />
-                  </div>
-                  <div>
-                    <h4>Local</h4>
-                    <p>Barbearia Estilo Clássico</p>
-                    <span className="confirmation-detail">
-                      Rua das Flores, 123, Centro
-                    </span>
-                    <span className="confirmation-detail">
-                      <FiPhone size={14} />
-                      (11) 99999-9999
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="confirmation-note">
-                <FiInfo size={18} />
-                <p>
-                  Você receberá uma confirmação por email e SMS. 
-                  Por favor, chegue com 5 minutos de antecedência.
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Navigation Buttons */}
-        {!agendamentoConfirmado && (
-          <div className="booking-navigation">
-            {currentStep > 1 && !conflito && (
-              <button className="nav-button secondary" onClick={handleBack}>
-                <FiChevronLeft size={20} />
-                Voltar
-              </button>
-            )}
-
-            <div className="nav-spacer"></div>
-
-            {currentStep < 4 ? (
-              <button
-                className="nav-button primary"
-                onClick={handleNext}
-                disabled={!canProceed()}
-              >
-                Próximo
-                <FiChevronRight size={20} />
-              </button>
-            ) : !conflito ? (
-              <button
-                className="nav-button primary confirm"
-                onClick={handleConfirm}
-                disabled={enviando}
-              >
-                <FiCheck size={20} />
-                {enviando ? 'Confirmando...' : 'Confirmar Agendamento'}
-              </button>
-            ) : null}
           </div>
         )}
+
+        {currentStep === 4 && agendamentoConfirmado && (
+          <div className="cb-success">
+            <span className="cb-success-icon"><FiCheckCircle size={48} /></span>
+            <h2 className="cb-title">Agendamento confirmado!</h2>
+            <p className="cb-subtitle">
+              Você receberá uma mensagem de confirmação. Chegue com 5 minutos de antecedência.
+            </p>
+            <div className="cb-success-actions">
+              <button
+                type="button"
+                className="cb-btn cb-btn--primary"
+                onClick={() => { reiniciarWizard(); irParaAba('meus'); }}
+              >
+                Ver meus agendamentos
+              </button>
+              <button type="button" className="cb-btn cb-btn--secondary" onClick={reiniciarWizard}>
+                Fazer outro agendamento
+              </button>
+            </div>
+          </div>
+        )}
+
+        {currentStep === 4 && !agendamentoConfirmado && conflito && (
+          <div className="cb-success">
+            <h2 className="cb-title">Horário indisponível</h2>
+            <p className="cb-subtitle">
+              Esse horário acabou de ser ocupado por outro cliente para este profissional.
+            </p>
+            {entrouNaFila ? (
+              <p className="cb-info">Você entrou na lista de espera! Avisaremos assim que um horário vagar nesse dia.</p>
+            ) : (
+              <div className="cb-success-actions">
+                <button type="button" className="cb-btn cb-btn--primary" onClick={handleEntrarNaFila} disabled={enviando}>
+                  {enviando ? 'Entrando...' : 'Entrar na lista de espera'}
+                </button>
+                <button
+                  type="button"
+                  className="cb-btn cb-btn--secondary"
+                  onClick={() => { setConflito(false); setCurrentStep(3); }}
+                >
+                  Escolher outro horário
+                </button>
+              </div>
+            )}
+            {erroAgendamento && <p className="cb-error">{erroAgendamento}</p>}
+          </div>
+        )}
+
+        {currentStep === 4 && !agendamentoConfirmado && !conflito && (
+          <div>
+            <h2 className="cb-title">Confirmação do Agendamento</h2>
+            <p className="cb-subtitle">Revise os detalhes do seu agendamento</p>
+            {erroAgendamento && <p className="cb-error">{erroAgendamento}</p>}
+
+            <div className="cb-confirm">
+              <div className="cb-confirm-row">
+                <div className="cb-confirm-icon"><FiScissors size={22} /></div>
+                <div>
+                  <h4>Serviço</h4>
+                  <p>{servicoEscolhido?.name}</p>
+                  <span><FiClock size={14} /> {servicoEscolhido?.duration} minutos</span>
+                  <span><FiDollarSign size={14} /> {formatarMoeda(servicoEscolhido?.price || 0)}</span>
+                </div>
+              </div>
+
+              <div className="cb-confirm-row">
+                <div className="cb-confirm-icon"><FiUser size={22} /></div>
+                <div>
+                  <h4>Barbeiro</h4>
+                  <p>{barbeiroEscolhido?.name}</p>
+                  <span>{barbeiroEscolhido?.specialty}</span>
+                </div>
+              </div>
+
+              <div className="cb-confirm-row">
+                <div className="cb-confirm-icon"><FiCalendar size={22} /></div>
+                <div>
+                  <h4>Data e Horário</h4>
+                  <p>{selectedDate && formatDate(selectedDate)}</p>
+                  <span><FiClock size={14} /> {selectedTime}</span>
+                </div>
+              </div>
+
+              <div className="cb-confirm-row">
+                <div className="cb-confirm-icon"><FiMapPin size={22} /></div>
+                <div>
+                  <h4>Local</h4>
+                  <p>{barbeariaReal.name}</p>
+                  <a
+                    className="cb-maps-link"
+                    href={linkGoogleMaps(barbeariaReal)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <FiExternalLink size={14} /> Ver no Google Maps
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div className="cb-note">
+              <FiInfo size={18} />
+              <p>Você receberá uma confirmação por mensagem. Por favor, chegue com 5 minutos de antecedência.</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {!agendamentoConfirmado && (
+        <div className="cb-nav">
+          {currentStep > 1 && !conflito && (
+            <button type="button" className="cb-btn cb-btn--secondary" onClick={handleBack}>
+              <FiChevronLeft size={18} /> Voltar
+            </button>
+          )}
+
+          <div className="cb-spacer"></div>
+
+          {currentStep < 4 ? (
+            <button type="button" className="cb-btn cb-btn--primary" onClick={handleNext} disabled={!canProceed()}>
+              Próximo <FiChevronRight size={18} />
+            </button>
+          ) : !conflito ? (
+            <button type="button" className="cb-btn cb-btn--primary" onClick={handleConfirm} disabled={enviando}>
+              <FiCheck size={18} /> {enviando ? 'Confirmando...' : 'Confirmar Agendamento'}
+            </button>
+          ) : null}
+        </div>
+      )}
+    </>
+  );
+
+  return (
+    <div className="client-booking">
+      <div className="cb-container">
+        <div className="cb-header">
+          <h1>Agendamentos</h1>
+          <p>Acompanhe seus horários e marque um novo atendimento</p>
+        </div>
+
+        <div className="cb-tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={aba === 'meus'}
+            className={`cb-tab ${aba === 'meus' ? 'cb-tab--active' : ''}`}
+            onClick={() => irParaAba('meus')}
+          >
+            <FiCalendar size={18} /> Meus agendamentos
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={aba === 'novo'}
+            className={`cb-tab ${aba === 'novo' ? 'cb-tab--active' : ''}`}
+            onClick={() => irParaAba('novo')}
+          >
+            <FiPlus size={18} /> Novo agendamento
+          </button>
+        </div>
+
+        {aba === 'meus' ? renderMeusAgendamentos() : renderWizard()}
       </div>
     </div>
   );

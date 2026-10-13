@@ -1,75 +1,759 @@
+/* ========================================
+   ClientBooking - Agendamentos do cliente
+   Classes com prefixo cb- para não colidir com outras telas.
+   Cores via variáveis globais (funcionam no modo claro e no escuro).
+======================================== */
 .client-booking {
-    min-height: 100vh;
-    background: var(--bg-primary, #f4f4f4);
-    padding: 2rem;
-    margin-left: var(--sidebar-width, 16rem);
-    width: calc(100% - var(--sidebar-width, 16rem));
-    box-sizing: border-box;
-  }
+  min-height: 100vh;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 2rem;
+  margin-left: var(--sidebar-width, 16rem);
+  width: calc(100% - var(--sidebar-width, 16rem));
+  box-sizing: border-box;
+  font-family: "Inter", sans-serif;
+}
 
-  @media (max-width: 1024px) {
-    .client-booking {
-      margin-left: 0;
-      width: 100%;
-      padding-top: 5rem;
-    }
+@media (max-width: 1024px) {
+  .client-booking {
+    margin-left: 0;
+    width: 100%;
+    padding: 5rem 1rem 1.5rem;
   }
+}
 
-  .client-booking .container {
-    max-width: 1200px;
-    margin: 0 auto;
+.client-booking .cb-container {
+  max-width: 62rem;
+  margin: 0 auto;
+}
+
+/* ---------- Cabeçalho e abas ---------- */
+.client-booking .cb-header {
+  margin-bottom: 1.5rem;
+}
+
+.client-booking .cb-header h1 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.client-booking .cb-header p {
+  color: var(--text-secondary);
+}
+
+.client-booking .cb-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.client-booking .cb-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.2rem;
+  border: 2px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+}
+
+.client-booking .cb-tab:hover:not(.cb-tab--active) {
+  border-color: var(--primary-blue);
+  color: var(--primary-blue);
+}
+
+.client-booking .cb-tab--active {
+  border-color: var(--primary-blue);
+  background: var(--primary-blue);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+/* ---------- Textos e estados ---------- */
+.client-booking .cb-muted {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.client-booking .cb-error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  margin: 0.75rem 0;
+  font-size: 0.9rem;
+}
+
+.client-booking .cb-info {
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid var(--primary-blue);
+  color: var(--primary-blue);
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  margin-top: 1rem;
+}
+
+.client-booking .cb-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: center;
+  padding: 2rem 1rem;
+  border: 1px dashed var(--border-color);
+  border-radius: 0.75rem;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.client-booking .cb-empty svg {
+  opacity: 0.6;
+}
+
+/* ---------- Botões ---------- */
+.client-booking .cb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  border: 2px solid transparent;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.client-booking .cb-btn--primary {
+  background: var(--primary-blue);
+  color: #fff;
+}
+
+.client-booking .cb-btn--primary:hover:not(:disabled) {
+  background: var(--primary-blue-dark);
+  transform: translateY(-1px);
+}
+
+.client-booking .cb-btn--secondary {
+  background: transparent;
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.client-booking .cb-btn--secondary:hover:not(:disabled) {
+  border-color: var(--primary-blue);
+  color: var(--primary-blue);
+}
+
+.client-booking .cb-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ========================================
+   ABA: MEUS AGENDAMENTOS
+======================================== */
+.client-booking .cb-section {
+  margin-bottom: 2rem;
+}
+
+.client-booking .cb-section-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin-bottom: 0.9rem;
+}
+
+.client-booking .cb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.client-booking .cb-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.client-booking .cb-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1rem 1.15rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.client-booking .cb-stat > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.client-booking .cb-stat strong {
+  font-size: 1.1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.client-booking .cb-stat span {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.client-booking .cb-stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 0.6rem;
+  flex-shrink: 0;
+}
+
+.client-booking .cb-stat-icon--blue { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+.client-booking .cb-stat-icon--green { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.client-booking .cb-stat-icon--purple { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
+.client-booking .cb-stat-icon--orange { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+
+.client-booking .cb-report-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.client-booking .cb-report-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.9rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.client-booking .cb-report-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 1.05rem;
+  margin-bottom: 0.2rem;
+}
+
+.client-booking .cb-report-total {
+  font-size: 1.15rem;
+  color: var(--success);
+  white-space: nowrap;
+}
+
+.client-booking .cb-report-list {
+  list-style: none;
+}
+
+.client-booking .cb-report-list li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.client-booking .cb-report-list li:last-child {
+  border-bottom: none;
+}
+
+.client-booking .cb-report-service {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.client-booking .cb-report-qty {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+/* ========================================
+   ABA: NOVO AGENDAMENTO (wizard)
+======================================== */
+.client-booking .cb-progress {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  padding: 1.25rem 1rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.client-booking .cb-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 4.5rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.client-booking .cb-step-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--border-color);
+  color: var(--text-secondary);
+  font-weight: 700;
+  transition: all 0.3s ease;
+}
+
+.client-booking .cb-step--active .cb-step-number {
+  background: var(--primary-blue);
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+}
+
+.client-booking .cb-step--active {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.client-booking .cb-step--done .cb-step-number {
+  background: var(--success);
+  box-shadow: none;
+}
+
+.client-booking .cb-step-line {
+  flex: 1;
+  max-width: 5rem;
+  height: 3px;
+  margin-top: 19px;
+  border-radius: 2px;
+  background: var(--border-color);
+}
+
+.client-booking .cb-step-line--active {
+  background: var(--primary-blue);
+}
+
+.client-booking .cb-content {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  padding: 1.75rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.client-booking .cb-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin-bottom: 0.3rem;
+}
+
+.client-booking .cb-subtitle {
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+}
+
+/* ---------- Cards de serviço e barbeiro ---------- */
+.client-booking .cb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.client-booking .cb-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.1rem;
+  text-align: left;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 2px solid var(--border-color);
+  border-radius: 0.75rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.client-booking .cb-card:hover {
+  border-color: var(--primary-blue);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.client-booking .cb-card--selected {
+  border-color: var(--primary-blue);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.client-booking .cb-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 0.6rem;
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--primary-blue);
+  flex-shrink: 0;
+}
+
+.client-booking .cb-card-icon--round {
+  border-radius: 50%;
+}
+
+.client-booking .cb-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.client-booking .cb-card-body h3 {
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.client-booking .cb-card-desc {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-bottom: 0.4rem;
+}
+
+.client-booking .cb-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.client-booking .cb-card-meta span {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.client-booking .cb-card-meta strong {
+  color: var(--success);
+  font-size: 1rem;
+}
+
+.client-booking .cb-check {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--primary-blue);
+  color: #fff;
+}
+
+/* ---------- Data e horário ---------- */
+.client-booking .cb-datetime {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 800px) {
+  .client-booking .cb-datetime {
+    grid-template-columns: 1fr;
   }
-  
-  /* Header */
-  .client-booking .booking-header {
-    text-align: center;
-    color: var(--text-primary, #1f2937);
-    margin-bottom: 3rem;
-  }
-  
-  .client-booking .booking-header h1 {
-    font-size: 2.5rem;
-    margin: 0 0 0.5rem 0;
-    font-weight: 700;
-  }
-  
-  .client-booking .booking-header p {
-    font-size: 1.125rem;
-    opacity: 0.85;
-    margin: 0;
-  }
-  
-  /* Progress Steps */
-  .client-booking .progress-steps {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 1rem;
-    margin-bottom: 3rem;
-    background: white;
-    padding: 2rem;
-    border-radius: 16px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  }
-  
-  .client-booking .step {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-    position: relative;
-  }
-  
-  .client-booking .step-number {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: #e2e8f0;
-    color: #718096;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 1.125rem;
-    transition: all 0.3s ease;
-  }
+}
+
+.client-booking .cb-calendar,
+.client-booking .cb-times {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  padding: 1.1rem;
+}
+
+.client-booking .cb-calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.9rem;
+}
+
+.client-booking .cb-calendar-head h3 {
+  font-size: 1rem;
+  text-transform: capitalize;
+}
+
+.client-booking .cb-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.client-booking .cb-nav-btn:hover {
+  border-color: var(--primary-blue);
+  color: var(--primary-blue);
+}
+
+.client-booking .cb-weekdays,
+.client-booking .cb-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.3rem;
+}
+
+.client-booking .cb-weekdays {
+  margin-bottom: 0.4rem;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.client-booking .cb-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.client-booking .cb-day:hover:not(:disabled):not(.cb-day--selected) {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--primary-blue);
+}
+
+.client-booking .cb-day--past {
+  color: var(--text-secondary);
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.client-booking .cb-day--empty {
+  cursor: default;
+}
+
+.client-booking .cb-day--selected {
+  background: var(--primary-blue);
+  color: #fff;
+  font-weight: 700;
+}
+
+.client-booking .cb-times h3 {
+  font-size: 1rem;
+  margin-bottom: 0.3rem;
+}
+
+.client-booking .cb-selected-date {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  text-transform: capitalize;
+  margin-bottom: 0.9rem;
+}
+
+.client-booking .cb-time-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 0.5rem;
+}
+
+.client-booking .cb-time {
+  padding: 0.55rem 0.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.client-booking .cb-time:hover:not(:disabled):not(.cb-time--selected) {
+  border-color: var(--primary-blue);
+  color: var(--primary-blue);
+}
+
+.client-booking .cb-time--selected {
+  background: var(--primary-blue);
+  border-color: var(--primary-blue);
+  color: #fff;
+  font-weight: 600;
+}
+
+.client-booking .cb-time:disabled {
+  opacity: 0.35;
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
+
+/* ---------- Confirmação ---------- */
+.client-booking .cb-confirm {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  padding: 0.25rem 1.25rem;
+}
+
+.client-booking .cb-confirm-row {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.client-booking .cb-confirm-row:last-child {
+  border-bottom: none;
+}
+
+.client-booking .cb-confirm-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 0.6rem;
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--primary-blue);
+  flex-shrink: 0;
+}
+
+.client-booking .cb-confirm-row h4 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  margin-bottom: 0.2rem;
+}
+
+.client-booking .cb-confirm-row p {
+  font-weight: 600;
+  margin-bottom: 0.15rem;
+  text-transform: capitalize;
+}
+
+.client-booking .cb-confirm-row span {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.client-booking .cb-maps-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.15rem;
+  font-size: 0.875rem;
+  color: var(--primary-blue);
+  text-decoration: none;
+}
+
+.client-booking .cb-maps-link:hover {
+  text-decoration: underline;
+}
+
+.client-booking .cb-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  padding: 0.9rem 1rem;
+  border-radius: 0.5rem;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.client-booking .cb-note svg {
+  color: var(--primary-blue);
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+/* ---------- Sucesso / conflito ---------- */
+.client-booking .cb-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.client-booking .cb-success-icon {
+  color: var(--success);
+  margin-bottom: 0.75rem;
+}
+
+.client-booking .cb-success-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+/* ---------- Navegação do wizard ---------- */
+.client-booking .cb-nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.client-booking .cb-spacer {
+  flex: 1;
+}
+
+@media (max-width: 600px) {
+  .client-booking .cb-content { padding: 1.1rem; }
+  .client-booking .cb-step { min-width: 3.5rem; font-size: 0.7rem; }
+  .client-booking .cb-step-number { width: 34px; height: 34px; }
+  .client-booking .cb-step-line { margin-top: 16px; }
+  .client-booking .cb-report-list li { grid-template-columns: 1fr auto; }
+  .client-booking .cb-report-qty { display: none; }
+}

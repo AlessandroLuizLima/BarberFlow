@@ -2,17 +2,18 @@ import React, { useState, useEffect } from "react";
 import "./SidebarClient.css";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  FiHome, FiCalendar, FiUser, FiLogOut, FiSun, FiMoon, FiMenu, FiX
+  FiHome, FiCalendar, FiUser, FiLogOut, FiSun, FiMoon, FiMenu, FiX, FiSettings
 } from "react-icons/fi"; // Ícones do React Icons
 import { obterClienteLogado, encerrarSessaoCliente } from "../../../services/authStorage";
+import { obterTema, aplicarTema, salvarTema } from "../../../utils/tema";
 
 const SidebarClient = () => {  // Renomeei para SidebarClient para consistência com o App.js
   const clienteLogado = obterClienteLogado();
-  const [isLightMode, setIsLightMode] = useState(false);
+  const [isLightMode, setIsLightMode] = useState(obterTema() === 'claro');
   const [isOpen, setIsOpen] = useState(false); // Para mobile
 
   const toggleTheme = () => {
-    setIsLightMode(!isLightMode);
+    salvarTema(isLightMode ? 'escuro' : 'claro');
   };
 
   const toggleSidebar = () => {
@@ -23,14 +24,17 @@ const SidebarClient = () => {  // Renomeei para SidebarClient para consistência
     setIsOpen(false);
   };
 
+  // Aplica o tema salvo e acompanha mudanças feitas em outras telas (ex.: Configurações)
   useEffect(() => {
-    const body = document.body;
-    if (isLightMode) {
-      body.classList.add("light-mode");
-    } else {
-      body.classList.remove("light-mode");
-    }
-  }, [isLightMode]);
+    const sincronizar = () => {
+      const tema = obterTema();
+      aplicarTema(tema);
+      setIsLightMode(tema === 'claro');
+    };
+    sincronizar();
+    window.addEventListener('tema-cliente', sincronizar);
+    return () => window.removeEventListener('tema-cliente', sincronizar);
+  }, []);
 
   const navigate = useNavigate();
 
@@ -61,7 +65,7 @@ const SidebarClient = () => {  // Renomeei para SidebarClient para consistência
           <ul>
             <li><Link to="/cliente" onClick={closeSidebar}><FiHome className="icon" /> Home</Link></li>
             <li><Link to="/cliente/agendamentos" onClick={closeSidebar}><FiCalendar className="icon" /> Agendamentos</Link></li>
-            <li><Link to="/cliente/perfil" onClick={closeSidebar}><FiUser className="icon" /> Perfil</Link></li>
+            <li><Link to="/cliente/perfil" onClick={closeSidebar}><FiSettings className="icon" /> Configurações</Link></li>
           </ul>
         </nav>
 

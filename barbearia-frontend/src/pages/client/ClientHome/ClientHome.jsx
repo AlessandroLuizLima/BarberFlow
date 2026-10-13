@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import './ClientHome.css';
 import { FaMapMarkerAlt, FaBell, FaSearch } from 'react-icons/fa';
 import { obterClienteLogado } from '../../../services/authStorage';
 import { listarAgendamentos, cancelarAgendamento } from '../../../services/agendamentoService';
+import { proximosAgendamentos } from '../../../utils/agendamentosCliente';
+import { barbearias, linkGoogleMaps } from '../../../data/barbearias';
+import AgendamentoItem from '../components/AgendamentoItem/AgendamentoItem';
 
 function Header(props) {
   return (
@@ -12,7 +15,7 @@ function Header(props) {
         <h1 className="greeting">{props.greeting}</h1>
         <p className="date">{props.date}</p>
       </div>
-      <Button 
+      <Button
         className="notification-btn"
         onClick={props.onNotificationClick}
         ariaLabel="Notificações"
@@ -55,47 +58,61 @@ function BarbershopAvatar() {
 function BarbershopInfo(props) {
   return (
     <div className="card-info">
-      <h3 className="barbershop-name">{props.name}</h3>
+      <h3 className="barbershop-name">
+        {props.name}
+        {!props.real && <span className="demo-badge">Demonstração</span>}
+      </h3>
       <p className="barbershop-address">{props.address}</p>
     </div>
   );
 }
 
-function BarbershopDistance(props) {
+// O pino abre a localização no Google Maps (e não dispara o clique do card)
+function BarbershopDistance({ distance, mapsUrl, name }) {
   return (
     <div className="card-right">
-      <FaMapMarkerAlt size={18} className="location-icon" />
-      <span className="distance">{props.distance}</span>
+      <a
+        className="location-link"
+        href={mapsUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={`Abrir ${name} no Google Maps`}
+        aria-label={`Abrir ${name} no Google Maps`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <FaMapMarkerAlt size={18} className="location-icon" />
+      </a>
+      {distance && <span className="distance">{distance}</span>}
     </div>
   );
 }
 
-function BarbershopCard(props) {
+function BarbershopCard({ shop, onClick }) {
   return (
-    <div className="barbershop-card" onClick={props.onClick}>
+    <div
+      className="barbershop-card"
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter') onClick(); }}
+    >
       <div className="card-left">
         <BarbershopAvatar />
-        <BarbershopInfo 
-          name={props.name}
-          address={props.address}
-        />
+        <BarbershopInfo name={shop.name} address={shop.address} real={shop.real} />
       </div>
-      <BarbershopDistance distance={props.distance} />
+      <BarbershopDistance distance={shop.distance} mapsUrl={linkGoogleMaps(shop)} name={shop.name} />
     </div>
   );
 }
 
 function BarbershopList(props) {
+  if (props.barbershops.length === 0) {
+    return <p className="section-empty">Nenhuma barbearia encontrada.</p>;
+  }
   return (
     <div className="barbershop-list">
       {props.barbershops.map((shop) => (
-        <BarbershopCard 
-          key={shop.id}
-          name={shop.name}
-          address={shop.address}
-          distance={shop.distance}
-          onClick={() => props.onCardClick(shop.id)}
-        />
+        <BarbershopCard key={shop.id} shop={shop} onClick={() => props.onCardClick(shop)} />
       ))}
     </div>
   );
@@ -105,44 +122,29 @@ function MainContent(props) {
   return (
     <main className="main-content">
       <SectionTitle text={props.title} />
-      <BarbershopList 
-        barbershops={props.barbershops}
-        onCardClick={props.onCardClick}
-      />
+      <BarbershopList barbershops={props.barbershops} onCardClick={props.onCardClick} />
     </main>
   );
 }
 
-function MeusAgendamentos({ agendamentos, carregando, onCancelar, cancelandoId }) {
-  const formatarDataHora = (iso) =>
-    new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
-
+function ProximosAgendamentos({ agendamentos, carregando, onCancelar, cancelandoId }) {
   if (carregando) return <p className="section-loading">Carregando seus agendamentos...</p>;
 
-  const ativos = agendamentos.filter((a) => a.status !== 'cancelado');
+  const proximos = proximosAgendamentos(agendamentos).slice(0, 5);
 
-  if (ativos.length === 0) {
-    return <p className="section-empty">Você ainda não tem agendamentos.</p>;
+  if (proximos.length === 0) {
+    return <p className="section-empty">Você não tem agendamentos futuros.</p>;
   }
 
   return (
     <div className="meus-agendamentos-list">
-      {ativos.map((agendamento) => (
-        <div key={agendamento.id} className="agendamento-card">
-          <div>
-            <strong>{agendamento.servico?.nome}</strong> com {agendamento.profissional?.nome_completo}
-            <p>{formatarDataHora(agendamento.data_hora)} — status: {agendamento.status}</p>
-          </div>
-          {agendamento.status !== 'cancelado' && (
-            <button
-              className="cancelar-btn"
-              onClick={() => onCancelar(agendamento.id)}
-              disabled={cancelandoId === agendamento.id}
-            >
-              {cancelandoId === agendamento.id ? 'Cancelando...' : 'Cancelar'}
-            </button>
-          )}
-        </div>
+      {proximos.map((agendamento) => (
+        <AgendamentoItem
+          key={agendamento.id}
+          agendamento={agendamento}
+          onCancelar={onCancelar}
+          cancelando={cancelandoId === agendamento.id}
+        />
       ))}
     </div>
   );
@@ -150,8 +152,8 @@ function MeusAgendamentos({ agendamentos, carregando, onCancelar, cancelandoId }
 
 function Button(props) {
   return (
-    <button 
-      type={props.type || "button"}
+    <button
+      type={props.type || 'button'}
       className={props.className}
       onClick={props.onClick}
       aria-label={props.ariaLabel}
@@ -197,11 +199,7 @@ const HomePage = () => {
     }
   };
 
-  const barbershops = [
-    { id: 1, name: 'BarberFlow', address: 'Sua barbearia', distance: '' },
-  ];
-
-  const filteredBarbershops = barbershops.filter(shop =>
+  const filteredBarbershops = barbearias.filter((shop) =>
     shop.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -210,37 +208,45 @@ const HomePage = () => {
   };
 
   const handleNotificationClick = () => {
-    alert('Notificações');
+    navigate('/cliente/agendamentos');
   };
 
-  const handleCardClick = () => {
-    navigate('/cliente/agendamentos');
+  // Barbearia real: agenda de verdade. As de demonstração abrem a página de detalhes.
+  const handleCardClick = (shop) => {
+    if (shop.real) {
+      navigate('/cliente/agendamentos?aba=novo');
+    } else {
+      navigate(`/cliente/barbearia/${shop.id}`);
+    }
   };
 
   return (
     <div className="home-page">
-      <Header 
+      <Header
         greeting={`Olá, ${primeiroNome}`}
         date={new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
         onNotificationClick={handleNotificationClick}
       />
 
-      <SearchBar 
+      <SearchBar
         placeholder="Encontrar barbearia"
         value={searchTerm}
         onChange={handleSearchChange}
       />
 
-      <SectionTitle text="Meus Agendamentos" />
-      <MeusAgendamentos
+      <div className="section-header">
+        <SectionTitle text="Próximos agendamentos" />
+        <Link to="/cliente/agendamentos" className="section-link">Ver todos</Link>
+      </div>
+      <ProximosAgendamentos
         agendamentos={agendamentos}
         carregando={carregandoAgendamentos}
         onCancelar={handleCancelar}
         cancelandoId={cancelandoId}
       />
 
-      <MainContent 
-        title="Sua Barbearia"
+      <MainContent
+        title="Barbearias"
         barbershops={filteredBarbershops}
         onCardClick={handleCardClick}
       />

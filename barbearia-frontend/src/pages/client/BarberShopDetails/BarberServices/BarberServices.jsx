@@ -66,8 +66,9 @@ const BarberServices = ({ services = [], clientName = "Miguel Oliveira Rodrigues
       <ScheduleModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        clientName={clientName}
-        service={selectedService}
+        serviceName={selectedService?.name}
+        servicePrice={selectedService ? `R$ ${Number(selectedService.price).toFixed(2).replace('.', ',')}` : undefined}
+        serviceDuration={selectedService?.duration ? `${selectedService.duration}min` : undefined}
       />
     </div>
   );

@@ -1,0 +1,129 @@
+/* Item de agendamento do cliente (prefixo ag- para não colidir com outras telas).
+   Cores via variáveis globais: funcionam no modo claro e no escuro. */
+.ag-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: 0.75rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.ag-item--destaque {
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 1px var(--primary-blue), var(--shadow-md);
+}
+
+.ag-time {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 68px;
+  padding-right: 1rem;
+  border-right: 1px solid var(--border-color);
+}
+
+.ag-time strong {
+  font-size: 1.2rem;
+  color: var(--primary-blue);
+}
+
+.ag-time span {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+
+.ag-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+}
+
+.ag-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--primary-blue);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.ag-pro,
+.ag-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.ag-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.4rem;
+}
+
+.ag-price {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ag-status {
+  padding: 0.15rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(245, 158, 11, 0.18);
+  color: #d97706;
+}
+
+.ag-status--confirmado,
+.ag-status--agendado { background: rgba(245, 158, 11, 0.18); color: #d97706; }
+.ag-status--remarcado { background: rgba(139, 92, 246, 0.18); color: #8b5cf6; }
+.ag-status--concluido { background: rgba(16, 185, 129, 0.18); color: #10b981; }
+.ag-status--cancelado { background: rgba(239, 68, 68, 0.18); color: #ef4444; }
+
+.ag-cancel {
+  background: transparent;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  border-radius: 0.5rem;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ag-cancel:hover:not(:disabled) {
+  background: var(--danger);
+  color: #fff;
+}
+
+.ag-cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .ag-item { flex-wrap: wrap; }
+  .ag-side {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}

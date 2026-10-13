@@ -1,5 +1,6 @@
 // BarberShopDetails/BarberShopDetails.jsx
 import React, { useState } from 'react';
+import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { 
   IoArrowBack,
   IoLocationSharp,
@@ -12,11 +13,19 @@ import BarberServices from './BarberServices/BarberServices';
 import BarberProducts from './BarberProducts/BarberProducts';
 import BarberDetails from './BarberDetails/BarberDetails';
 import BarberAssessment from './BarberAssessment/BarberAssessment';
+import { obterBarbearia, linkGoogleMaps } from '../../../data/barbearias';
 import './BarberShopDetails.css';
 
-const BarberShopDetails = ({ barbershop, onBack = () => {} }) => {
+const BarberShopDetails = ({ barbershop: barbershopProp, onBack: onBackProp }) => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const barbershop = barbershopProp || obterBarbearia(id);
+  const onBack = onBackProp || (() => navigate('/cliente'));
   const [activeTab, setActiveTab] = useState('servicos');
   const [isFavorite, setIsFavorite] = useState(false);
+
+  // Barbearia inexistente na URL: volta para a Home
+  if (id && !barbershop) return <Navigate to="/cliente" replace />;
 
   // Dados de exemplo - você deve substituir pelos dados reais
   const barbershopData = barbershop || {
@@ -53,15 +62,8 @@ const BarberShopDetails = ({ barbershop, onBack = () => {} }) => {
     totalReviews: 127
   };
 
-  // Endereço completo usado para abrir a localização no Google Maps
-  const enderecoMaps = (() => {
-    const e = barbershopData.details?.address;
-    const partes = e
-      ? [e.street, e.neighborhood, e.city, e.state]
-      : [barbershopData.address];
-    return partes.filter(Boolean).join(', ');
-  })();
-  const linkMaps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(enderecoMaps)}`;
+  // Link do Google Maps com o endereço da barbearia
+  const linkMaps = linkGoogleMaps(barbershopData);
 
   const toggleFavorite = () => {
     setIsFavorite(!isFavorite);
@@ -188,6 +190,13 @@ const BarberShopDetails = ({ barbershop, onBack = () => {} }) => {
           <p className="barbershop-address">{barbershopData.address}</p>
         </div>
       </div>
+
+      {barbershopData.real === false && (
+        <div className="demo-notice">
+          Barbearia de demonstração: os dados são fictícios e o agendamento aqui não é salvo.
+          Para agendar de verdade, use a barbearia <strong>BarberFlow</strong>.
+        </div>
+      )}
 
       {/* Tabs de navegação */}
       <div className="barbershop-tabs">

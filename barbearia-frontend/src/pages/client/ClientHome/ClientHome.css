@@ -390,50 +390,75 @@ body:not(.light-mode) .home-page .distance {
   outline-offset: 2px;
 }
 /* ========================================
-   MEUS AGENDAMENTOS
+   PRÓXIMOS AGENDAMENTOS
 ======================================== */
-.section-loading,
-.section-empty {
-  color: var(--text-secondary, #6b7280);
-  padding: 12px 20px;
-}
-
-.meus-agendamentos-list {
+.home-page .section-header {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 0 20px 12px;
-}
-
-.agendamento-card {
-  display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
-  border-radius: 12px;
-  background: var(--card-bg, #fff);
-  border: 1px solid var(--border-color, #e5e7eb);
+  gap: 1rem;
+  margin-top: 0.5rem;
 }
 
-.agendamento-card p {
-  margin: 4px 0 0;
-  font-size: 0.85rem;
-  color: var(--text-secondary, #6b7280);
-}
-
-.cancelar-btn {
-  background: #fee2e2;
-  color: #b91c1c;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 14px;
+.home-page .section-link {
+  color: var(--primary-blue);
+  font-size: 0.875rem;
   font-weight: 600;
-  cursor: pointer;
+  text-decoration: none;
   white-space: nowrap;
 }
 
-.cancelar-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.home-page .section-link:hover {
+  text-decoration: underline;
+}
+
+.home-page .section-loading,
+.home-page .section-empty {
+  color: var(--text-secondary);
+  padding: 0.5rem 0 1.5rem;
+}
+
+.home-page .meus-agendamentos-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+/* ========================================
+   BARBEARIAS: pino do mapa e selo de demonstração
+======================================== */
+.home-page .location-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.12);
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.home-page .location-link:hover {
+  background: rgba(239, 68, 68, 0.25);
+  transform: scale(1.1);
+}
+
+.home-page .barbershop-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.home-page .demo-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(139, 92, 246, 0.18);
+  color: #8b5cf6;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }

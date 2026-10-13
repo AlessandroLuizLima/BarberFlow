@@ -1,198 +1,324 @@
-/* Client.css - Estilos para ClientProfile */
-
+/* ========================================
+   Configurações do cliente (prefixo cs- para não colidir com outras telas).
+   Cores via variáveis globais: funcionam no modo claro e no escuro.
+======================================== */
 .client-profile-page {
-    --dark-blue: #3b82f6;
-    --light-blue: #60a5fa;
-  }
-  
-  .client-profile-page {
-    min-height: 100vh;
-    background-color: #f4f4f4;
-    padding: 2rem;
-    margin-left: var(--sidebar-width, 16rem);
-    width: calc(100% - var(--sidebar-width, 16rem));
-    box-sizing: border-box;
-  }
+  min-height: 100vh;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 2rem;
+  margin-left: var(--sidebar-width, 16rem);
+  width: calc(100% - var(--sidebar-width, 16rem));
+  box-sizing: border-box;
+  font-family: "Inter", sans-serif;
+}
 
-  @media (max-width: 1024px) {
-    .client-profile-page {
-      margin-left: 0;
-      width: 100%;
-      padding-top: 5rem;
-    }
+@media (max-width: 1024px) {
+  .client-profile-page {
+    margin-left: 0;
+    width: 100%;
+    padding: 5rem 1rem 1.5rem;
   }
-  
-  body:not(.light-mode) .client-profile-page {
-    background-color: #111827;
-    color: white;
-  }
-  
-  .client-profile-page .container {
-    max-width: 600px;
-    margin: 0 auto;
-    background-color: white;
-    border-radius: 0.5rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    padding: 2rem;
-    animation: fadeInUp 0.6s ease-out;
-  }
-  
-  body:not(.light-mode) .client-profile-page .container {
-    background-color: #1f2937;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-    border: 1px solid #374151;
-  }
-  
-  .profile-header {
-    text-align: center;
-    margin-bottom: 2rem;
-  }
-  
-  .profile-header h1 {
-    font-size: 1.875rem;
-    font-weight: bold;
-    color: #1f2937;
-    margin-bottom: 0.5rem;
-  }
-  
-  body:not(.light-mode) .profile-header h1 {
-    color: white;
-  }
-  
-  .profile-header p {
-    color: #6b7280;
-  }
-  
-  body:not(.light-mode) .profile-header p {
-    color: #9ca3af;
-  }
-  
-  .profile-form {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-  
-  .client-profile-page .form-group {
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .client-profile-page .form-label {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #374151;
-    margin-bottom: 0.5rem;
-  }
-  
-  body:not(.light-mode) .client-profile-page .form-label {
-    color: #d1d5db;
-  }
-  
-  .client-profile-page .form-input {
-    padding: 0.75rem;
-    border: 1px solid #d1d5db;
-    border-radius: 0.5rem;
-    transition: all 0.2s;
-    box-sizing: border-box;
-    background-color: white;
-    color: #1f2937;
-    font-size: 1rem;
-  }
-  
-  body:not(.light-mode) .client-profile-page .form-input {
-    border: 1px solid #4b5563;
-    background-color: #374151;
-    color: white;
-  }
-  
-  .client-profile-page .form-input:focus {
-    outline: none;
-    border-color: transparent;
-    box-shadow: 0 0 0 2px #3b82f6;
-  }
-  
-  body:not(.light-mode) .client-profile-page .form-input:focus {
-    box-shadow: 0 0 0 2px var(--dark-blue);
-  }
-  
-  .client-profile-page .form-input.error {
-    border-color: #dc2626;
-  }
-  
-  .client-profile-page .error-message {
-    color: #dc2626;
-    font-size: 0.75rem;
-    margin-top: 0.25rem;
-  }
-  
-  .submit-button {
-    padding: 0.75rem 1.5rem;
-    background-color: #3b82f6;
-    color: white;
-    border: none;
-    border-radius: 0.5rem;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    font-weight: 500;
-    align-self: flex-start;
-  }
-  
-  body:not(.light-mode) .submit-button {
-    background-color: var(--dark-blue);
-  }
-  
-  .submit-button:hover {
-    background-color: #2563eb;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-  }
-  
-  .submit-button:disabled {
-    background-color: #d1d5db;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-  }
-  
-  body:not(.light-mode) .submit-button:disabled {
-    background-color: #4b5563;
-  }
-  
-  /* Responsividade */
-  @media (max-width: 768px) {
-    .client-profile-page {
-      padding: 1rem;
-    }
-  
-    .client-profile-page .container {
-      padding: 1.5rem;
-    }
-  
-    .profile-header h1 {
-      font-size: 1.5rem;
-    }
-  
-    .submit-button {
-      align-self: stretch;
-    }
-  }
-  
-  /* Animações */
-  @keyframes fadeInUp {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  
-  /* Foco para acessibilidade */
-  button:focus,
-  input:focus {
-    outline: 2px solid var(--dark-blue);
-    outline-offset: 2px;
-  }
+}
+
+.client-profile-page .cs-container {
+  max-width: 52rem;
+  margin: 0 auto;
+}
+
+.client-profile-page .cs-header {
+  margin-bottom: 1.5rem;
+}
+
+.client-profile-page .cs-header h1 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.client-profile-page .cs-header p,
+.client-profile-page .cs-muted {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* ---------- Cartão da conta ---------- */
+.client-profile-page .cs-account {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.client-profile-page .cs-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: #fff;
+  font-size: 1.4rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.client-profile-page .cs-account-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.client-profile-page .cs-account-info h2 {
+  font-size: 1.2rem;
+}
+
+.client-profile-page .cs-account-info span {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Abas (mesmo estilo das configurações do barbeiro) ---------- */
+.client-profile-page .cs-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.client-profile-page .cs-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.1rem;
+  border: 2px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.client-profile-page .cs-tab:hover:not(.cs-tab--active) {
+  border-color: var(--primary-blue);
+  color: var(--primary-blue);
+}
+
+.client-profile-page .cs-tab--active {
+  border-color: var(--primary-blue);
+  background: var(--primary-blue);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+@media (max-width: 600px) {
+  .client-profile-page .cs-tab { flex: 1 1 calc(50% - 0.5rem); justify-content: center; }
+}
+
+/* ---------- Alertas ---------- */
+.client-profile-page .cs-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.client-profile-page .cs-alert--success {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid var(--success);
+  color: var(--success);
+}
+
+.client-profile-page .cs-alert--error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+
+/* ---------- Painel / formulário ---------- */
+.client-profile-page .cs-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  padding: 1.75rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.client-profile-page .cs-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+  margin-bottom: 1.25rem;
+  color: var(--text-primary);
+}
+
+.client-profile-page .cs-panel-title svg {
+  color: var(--primary-blue);
+}
+
+.client-profile-page .cs-help {
+  margin: -0.5rem 0 1.25rem;
+}
+
+.client-profile-page .cs-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.1rem;
+}
+
+@media (max-width: 700px) {
+  .client-profile-page .cs-grid { grid-template-columns: 1fr; }
+  .client-profile-page .cs-panel { padding: 1.1rem; }
+}
+
+.client-profile-page .cs-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.client-profile-page .cs-field--wide {
+  grid-column: 1 / -1;
+}
+
+.client-profile-page .cs-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.client-profile-page .cs-input {
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.client-profile-page .cs-input:focus {
+  outline: none;
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+.client-profile-page .cs-input:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.client-profile-page .cs-input--error {
+  border-color: var(--danger);
+}
+
+.client-profile-page .cs-error-text {
+  color: var(--danger);
+  font-size: 0.8rem;
+}
+
+.client-profile-page .cs-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 1rem;
+  color: var(--primary-blue);
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+
+.client-profile-page .cs-link:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Tema ---------- */
+.client-profile-page .cs-theme-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.client-profile-page .cs-theme {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  padding: 1.1rem;
+  text-align: left;
+  border: 2px solid var(--border-color);
+  border-radius: 0.75rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.client-profile-page .cs-theme span {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.client-profile-page .cs-theme:hover {
+  border-color: var(--primary-blue);
+}
+
+.client-profile-page .cs-theme--active {
+  border-color: var(--primary-blue);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+/* ---------- Botão salvar ---------- */
+.client-profile-page .cs-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.client-profile-page .cs-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: var(--primary-blue);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.95rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.client-profile-page .cs-save:hover:not(:disabled) {
+  background: var(--primary-blue-dark);
+  transform: translateY(-1px);
+}
+
+.client-profile-page .cs-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
