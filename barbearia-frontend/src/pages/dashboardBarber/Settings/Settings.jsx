@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { 
   FiSettings, 
   FiUser, 
@@ -20,6 +20,9 @@ import {
   FiAlertTriangle,
   FiInfo
 } from "react-icons/fi";
+import { obterConfiguracao, salvarConfiguracao } from "../../../services/configuracaoService";
+import { prepararLogo } from "../../../utils/imagem";
+import { formatarTelefone, telefoneValido } from "../../../utils/telefone";
 import "./Settings.css";
 
 export default function Settings() {
@@ -32,23 +35,23 @@ export default function Settings() {
   const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
-    nomeEstabelecimento: "Barbearia Estilo Clássico",
-    telefone: "(11) 99999-9999",
-    email: "contato@barbeariaestilo.com",
-    endereco: "Rua das Flores, 123, Centro, São Paulo/SP",
+    nomeEstabelecimento: "",
+    telefone: "",
+    email: "",
+    endereco: "",
     enderecoDetalhado: {
-      rua: "Rua das Flores",
-      numero: "123",
-      bairro: "Centro",
-      cidade: "São Paulo",
-      estado: "SP",
-      pontoReferencia: "Próximo ao shopping"
+      rua: "",
+      numero: "",
+      bairro: "",
+      cidade: "",
+      estado: "",
+      pontoReferencia: ""
     },
     diasAtendimento: ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"],
     horarioInicio: "08:00",
     horarioFim: "18:00",
     logo: null,
-    emailNotificacoes: "admin@barbeariaestilo.com",
+    emailNotificacoes: "",
     notificacoes: {
       novosAgendamentos: true,
       cancelamentos: true,
@@ -73,18 +76,55 @@ export default function Settings() {
   });
 
   const [currentError, setCurrentError] = useState(null);
+  const [carregando, setCarregando] = useState(true);
+
+  // Carrega as configurações salvas no banco
+  useEffect(() => {
+    obterConfiguracao()
+      .then((config) => {
+        setFormData(prev => ({
+          ...prev,
+          nomeEstabelecimento: config.nome,
+          telefone: config.telefone,
+          email: config.email,
+          endereco: config.endereco,
+          enderecoDetalhado: config.enderecoDetalhado,
+          diasAtendimento: config.diasAtendimento,
+          horarioInicio: config.horarioInicio,
+          horarioFim: config.horarioFim,
+          logo: config.logo,
+          emailNotificacoes: config.emailNotificacoes,
+          notificacoes: config.notificacoes
+        }));
+        setLogoPreview(config.logo);
+      })
+      .catch((error) => {
+        console.error("Erro ao carregar configurações:", error);
+        setCurrentError({ field: "general", message: "Não foi possível carregar as configurações. Verifique se o backend está rodando." });
+      })
+      .finally(() => setCarregando(false));
+  }, []);
 
   const tabs = [
     { key: "perfil", label: "Perfil da Empresa", icon: FiUser },
     { key: "notificacoes", label: "Notificações", icon: FiBell }
   ];
 
+  // Primeira letra maiúscula em cada palavra, mantendo "de/da/do/e" em minúsculo e números romanos
+  // em maiúsculo (ex.: "Rua XV de Novembro", "Navalha de Ouro"). Não mexe nos espaços digitados.
   const capitalizeWords = (str) => {
     if (!str) return "";
+    const minusculas = ["de", "da", "do", "das", "dos", "e"];
+    const romanos = /^(i{1,3}|iv|v|vi{1,3}|ix|x{1,2}|xi{1,3}|xiv|xv|xvi{1,3}|xix|xx)$/;
     return str
       .toLowerCase()
       .split(" ")
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .map((word, i) => {
+        if (!word) return word;
+        if (i > 0 && minusculas.includes(word)) return word;
+        if (romanos.test(word)) return word.toUpperCase();
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      })
       .join(" ");
   };
 
@@ -167,10 +207,12 @@ export default function Settings() {
           return;
         }
 
-        setFormData(prev => ({ ...prev, logo: file }));
-        const reader = new FileReader();
-        reader.onload = (ev) => setLogoPreview(ev.target.result);
-        reader.readAsDataURL(file);
+        prepararLogo(file)
+          .then((dataUrl) => {
+            setFormData(prev => ({ ...prev, logo: dataUrl }));
+            setLogoPreview(dataUrl);
+          })
+          .catch((err) => setCurrentError({ field: "logo", message: err.message }));
       }
       return;
     }
@@ -272,8 +314,7 @@ export default function Settings() {
   };
 
   const handlePhoneChange = (e) => {
-    const rawValue = e.target.value.replace(/[^\d]/g, '');
-    setFormData(prev => ({ ...prev, telefone: formatPhoneNumber(rawValue) }));
+    setFormData(prev => ({ ...prev, telefone: formatarTelefone(e.target.value) }));
   };
 
   const validateForm = (tabType) => {
@@ -285,7 +326,7 @@ export default function Settings() {
         return false;
       }
 
-      if (!formData.telefone || formData.telefone.length < 15) {
+      if (!telefoneValido(formData.telefone)) {
         setCurrentError({ field: "telefone", message: "Telefone válido é obrigatório." });
         return false;
       }
@@ -350,14 +391,29 @@ export default function Settings() {
     setCurrentError(null);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      // Grava no banco e avisa a sidebar e o app do cliente para atualizarem nome e logo
+      const salvo = await salvarConfiguracao(formData);
+      setFormData(prev => ({
+        ...prev,
+        nomeEstabelecimento: salvo.nome,
+        telefone: salvo.telefone,
+        email: salvo.email,
+        endereco: salvo.endereco,
+        enderecoDetalhado: salvo.enderecoDetalhado,
+        diasAtendimento: salvo.diasAtendimento,
+        horarioInicio: salvo.horarioInicio,
+        horarioFim: salvo.horarioFim,
+        logo: salvo.logo,
+        emailNotificacoes: salvo.emailNotificacoes,
+        notificacoes: salvo.notificacoes
+      }));
+      setLogoPreview(salvo.logo);
+
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
-      
-      console.log("Dados salvos:", formData);
     } catch (error) {
-      setCurrentError({ field: "general", message: "Erro ao salvar configurações. Tente novamente." });
+      const mensagem = error.response?.data?.error || "Erro ao salvar configurações. Tente novamente.";
+      setCurrentError({ field: "general", message: mensagem });
     } finally {
       setIsLoading(false);
     }
@@ -395,6 +451,16 @@ export default function Settings() {
     { value: "Sábado", label: "Sáb", full: "Sábado" },
     { value: "Domingo", label: "Dom", full: "Domingo" }
   ];
+
+  if (carregando) {
+    return (
+      <div className="settings-page">
+        <div className="container">
+          <p>Carregando configurações...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="settings-page">
@@ -507,7 +573,7 @@ export default function Settings() {
                             type="file"
                             name="logo"
                             className="file-input"
-                            accept="image/*"
+                            accept="image/png,image/jpeg,image/webp,image/gif"
                             onChange={handleInputChange}
                           />
                           <div className="file-input-button">

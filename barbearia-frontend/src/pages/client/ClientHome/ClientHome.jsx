@@ -5,7 +5,8 @@ import { FaMapMarkerAlt, FaBell, FaSearch } from 'react-icons/fa';
 import { obterClienteLogado } from '../../../services/authStorage';
 import { listarAgendamentos, cancelarAgendamento } from '../../../services/agendamentoService';
 import { proximosAgendamentos } from '../../../utils/agendamentosCliente';
-import { barbearias, linkGoogleMaps } from '../../../data/barbearias';
+import { linkGoogleMaps } from '../../../data/barbearias';
+import useBarbearias from '../../../hooks/useBarbearias';
 import AgendamentoItem from '../components/AgendamentoItem/AgendamentoItem';
 
 function Header(props) {
@@ -47,10 +48,17 @@ function SectionTitle(props) {
   return <h2 className="section-title">{props.text}</h2>;
 }
 
-function BarbershopAvatar() {
+function BarbershopAvatar({ logo, name }) {
+  if (logo) {
+    return (
+      <div className="avatar avatar--logo">
+        <img src={logo} alt={`Logo ${name}`} className="avatar-img" />
+      </div>
+    );
+  }
   return (
     <div className="avatar">
-      <div className="avatar-icon">👤</div>
+      <div className="avatar-icon">✂️</div>
     </div>
   );
 }
@@ -97,7 +105,7 @@ function BarbershopCard({ shop, onClick }) {
       onKeyDown={(e) => { if (e.key === 'Enter') onClick(); }}
     >
       <div className="card-left">
-        <BarbershopAvatar />
+        <BarbershopAvatar logo={shop.logo} name={shop.name} />
         <BarbershopInfo name={shop.name} address={shop.address} real={shop.real} />
       </div>
       <BarbershopDistance distance={shop.distance} mapsUrl={linkGoogleMaps(shop)} name={shop.name} />
@@ -199,6 +207,7 @@ const HomePage = () => {
     }
   };
 
+  const { barbearias } = useBarbearias();
   const filteredBarbershops = barbearias.filter((shop) =>
     shop.name.toLowerCase().includes(searchTerm.toLowerCase())
   );

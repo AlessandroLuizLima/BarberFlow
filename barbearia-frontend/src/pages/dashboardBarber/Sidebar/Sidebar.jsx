@@ -7,9 +7,13 @@ import {
 import { GoGear } from "react-icons/go";
 import "./Sidebar.css";
 import Logo from "../../../assets/imagens/logo.png";
+import useConfiguracaoBarbearia from "../../../hooks/useConfiguracaoBarbearia";
 
 const Sidebar = () => {
   const [isLightMode, setIsLightMode] = useState(false);
+  // Nome e logo vêm das Configurações da barbearia (banco) e atualizam assim que o barbeiro salva
+  const { config } = useConfiguracaoBarbearia();
+  const nomeBarbearia = config?.nome || "sua barbearia";
 
   const toggleTheme = () => {
     setIsLightMode(!isLightMode);
@@ -29,10 +33,14 @@ const Sidebar = () => {
   return (
     <aside className="sidebar">
       <div className="profile">
-        <img className="profile-icon" src={Logo} alt="LogoBarbearia"/>
+        <img
+          className={`profile-icon ${config?.logo ? "profile-icon--custom" : ""}`}
+          src={config?.logo || Logo}
+          alt={`Logo ${nomeBarbearia}`}
+        />
         <div className="profile-text">
           <h2>Bem-vindo, Alessandro</h2>
-          <p>Gerenciando Barbearia Style's</p>
+          <p>Gerenciando {nomeBarbearia}</p>
         </div>
       </div>
 

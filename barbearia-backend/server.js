@@ -18,9 +18,11 @@ const routerServicos = require('./src/routes/routesServicos');
 const routerAgendamentos = require('./src/routes/routesAgendamentos');
 const routerListaEspera = require('./src/routes/routesListaEspera');
 const routerMensagens = require('./src/routes/routesMensagens');
+const routerConfiguracoes = require('./src/routes/routesConfiguracoes');
 
 app.use(cors());
-app.use(express.json());
+// Limite maior por causa da logo da barbearia (enviada como imagem em base64)
+app.use(express.json({ limit: '2mb' }));
 
 // Se o banco/migrações falharem na inicialização, o servidor continua de pé e
 // responde 503 com o motivo, em vez de ficar fora do ar sem explicação.
@@ -52,6 +54,7 @@ app.use(routerServicos);
 app.use(routerAgendamentos);
 app.use(routerListaEspera);
 app.use(routerMensagens);
+app.use(routerConfiguracoes);
 
 // Tratamento de rota não encontrada
 app.use((req, res) => {
@@ -60,6 +63,9 @@ app.use((req, res) => {
 
 // Tratamento de erros não capturados
 app.use((err, req, res, next) => {
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Arquivo muito grande. Use uma imagem menor.' });
+  }
   console.error(err.stack);
   res.status(500).json({ error: 'Erro interno do servidor' });
 });

@@ -1081,3 +1081,41 @@ body:not(.light-mode) .settings-page .modal-body::-webkit-scrollbar-thumb:hover 
     display: none;
   }
 }
+
+/* ========================================
+   Ajustes do modo escuro: abas e dias de atendimento
+======================================== */
+/* Texto das abas (Perfil da Empresa / Notificações) em branco no modo escuro */
+body:not(.light-mode) .tab-button:not(.active) {
+  color: #ffffff;
+}
+
+body:not(.light-mode) .tab-button:hover:not(.active) {
+  color: var(--dark-blue, #3b82f6);
+}
+
+/* Dia selecionado: azul cheio com texto branco e marca de seleção (antes o estilo do modo escuro sobrescrevia) */
+.day-button.selected,
+body:not(.light-mode) .day-button.selected {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+}
+
+.day-button.selected:hover,
+body:not(.light-mode) .day-button.selected:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.day-button.selected::before {
+  content: "\2713\00a0";
+}
+
+/* Dia não selecionado: texto claro e legível no modo escuro */
+body:not(.light-mode) .day-button:not(.selected) {
+  color: #e5e7eb;
+}

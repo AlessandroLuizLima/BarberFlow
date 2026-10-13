@@ -757,3 +757,25 @@
   .client-booking .cb-report-list li { grid-template-columns: 1fr auto; }
   .client-booking .cb-report-qty { display: none; }
 }
+
+/* ---------- Logo da barbearia ---------- */
+.client-booking .cb-logo {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #fff;
+  border: 2px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.client-booking .cb-logo--sm {
+  width: 40px;
+  height: 40px;
+}
+
+.client-booking .cb-report-shop {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}

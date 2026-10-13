@@ -113,3 +113,24 @@ CREATE TABLE mensagens (
 );
 
 CREATE INDEX idx_mensagens_cliente ON mensagens (cliente_id);
+
+-- ============================================================
+-- Tabela: configuracoes_barbearia (uma única linha, id = 1)
+-- Nome, logo, endereço, horários e notificações da barbearia.
+-- ============================================================
+CREATE TABLE configuracoes_barbearia (
+    id                  INTEGER PRIMARY KEY DEFAULT 1,
+    nome                VARCHAR(100) NOT NULL,
+    telefone            VARCHAR(20),
+    email               VARCHAR(150),
+    endereco            VARCHAR(255),
+    endereco_detalhado  JSONB NOT NULL DEFAULT '{}',
+    dias_atendimento    JSONB NOT NULL DEFAULT '[]',
+    horario_inicio      VARCHAR(5) NOT NULL DEFAULT '08:00',
+    horario_fim         VARCHAR(5) NOT NULL DEFAULT '18:00',
+    logo                TEXT,
+    email_notificacoes  VARCHAR(150),
+    notificacoes        JSONB NOT NULL DEFAULT '{}',
+    atualizado_em       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT ck_configuracao_unica CHECK (id = 1)
+);

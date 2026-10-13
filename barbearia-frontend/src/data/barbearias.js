@@ -1,9 +1,13 @@
 // Catálogo de barbearias do lado do cliente.
-// - id 1 (real: true) é a barbearia cadastrada no sistema: agenda de verdade pela API.
+// - id 1 (real: true) é a barbearia cadastrada no sistema: nome, logo, endereço e horários vêm das
+//   Configurações do painel do barbeiro (banco) e o agendamento é gravado de verdade pela API.
 // - As demais são FICTÍCIAS, só para testar a navegação do cliente (não gravam agendamento no banco).
-// Quando as configurações da barbearia forem salvas no banco, preencha o endereço da real aqui (ou carregue da API).
 
 export const BARBEARIA_REAL_ID = 1;
+
+const DIAS_SEMANA = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo'];
+
+const pagamentos = ['Dinheiro', 'Cartão de Crédito', 'Cartão de Débito', 'PIX'];
 
 const servicosBase = [
   { nome: 'Cabelo', preco: 30, duracao: 30 },
@@ -32,12 +36,29 @@ const horarioPadrao = [
   { day: 'Sábado', hours: '08:00 - 18:00' },
 ];
 
-const pagamentos = ['Dinheiro', 'Cartão de Crédito', 'Cartão de Débito', 'PIX'];
+// Logo gerada para as barbearias de demonstração: círculo colorido com as iniciais do nome
+export const logoPadrao = (nome, cor = '#3b82f6') => {
+  const iniciais = nome
+    .split(/\s+/)
+    .filter((p) => /[A-Za-zÀ-ú]/.test(p[0]))
+    .slice(0, 2)
+    .map((p) => p[0].toUpperCase())
+    .join('');
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">` +
+    `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">` +
+    `<stop offset="0" stop-color="${cor}"/><stop offset="1" stop-color="#111827"/></linearGradient></defs>` +
+    `<circle cx="64" cy="64" r="64" fill="url(#g)"/>` +
+    `<text x="64" y="64" text-anchor="middle" dominant-baseline="central" ` +
+    `font-family="Arial, Helvetica, sans-serif" font-size="46" font-weight="700" fill="#ffffff">${iniciais}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+};
 
-const criar = (id, name, rating, distance, phone, street, neighborhood, city, state, fator, totalReviews) => ({
+const criar = (id, name, cor, rating, distance, phone, street, neighborhood, city, state, fator, totalReviews) => ({
   id,
   real: false,
   name,
+  logo: logoPadrao(name, cor),
   rating,
   distance,
   phone,
@@ -55,37 +76,55 @@ const criar = (id, name, rating, distance, phone, street, neighborhood, city, st
   },
 });
 
-export const barbearias = [
-  {
+const demonstracao = [
+  criar(2, 'Estilo Clássico', '#2563eb', 4.9, '1,2 km', '(41) 99811-2200', 'Rua XV de Novembro, 1200', 'Centro', 'Curitiba', 'PR', 1.2, 214),
+  criar(3, 'Navalha de Ouro', '#d97706', 4.8, '2,4 km', '(11) 99722-3344', 'Avenida Paulista, 1578', 'Bela Vista', 'São Paulo', 'SP', 1.6, 187),
+  criar(4, 'Corte & Cia', '#059669', 4.6, '3,1 km', '(41) 99655-1020', 'Rua das Flores, 345', 'Batel', 'Curitiba', 'PR', 1.0, 96),
+  criar(5, 'The Barber House', '#7c3aed', 4.7, '3,8 km', '(11) 99588-7766', 'Avenida Brigadeiro Faria Lima, 2200', 'Pinheiros', 'São Paulo', 'SP', 1.8, 142),
+  criar(6, 'Barba Negra', '#dc2626', 4.5, '4,5 km', '(11) 99433-0912', 'Rua Augusta, 900', 'Consolação', 'São Paulo', 'SP', 1.1, 73),
+  criar(7, 'Dom Navalha', '#0891b2', 4.4, '5,2 km', '(41) 99377-4521', 'Avenida Sete de Setembro, 4100', 'Batel', 'Curitiba', 'PR', 1.3, 58),
+  criar(8, 'Vila Barber Club', '#db2777', 4.8, '6,0 km', '(11) 99266-8800', 'Rua Oscar Freire, 650', 'Jardins', 'São Paulo', 'SP', 2.0, 163),
+];
+
+// Horário de funcionamento no formato da página de detalhes (dias fechados aparecem como "Fechado")
+const horariosDaConfig = (config) =>
+  DIAS_SEMANA.filter((dia) => dia !== 'Domingo' || config?.diasAtendimento?.includes('Domingo')).map((dia) => ({
+    day: dia,
+    hours: config?.diasAtendimento?.includes(dia) ? `${config.horarioInicio} - ${config.horarioFim}` : 'Fechado',
+  }));
+
+// Barbearia real, montada a partir das Configurações salvas pelo barbeiro
+export function montarBarbeariaReal(config) {
+  const d = config?.enderecoDetalhado || {};
+  const rua = [d.rua, d.numero].filter(Boolean).join(', ');
+  return {
     id: BARBEARIA_REAL_ID,
     real: true,
-    name: 'BarberFlow',
+    name: config?.nome || 'Barbearia',
+    logo: config?.logo || null,
     rating: 5,
     distance: '',
-    phone: '',
-    email: '',
-    address: 'Barbearia cadastrada no sistema',
+    phone: config?.telefone || '',
+    email: config?.email || '',
+    address: config?.endereco || 'Endereço ainda não informado',
     services: [],
     products: [],
     reviews: [],
     averageRating: 5,
     totalReviews: 0,
     details: {
-      address: { street: '', neighborhood: '', city: '', state: '' },
-      openingHours: horarioPadrao,
+      address: { street: rua, neighborhood: d.bairro || '', city: d.cidade || '', state: d.estado || '' },
+      openingHours: config ? horariosDaConfig(config) : horarioPadrao,
       paymentMethods: pagamentos,
     },
-  },
-  criar(2, 'Estilo Clássico', 4.9, '1,2 km', '(41) 99811-2200', 'Rua XV de Novembro, 1200', 'Centro', 'Curitiba', 'PR', 1.2, 214),
-  criar(3, 'Navalha de Ouro', 4.8, '2,4 km', '(11) 99722-3344', 'Avenida Paulista, 1578', 'Bela Vista', 'São Paulo', 'SP', 1.6, 187),
-  criar(4, 'Corte & Cia', 4.6, '3,1 km', '(41) 99655-1020', 'Rua das Flores, 345', 'Batel', 'Curitiba', 'PR', 1.0, 96),
-  criar(5, 'The Barber House', 4.7, '3,8 km', '(11) 99588-7766', 'Avenida Brigadeiro Faria Lima, 2200', 'Pinheiros', 'São Paulo', 'SP', 1.8, 142),
-  criar(6, 'Barba Negra', 4.5, '4,5 km', '(11) 99433-0912', 'Rua Augusta, 900', 'Consolação', 'São Paulo', 'SP', 1.1, 73),
-  criar(7, 'Dom Navalha', 4.4, '5,2 km', '(41) 99377-4521', 'Avenida Sete de Setembro, 4100', 'Batel', 'Curitiba', 'PR', 1.3, 58),
-  criar(8, 'Vila Barber Club', 4.8, '6,0 km', '(11) 99266-8800', 'Rua Oscar Freire, 650', 'Jardins', 'São Paulo', 'SP', 2.0, 163),
-];
+  };
+}
 
-export const obterBarbearia = (id) => barbearias.find((b) => String(b.id) === String(id));
+// Lista completa: a barbearia real (das Configurações) + as de demonstração
+export const listarBarbearias = (config) => [montarBarbeariaReal(config), ...demonstracao];
+
+export const obterBarbearia = (id, config) =>
+  listarBarbearias(config).find((b) => String(b.id) === String(id));
 
 // Link do Google Maps. Sem endereço cadastrado, procura a barbearia pelo nome.
 export function linkGoogleMaps(barbearia) {

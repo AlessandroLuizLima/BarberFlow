@@ -24,14 +24,14 @@ export const proximosAgendamentos = (lista, agora = new Date()) =>
     .sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora));
 
 // Relatório do que o cliente já consumiu (só atendimentos concluídos), agrupado por barbearia e serviço
-export function gerarRelatorio(lista) {
+export function gerarRelatorio(lista, barbearia = { nome: NOME_BARBEARIA, logo: null }) {
   const concluidos = lista.filter((a) => a.status === 'concluido');
   const porBarbearia = new Map();
 
   concluidos.forEach((a) => {
-    const nomeBarbearia = a.barbearia?.nome || NOME_BARBEARIA;
+    const nomeBarbearia = a.barbearia?.nome || barbearia.nome;
     if (!porBarbearia.has(nomeBarbearia)) {
-      porBarbearia.set(nomeBarbearia, { nome: nomeBarbearia, visitas: 0, total: 0, servicos: new Map(), ultima: null });
+      porBarbearia.set(nomeBarbearia, { nome: nomeBarbearia, logo: barbearia.logo || null, visitas: 0, total: 0, servicos: new Map(), ultima: null });
     }
     const b = porBarbearia.get(nomeBarbearia);
     const valor = valorDoAgendamento(a);

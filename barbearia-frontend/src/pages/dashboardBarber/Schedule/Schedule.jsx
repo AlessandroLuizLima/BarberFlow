@@ -99,11 +99,9 @@ const AppointmentCard = ({ apt, color, showDate, todayKey, busy, onConcluir, onR
 
     {onConcluir && isAtivo(apt.status) && (
       <div className="appointment-actions">
-        {apt.date <= todayKey && (
-          <button className="action-btn completed" disabled={busy} onClick={() => onConcluir(apt)}>
-            <IoCheckmarkCircle className="btn-icon" /> Concluir
-          </button>
-        )}
+        <button className="action-btn completed" disabled={busy} onClick={() => onConcluir(apt)}>
+          <IoCheckmarkCircle className="btn-icon" /> Concluir
+        </button>
         <button className="action-btn rescheduled" disabled={busy} onClick={() => onRemarcar(apt)}>
           <IoRefresh className="btn-icon" /> Remarcar
         </button>
@@ -186,7 +184,11 @@ const Agenda = () => {
   };
 
   const handleConcluir = (apt) => {
-    if (!window.confirm(`Concluir o atendimento de ${apt.clientName}? O valor entra no lucro do dia.`)) return;
+    const futuro = apt.date > todayKey;
+    const aviso = futuro
+      ? `Este agendamento é de ${apt.date.split('-').reverse().join('/')}, um dia que ainda não chegou. Concluir o atendimento de ${apt.clientName} mesmo assim?`
+      : `Concluir o atendimento de ${apt.clientName}? O valor entra no lucro do dia.`;
+    if (!window.confirm(aviso)) return;
     executar(apt, () => concluirAgendamento(apt.id), 'Não foi possível concluir o atendimento.');
   };
 
@@ -398,7 +400,14 @@ const Agenda = () => {
               ) : (
                 <div className="appointments-list">
                   {statusList.map(apt => (
-                    <AppointmentCard key={apt.id} apt={apt} color={getBarberColor(apt.barberId)} showDate />
+                    <AppointmentCard
+                      key={apt.id}
+                      apt={apt}
+                      color={getBarberColor(apt.barberId)}
+                      busy={busyId === apt.id}
+                      showDate
+                      {...cardProps}
+                    />
                   ))}
                 </div>
               )}

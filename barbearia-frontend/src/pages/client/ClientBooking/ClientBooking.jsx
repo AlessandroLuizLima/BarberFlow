@@ -24,10 +24,9 @@ import { criarAgendamento, listarAgendamentos, cancelarAgendamento } from '../..
 import { entrarNaListaDeEspera } from '../../../services/listaEsperaService';
 import { obterClienteLogado } from '../../../services/authStorage';
 import { proximosAgendamentos, gerarRelatorio, formatarMoeda } from '../../../utils/agendamentosCliente';
-import { barbearias, BARBEARIA_REAL_ID, linkGoogleMaps } from '../../../data/barbearias';
+import { linkGoogleMaps } from '../../../data/barbearias';
+import useBarbearias from '../../../hooks/useBarbearias';
 import AgendamentoItem from '../components/AgendamentoItem/AgendamentoItem';
-
-const barbeariaReal = barbearias.find((b) => b.id === BARBEARIA_REAL_ID);
 
 const HORARIOS = [
   '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
@@ -38,6 +37,7 @@ const HORARIOS = [
 
 const ClientBooking = () => {
   const clienteLogado = obterClienteLogado();
+  const { barbeariaReal } = useBarbearias();
   const [searchParams, setSearchParams] = useSearchParams();
   const aba = searchParams.get('aba') === 'novo' ? 'novo' : 'meus';
 
@@ -277,7 +277,7 @@ const ClientBooking = () => {
   const proximos = proximosAgendamentos(agendamentos);
   const proximo = proximos[0];
   const demais = proximos.slice(1, 6);
-  const relatorio = gerarRelatorio(agendamentos);
+  const relatorio = gerarRelatorio(agendamentos, { nome: barbeariaReal.name, logo: barbeariaReal.logo });
 
   const renderMeusAgendamentos = () => (
     <div className="cb-overview">
@@ -364,12 +364,15 @@ const ClientBooking = () => {
             {relatorio.barbearias.map((b) => (
               <div key={b.nome} className="cb-report-card">
                 <div className="cb-report-head">
-                  <div>
+                  <div className="cb-report-shop">
+                    {b.logo && <img src={b.logo} alt={`Logo ${b.nome}`} className="cb-logo cb-logo--sm" />}
+                    <div>
                     <h3><FiMapPin size={16} /> {b.nome}</h3>
                     <span className="cb-muted">
                       {b.visitas} {b.visitas === 1 ? 'atendimento' : 'atendimentos'}
                       {b.ultima && ` · última visita em ${b.ultima.toLocaleDateString('pt-BR')}`}
                     </span>
+                    </div>
                   </div>
                   <strong className="cb-report-total">{formatarMoeda(b.total)}</strong>
                 </div>
@@ -618,10 +621,13 @@ const ClientBooking = () => {
               </div>
 
               <div className="cb-confirm-row">
-                <div className="cb-confirm-icon"><FiMapPin size={22} /></div>
+                {barbeariaReal.logo
+                  ? <img src={barbeariaReal.logo} alt={`Logo ${barbeariaReal.name}`} className="cb-logo" />
+                  : <div className="cb-confirm-icon"><FiMapPin size={22} /></div>}
                 <div>
                   <h4>Local</h4>
                   <p>{barbeariaReal.name}</p>
+                  {barbeariaReal.details.address.city && <span>{barbeariaReal.address}</span>}
                   <a
                     className="cb-maps-link"
                     href={linkGoogleMaps(barbeariaReal)}

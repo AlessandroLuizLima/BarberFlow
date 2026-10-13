@@ -462,3 +462,21 @@ body:not(.light-mode) .home-page .distance {
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
+
+/* Logo da barbearia no card */
+.home-page .avatar--logo {
+  background-color: #fff;
+  overflow: hidden;
+  border: 2px solid var(--border-color);
+}
+
+body.light-mode .home-page .avatar--logo {
+  background-color: #fff;
+}
+
+.home-page .avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}

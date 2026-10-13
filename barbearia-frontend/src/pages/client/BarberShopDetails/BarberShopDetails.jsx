@@ -13,13 +13,15 @@ import BarberServices from './BarberServices/BarberServices';
 import BarberProducts from './BarberProducts/BarberProducts';
 import BarberDetails from './BarberDetails/BarberDetails';
 import BarberAssessment from './BarberAssessment/BarberAssessment';
-import { obterBarbearia, linkGoogleMaps } from '../../../data/barbearias';
+import { linkGoogleMaps } from '../../../data/barbearias';
+import useBarbearias from '../../../hooks/useBarbearias';
 import './BarberShopDetails.css';
 
 const BarberShopDetails = ({ barbershop: barbershopProp, onBack: onBackProp }) => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const barbershop = barbershopProp || obterBarbearia(id);
+  const { buscar } = useBarbearias();
+  const barbershop = barbershopProp || buscar(id);
   const onBack = onBackProp || (() => navigate('/cliente'));
   const [activeTab, setActiveTab] = useState('servicos');
   const [isFavorite, setIsFavorite] = useState(false);

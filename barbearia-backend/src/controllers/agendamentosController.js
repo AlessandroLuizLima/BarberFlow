@@ -268,10 +268,6 @@ exports.concluirAgendamento = async (req, res) => {
     if (!STATUS_ATIVOS.includes(agendamento.status)) {
       throw new ErroNegocio(409, `Um agendamento ${agendamento.status} não pode ser concluído`);
     }
-    if (dataLocalISO(agendamento.data_hora) > dataLocalISO(new Date())) {
-      throw new ErroNegocio(400, 'Não é possível concluir um atendimento de um dia que ainda não chegou');
-    }
-
     await agendamento.update({ status: 'concluido' });
 
     const agendamentoAtualizado = await Agendamento.findByPk(agendamento.id, { include: includePadrao });
