@@ -46,7 +46,7 @@ function Navbar(props) {
     <nav className="navbar">
       <div className="navbar-container">
         <a href="#home" className="logo">
-          <img src={props.logo} alt="Logo Cortaê" />
+          <img src={props.logo} alt="Logo BarberFlow" />
         </a>
         
         <div className="nav-buttons">
@@ -454,7 +454,7 @@ const LandingPage = () => {
   ];
 
   return (
-    <div className="cortae">
+    <div className="barberflow">
       <Navbar 
         logo={Logo}
         mobileMenuOpen={mobileMenuOpen}
@@ -473,8 +473,8 @@ const LandingPage = () => {
       <AboutSection 
         label="Sobre nós"
         title="A solução completa para modernizar sua barbearia"
-        paragraph1="O Cortaê nasceu da necessidade real de profissionais da beleza que buscavam uma forma simples e eficiente de gerenciar seus negócios. Sabemos que seu tempo é valioso e deve ser dedicado ao que você faz de melhor: atender seus clientes."
-        paragraph2="Nossa plataforma elimina a papelada, reduz os 'furos' de agenda e ajuda você a construir um relacionamento duradouro com seus clientes. Com o Cortaê, você tem controle total do seu negócio na palma da mão."
+        paragraph1="O BarberFlow nasceu da necessidade real de profissionais da beleza que buscavam uma forma simples e eficiente de gerenciar seus negócios. Sabemos que seu tempo é valioso e deve ser dedicado ao que você faz de melhor: atender seus clientes."
+        paragraph2="Nossa plataforma elimina a papelada, reduz os 'furos' de agenda e ajuda você a construir um relacionamento duradouro com seus clientes. Com o BarberFlow, você tem controle total do seu negócio na palma da mão."
       />
 
       <ServicesSection 
@@ -499,7 +499,7 @@ const LandingPage = () => {
       <Footer 
         logo={Logo}
         sections={footerSections}
-        copyright="© 2025 Cortaê. Todos os Direitos Reservados."
+        copyright="© 2026 BarberFlow. Todos os Direitos Reservados."
       />
     </div>
   );
