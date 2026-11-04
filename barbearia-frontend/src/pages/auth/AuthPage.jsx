@@ -5,13 +5,14 @@ import {
   AiOutlineLock, 
   AiOutlineUser, 
   AiOutlinePhone, 
+  AiOutlineHome,
   AiOutlineEye, 
   AiOutlineEyeInvisible,
   AiOutlineCheckCircle,
   AiOutlineExclamationCircle
 } from 'react-icons/ai';
 import { MdSecurity } from 'react-icons/md';
-import { cadastrarCliente, loginCliente } from '../../services/clienteService';
+import { cadastrarCliente, loginCliente, consultarCep } from '../../services/clienteService';
 import { salvarSessaoCliente } from '../../services/authStorage';
 import './AuthPage.css';
 
@@ -202,8 +203,13 @@ const AuthPage = () => {
     email: '',
     senha: '',
     confirmarSenha: '',
-    telefone: ''
+    telefone: '',
+    cep: '',
+    numero: '',
+    complemento: ''
   });
+  const [endereco, setEndereco] = useState(null);
+  const [buscandoCep, setBuscandoCep] = useState(false);
 
   // Limpa formulário ao trocar modo
   useEffect(() => {
@@ -212,8 +218,12 @@ const AuthPage = () => {
       email: '',
       senha: '',
       confirmarSenha: '',
-      telefone: ''
+      telefone: '',
+      cep: '',
+      numero: '',
+      complemento: ''
     });
+    setEndereco(null);
     setErrors({});
     setPasswordStrength(0);
     setSuccessMessage('');
@@ -237,6 +247,12 @@ const AuthPage = () => {
     if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
     if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
     return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
+  };
+
+  const formatCep = (value) => {
+    const digits = value.replace(/\D/g, '').slice(0, 8);
+    if (digits.length <= 5) return digits;
+    return `${digits.slice(0, 5)}-${digits.slice(5)}`;
   };
 
   const validateEmail = (email) => {
@@ -278,6 +294,14 @@ const AuthPage = () => {
       case 'nome':
         formattedValue = value.replace(/[^a-zA-ZÀ-ÿ\s]/g, '');
         break;
+      case 'cep':
+        formattedValue = formatCep(value);
+        // Se o CEP for alterado, o endereço antigo deixa de valer
+        if (formattedValue.replace(/\D/g, '').length !== 8) setEndereco(null);
+        break;
+      case 'numero':
+        formattedValue = value.replace(/\D/g, '').slice(0, 10);
+        break;
       case 'senha':
         if (!isLogin) {
           const validation = validatePassword(value);
@@ -299,6 +323,25 @@ const AuthPage = () => {
         ...prev,
         [name]: ''
       }));
+    }
+  };
+
+  // Ao terminar de digitar o CEP (8 dígitos), consulta o ViaCEP e preenche o endereço automaticamente
+  const handleCepBlur = async () => {
+    const cepLimpo = form.cep.replace(/\D/g, '');
+    if (cepLimpo.length !== 8) return;
+
+    setBuscandoCep(true);
+    try {
+      const resultado = await consultarCep(cepLimpo);
+      setEndereco(resultado);
+      setForm(prev => ({ ...prev, cep: resultado.cep || prev.cep }));
+      setErrors(prev => ({ ...prev, cep: '' }));
+    } catch {
+      setEndereco(null);
+      setErrors(prev => ({ ...prev, cep: 'CEP não encontrado' }));
+    } finally {
+      setBuscandoCep(false);
     }
   };
 
@@ -338,6 +381,11 @@ const AuthPage = () => {
         newErrors.telefone = 'Telefone é obrigatório';
       } else if (form.telefone.replace(/\D/g, '').length < 10) {
         newErrors.telefone = 'Telefone inválido';
+      }
+
+      // CEP (opcional, mas se informado precisa ser válido)
+      if (isClientRoute && form.cep && form.cep.replace(/\D/g, '').length !== 8) {
+        newErrors.cep = 'CEP deve ter 8 dígitos';
       }
 
       // Confirmação de senha
@@ -386,7 +434,10 @@ const AuthPage = () => {
           nome_completo: form.nome,
           email: form.email,
           telefone: form.telefone,
-          senha: form.senha
+          senha: form.senha,
+          cep: form.cep.replace(/\D/g, '') || undefined,
+          numero: form.numero || undefined,
+          complemento: form.complemento || undefined
         });
         setSuccessMessage('Cadastro realizado! Faça login para continuar.');
         setTimeout(() => {
@@ -400,8 +451,12 @@ const AuthPage = () => {
         email: '',
         senha: '',
         confirmarSenha: '',
-        telefone: ''
+        telefone: '',
+        cep: '',
+        numero: '',
+        complemento: ''
       });
+      setEndereco(null);
 
     } catch (error) {
       const mensagemApi = error.response?.data?.error;
@@ -477,6 +532,62 @@ const AuthPage = () => {
               required={true}
               showToggle={false}
             />
+          )}
+
+          {!isLogin && isClientRoute && (
+            <>
+              <div onBlur={handleCepBlur}>
+                <FormInput
+                  label={buscandoCep ? 'CEP (buscando endereço...)' : 'CEP'}
+                  icon={AiOutlineHome}
+                  type="text"
+                  name="cep"
+                  value={form.cep}
+                  onChange={handleChange}
+                  placeholder="00000-000"
+                  maxLength={9}
+                  autoComplete="postal-code"
+                  error={errors.cep}
+                  required={false}
+                  showToggle={false}
+                />
+              </div>
+
+              {endereco && (
+                <p className="endereco-preview" style={{ margin: '-4px 0 12px', fontSize: '0.85rem', opacity: 0.85 }}>
+                  {[endereco.logradouro, endereco.bairro].filter(Boolean).join(' - ')}
+                  {endereco.cidade ? `, ${endereco.cidade}/${endereco.uf}` : ''}
+                </p>
+              )}
+
+              <FormInput
+                label="Número"
+                icon={AiOutlineHome}
+                type="text"
+                name="numero"
+                value={form.numero}
+                onChange={handleChange}
+                placeholder="Ex.: 123"
+                maxLength={10}
+                error={errors.numero}
+                required={false}
+                showToggle={false}
+              />
+
+              <FormInput
+                label="Complemento"
+                icon={AiOutlineHome}
+                type="text"
+                name="complemento"
+                value={form.complemento}
+                onChange={handleChange}
+                placeholder="Apto, bloco... (opcional)"
+                maxLength={60}
+                error={errors.complemento}
+                required={false}
+                showToggle={false}
+              />
+            </>
           )}
 
           <FormInput
