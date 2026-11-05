@@ -11,7 +11,7 @@ configurações da barbearia.
 | **Frontend** | React 19 + Vite 7, React Router 7, Axios |
 | **Backend** | Node.js + Express 5, Sequelize 6, node-cron |
 | **Banco** | PostgreSQL |
-| **APIs externas** | [ViaCEP](https://viacep.com.br) (endereço pelo CEP) e [Nominatim/OpenStreetMap](https://nominatim.org) (endereço → coordenadas) |
+| **APIs externas** | [ViaCEP](https://viacep.com.br) (endereço pelo CEP), [Nominatim/OpenStreetMap](https://nominatim.org) (endereço → coordenadas) e SMTP via [Nodemailer](https://nodemailer.com) (e-mails) |
 | **Deploy** | Azure App Service (backend e frontend) via GitHub Actions |
 
 ---
@@ -25,6 +25,7 @@ configurações da barbearia.
 - [Banco de dados](#banco-de-dados)
 - [Imagens (logo e fotos de perfil)](#imagens-logo-e-fotos-de-perfil)
 - [Barbearia mais próxima](#barbearia-mais-próxima)
+- [Notificações por e-mail](#notificações-por-e-mail)
 - [Rotas da API](#rotas-da-api)
 - [Deploy](#deploy)
 - [Limitações conhecidas e próximos passos](#limitações-conhecidas-e-próximos-passos)
@@ -40,30 +41,36 @@ configurações da barbearia.
 - **Barbearia mais próxima**: a Home pede a localização do navegador, calcula a
   distância até cada barbearia e destaca a mais perto, com botão de rota no
   Google Maps. Sem permissão de localização, usa o endereço cadastrado do cliente.
-- **Agendamento** por serviço → profissional → data/horário, com bloqueio de
-  conflito de horário (considerando a duração de cada serviço).
+- **Agendamento**: o cliente escolhe a barbearia, abre a página dela (serviços,
+  produtos, detalhes, avaliação) e agenda pelo modal: data → horário → barbeiro.
+  Só aparecem dias de atendimento e horários realmente livres (expediente,
+  duração do serviço e agendamentos já marcados são considerados).
 - **Meus agendamentos**: próximos e histórico, com cancelamento e remarcação.
-- **Lista de espera** para um dia lotado.
-- **Configurações**: dados pessoais, endereço, senha, tema claro/escuro e
-  **foto de perfil**.
+- **Lista de espera**: se o dia estiver lotado, o próprio modal oferece a fila.
+- **Configurações**: dados pessoais, endereço pelo CEP (com rua e bairro
+  digitáveis quando o CEP é da cidade toda), senha, tema e **foto de perfil**.
 
 ### Painel do barbeiro (`/dashboard`)
 - **Dashboard** com lucro do dia e próximos agendamentos (dados reais da API).
 - **Agenda** com os agendamentos do banco: concluir, remarcar e cancelar.
-- **Configurações da barbearia**: nome, **logo**, telefone, endereço (que vira
-  coordenadas para a busca por proximidade), dias e horário de funcionamento,
-  preferências de notificação.
+- **Configurações da barbearia**: nome, **logo**, telefone, endereço pelo CEP
+  (que vira coordenadas para a busca por proximidade), dias e horário de
+  funcionamento.
+- **Notificações**: e-mail para novo agendamento, cancelamento, reagendamento,
+  lembrete 2h antes e resumo do dia, cada um com liga/desliga, botão de
+  e-mail de teste e histórico de envios.
 - Clientes, serviços, produtos, financeiro e relatórios ainda usam dados de
   exemplo no frontend (ver [limitações](#limitações-conhecidas-e-próximos-passos)).
 
 ### Automações do backend
-- **Confirmação imediata** ao criar o agendamento.
+- **Confirmação imediata** por e-mail ao criar o agendamento.
 - **Lembrete 2h antes**: job (`node-cron`) que roda a cada minuto e envia o
-  lembrete uma única vez por agendamento.
+  lembrete uma única vez por agendamento (para o cliente e, se ligado, para a barbearia).
+- **Resumo do dia** às 7h para a barbearia.
 - **Aviso à lista de espera** quando um horário é cancelado ou remarcado.
-- Todas as notificações ficam registradas na tabela `mensagens` e aparecem no
-  log do servidor (`[MENSAGEM:confirmacao]`, `[MENSAGEM:lembrete]`...). O envio
-  por WhatsApp/e-mail é simulado.
+- Tudo fica registrado (`mensagens` para clientes, `notificacoes_barbearia`
+  para o barbeiro) com o resultado do envio: `enviado`, `simulado` (sem SMTP
+  configurado) ou `falhou`.
 
 ---
 
@@ -146,15 +153,17 @@ Acesse `http://localhost:5173`.
 
 ### 4. Roteiro de teste
 1. Em `/auth/barbeiro`, entre no painel e abra **Configurações**: defina nome,
-   logo e o endereço completo da barbearia e salve.
+   logo e o endereço (comece pelo CEP) e salve. Em **Notificações**, envie um
+   e-mail de teste.
 2. Em `/auth/cliente`, crie uma conta (informe o CEP) e faça login.
 3. Na Home, permita o acesso à localização: a barbearia mais próxima aparece em
    destaque e a lista fica ordenada por distância.
-4. Em **Agendamentos**, marque um horário. No terminal do backend aparece
-   `[MENSAGEM:confirmacao]`.
+4. Clique na barbearia, escolha um serviço e clique em **Agendar**: data,
+   horário e barbeiro. Chega o e-mail de confirmação (ou, sem SMTP, aparece
+   `[email:simulado]` no terminal).
 5. Em **Configurações**, adicione uma foto de perfil.
 6. Cancele o agendamento: se houver alguém na lista de espera daquele dia, ele é
-   avisado (`[MENSAGEM:lista_espera]`).
+   avisado (`[MENSAGEM:lista_espera]`). O barbeiro recebe o aviso de cancelamento.
 
 ---
 
@@ -171,6 +180,10 @@ Acesse `http://localhost:5173`.
 | `PORT` | `3000` | Porta da API |
 | `GEOCODING_USER_AGENT` | `BarberFlow/1.0 (...)` | Identificação enviada ao Nominatim (a política de uso pede um contato) |
 | `GEOCODING_DESABILITADO` | `false` | `true` desliga a geocodificação (útil em testes offline) |
+| `SMTP_HOST` / `SMTP_PORT` | — / `587` | Servidor de e-mail. Ex.: `smtp.gmail.com` e `587` |
+| `SMTP_USER` / `SMTP_PASS` | — | Login do e-mail (no Gmail, a **senha de app**) |
+| `SMTP_FROM` | `SMTP_USER` | Endereço que aparece como remetente |
+| `RESUMO_DIARIO_HORA` | `07:00` | Horário do resumo do dia (horário de Brasília) |
 
 ### Frontend (`barbearia-frontend/.env`)
 
@@ -206,7 +219,8 @@ erDiagram
 | `servicos` | Nome, duração e preço |
 | `agendamentos` | Quem, com quem, qual serviço, quando, status e **preço cobrado no dia** |
 | `lista_espera` | Fila por profissional + serviço + dia |
-| `mensagens` | Histórico de toda notificação enviada |
+| `mensagens` | Histórico de toda notificação enviada ao cliente, com o status do e-mail |
+| `notificacoes_barbearia` | Histórico dos avisos enviados ao barbeiro (aparece na aba Notificações) |
 | `configuracoes_barbearia` | Linha única (`id = 1`) com os dados da barbearia, logo e coordenadas |
 | `imagens` | Arquivos de imagem (logo e fotos) em binário |
 | `schema_migrations` | Controle das migrações já aplicadas |
@@ -239,6 +253,8 @@ alterar o banco, acrescente uma nova migração no fim da lista. Elas usam
 | 007 | Tabela `imagens`, colunas `foto_id`/`logo_id` e coordenadas; move a logo antiga (base64) para `imagens` |
 | 008 | `criado_em`/`atualizado_em` e índices do job de lembretes |
 | 009 | Normaliza e-mails para minúsculo |
+| 010 | Status do envio nas mensagens e tabela `notificacoes_barbearia` |
+| 011 | Mensagem do tipo `cancelamento` |
 
 ---
 
@@ -276,14 +292,65 @@ Navegador do cliente ─► navigator.geolocation ─► posição atual ─► 
 ```
 
 - **Coordenadas da barbearia**: ao salvar as Configurações com um endereço novo,
-  o backend consulta o Nominatim (OpenStreetMap, gratuito e sem chave). Se não
-  encontrar, o painel avisa para conferir rua, número e cidade.
+  o backend consulta o Nominatim (OpenStreetMap, gratuito e sem chave), tentando
+  rua + número, depois o endereço por extenso, o CEP e por fim a cidade. O
+  resultado precisa ser do mesmo estado do cadastro (evita confundir, por
+  exemplo, Paulo Frontin/PR com Engenheiro Paulo de Frontin/RJ). Se não
+  encontrar, o painel avisa; se o mapa estiver fora do ar, o backend tenta de
+  novo sozinho depois.
+- **Links do Google Maps** usam o endereço escrito (rua, número, cidade, CEP),
+  que o Google localiza melhor do que coordenadas aproximadas.
 - **Posição do cliente**: o hook `useLocalizacao` pede a localização ao
   navegador. Funciona em `https://` e em `localhost`. Se o cliente negar, o
   sistema usa as coordenadas do endereço cadastrado (calculadas a partir do CEP).
 - **Cálculo**: `src/utils/geo.js` usa a fórmula de Haversine (distância em linha
   reta). Barbearias sem coordenadas aparecem no fim da lista.
 - O botão **Como chegar** abre a rota no Google Maps a partir da posição do cliente.
+
+---
+
+## Notificações por e-mail
+
+O backend envia e-mails por **SMTP** com o Nodemailer. Funciona com Gmail,
+Outlook, Brevo, Mailtrap ou qualquer outro provedor SMTP. Não precisa de API
+paga nem de domínio próprio.
+
+| Para quem | Quando | Pode desligar? |
+|---|---|---|
+| Cliente | Confirmação, remarcação, cancelamento, lembrete 2h antes, vaga na lista de espera | Não (faz parte do agendamento) |
+| Barbearia | Novo agendamento, cancelamento, reagendamento, lembrete 2h antes, resumo do dia | Sim, na aba **Notificações** |
+
+Os e-mails da barbearia vão para o **Email para Notificações** (ou, se estiver
+vazio, para o email principal da barbearia).
+
+### Passo a passo com Gmail
+1. Na conta Google que vai **enviar** os e-mails, ative a
+   [verificação em duas etapas](https://myaccount.google.com/signinoptions/two-step-verification).
+2. Crie uma senha de app em <https://myaccount.google.com/apppasswords>
+   (nome: "BarberFlow"). O Google mostra uma senha de 16 letras.
+3. No `barbearia-backend/.env`, adicione:
+   ```env
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USER=seuemail@gmail.com
+   SMTP_PASS=abcdefghijklmnop   # a senha de app, sem espaços
+   SMTP_FROM=seuemail@gmail.com
+   ```
+4. Reinicie o backend (`npm run dev`).
+5. No painel do barbeiro, abra **Configurações → Notificações**, preencha o
+   **Email para Notificações**, ligue o que quiser receber e clique em
+   **Salvar Preferências**.
+6. Clique em **Enviar e-mail de teste**. O resultado aparece na hora e o envio
+   entra em **Últimas Notificações**. Se o e-mail não chegar, olhe a pasta de spam.
+7. No Azure, cadastre as mesmas variáveis `SMTP_*` em
+   *Configuration → Application settings* do backend.
+
+Sem `SMTP_*` configurado, o sistema continua funcionando: as notificações são
+registradas como **simuladas** e aparecem no console (`[email:simulado]`).
+
+> O Gmail permite cerca de 500 e-mails por dia, mais do que suficiente para uma
+> barbearia. Para volumes maiores, use um provedor transacional (Brevo, por
+> exemplo, tem SMTP gratuito): só mudam as variáveis `SMTP_*`.
 
 ---
 
@@ -313,7 +380,8 @@ Base local: `http://localhost:3000`
 ### Agendamentos, lista de espera e mensagens
 | Método | Rota | Descrição |
 |---|---|---|
-| POST | `/agendamentos` | Cria (verifica conflito e envia a confirmação) |
+| POST | `/agendamentos` | Cria (verifica expediente e conflito, envia a confirmação) |
+| GET | `/disponibilidade?data=AAAA-MM-DD&servico_id=` | Horários livres do dia, com os barbeiros livres em cada um |
 | GET | `/agendamentos?cliente_id=&profissional_id=&status=` | Lista com filtros |
 | GET | `/agendamentos/:id` | Detalhe |
 | PUT | `/agendamentos/:id` | Remarca |
@@ -328,6 +396,9 @@ Base local: `http://localhost:3000`
 | GET | `/configuracoes` | Dados da barbearia, incluindo `logo_url`, `latitude` e `longitude` |
 | PUT | `/configuracoes` | Salva. Campo `logo`: data URL = nova logo · URL atual = manter · `null` = remover. Responde `localizacao_encontrada` |
 | GET | `/imagens/:id` | Arquivo da imagem |
+| GET | `/configuracoes/notificacoes/status` | Se o SMTP está configurado e para qual e-mail vão os avisos |
+| POST | `/configuracoes/notificacoes/teste` | Envia um e-mail de teste para a barbearia |
+| GET | `/notificacoes-barbearia?limite=` | Últimas notificações enviadas para a barbearia |
 
 ---
 
@@ -361,8 +432,9 @@ rodam sozinhas na primeira inicialização depois do deploy.
 - **Login do barbeiro** ainda é simulado no frontend.
 - **Telas do painel com dados de exemplo**: clientes, serviços, produtos,
   financeiro e relatórios.
-- **Notificações** são registradas e logadas, mas não enviadas de verdade
-  (integração com WhatsApp/e-mail pendente).
+- **WhatsApp/SMS**: as notificações saem por e-mail. Para WhatsApp seria
+  preciso a API oficial (Meta WhatsApp Cloud API ou Twilio), com conta
+  comercial verificada; o ponto de troca é o `notificacaoService`.
 
 ---
 
