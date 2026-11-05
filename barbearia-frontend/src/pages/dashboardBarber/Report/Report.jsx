@@ -12,7 +12,6 @@ import {
   FiPrinter,
   FiFilter
 } from 'react-icons/fi';
-import * as XLSX from 'xlsx';
 import useConfiguracaoBarbearia from '../../../hooks/useConfiguracaoBarbearia';
 import './Report.css';
 
@@ -21,22 +20,25 @@ const TIPOS = { geral: 'Geral', clientes: 'Clientes', servicos: 'Serviços', tem
 
 // "Barber Style's" -> "barber-styles" (para o nome do arquivo)
 const paraNomeDeArquivo = (texto) =>
-  String(texto || 'barbearia').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  String(texto || 'barbearia').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/['’`]/g, '')
     .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-// Planilha a partir de linhas, com largura de coluna ajustada ao conteúdo
-const montarPlanilha = (linhas) => {
-  const planilha = XLSX.utils.aoa_to_sheet(linhas);
-  planilha['!cols'] = linhas[0].map((_, coluna) => ({
-    wch: Math.min(60, Math.max(10, ...linhas.map((l) => String(l[coluna] ?? '').length + 2)))
-  }));
-  return planilha;
-};
+// Análises exibidas na tela e no PDF
+const ANALISES = [
+  { icone: FiTrendingUp, tipo: 'positivo', titulo: 'Crescimento de Clientes', texto: 'A base de clientes cresceu 15,2% no período analisado, indicando boa atração e retenção de novos clientes.' },
+  { icone: FiClock, tipo: 'neutro', titulo: 'Otimização do Tempo', texto: 'O tempo médio de atendimento diminuiu 1,5 minuto, melhorando a eficiência sem comprometer a qualidade.' },
+  { icone: FiUsers, tipo: 'atencao', titulo: 'Horários de Pico', texto: 'Os horários de maior movimento são entre 15h e 17h. Considere ajustar a equipe nestes períodos.' },
+  { icone: FiScissors, tipo: 'positivo', titulo: 'Alta Satisfação', texto: '93% dos clientes estão satisfeitos ou muito satisfeitos com os serviços, um excelente indicador de qualidade.' },
+  { icone: FiTrendingUp, tipo: 'positivo', titulo: 'Retenção Excelente', texto: 'A taxa de retenção de 87,3% mostra que os clientes estão fiéis ao estabelecimento e retornam regularmente.' },
+  { icone: FiFilter, tipo: 'neutro', titulo: 'Oportunidades', texto: 'Considere expandir o horário de funcionamento nos fins de semana para atender mais clientes nos horários de pico.' }
+];
+const CLASSE_ICONE = { positivo: 'positive', neutro: 'neutral', atencao: 'warning' };
 
 const Reports = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('mensal');
   const [showValues, setShowValues] = useState(true);
   const [selectedReport, setSelectedReport] = useState('geral');
+  const [gerandoPdf, setGerandoPdf] = useState(false);
   const { config } = useConfiguracaoBarbearia();
   const nomeBarbearia = config?.nome || 'Barbearia';
 
@@ -131,44 +133,31 @@ const Reports = () => {
 
   const metrics = getCurrentMetrics();
 
-  // ---------- Exportar (Excel) ----------
-  // Gera um .xlsx com o resumo, os dados do período escolhido, horários de pico e satisfação.
+  // ---------- Baixar PDF ----------
+  // Gera um PDF com layout próprio (cabeçalho com logo, indicadores, gráficos, tabela e análises).
   // Os valores saem completos mesmo com o "olho" fechado: ele só esconde os números na tela.
-  const exportarRelatorio = () => {
-    const dados = getCurrentData();
-    const geradoEm = new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
-
-    const resumo = [
-      ['Relatório', `${nomeBarbearia} · ${TIPOS[selectedReport]} · ${PERIODOS[selectedPeriod]}`],
-      ['Gerado em', geradoEm],
-      [],
-      ['Indicador', 'Valor'],
-      ['Total de clientes', metrics.totalClients],
-      ['Serviços realizados', metrics.totalServices],
-      ['Faturamento (R$)', metrics.totalRevenue],
-      ['Ticket médio (R$)', metrics.totalServices ? Number((metrics.totalRevenue / metrics.totalServices).toFixed(2)) : 0],
-      ['Tempo médio de atendimento (min)', metrics.avgTime],
-      ['Retenção de clientes (%)', metrics.clientRetention],
-      ['Satisfação dos clientes (%)', metrics.satisfaction]
-    ];
-
-    const periodo = [
-      ['Período', 'Clientes', 'Serviços', 'Faturamento (R$)', 'Tempo médio (min)'],
-      ...dados.map((d) => [d.name, d.clients, d.services, d.revenue, d.avgTime]),
-      ['Total', metrics.totalClients, metrics.totalServices, metrics.totalRevenue, metrics.avgTime]
-    ];
-
-    const horarios = [['Horário', 'Clientes'], ...peakHours.map((h) => [h.name, h.clients])];
-    const satisfacao = [['Avaliação', 'Percentual (%)'], ...clientSatisfaction.map((c) => [c.name, c.value])];
-
-    const pasta = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(pasta, montarPlanilha(resumo), 'Resumo');
-    XLSX.utils.book_append_sheet(pasta, montarPlanilha(periodo), PERIODOS[selectedPeriod]);
-    XLSX.utils.book_append_sheet(pasta, montarPlanilha(horarios), 'Horários de pico');
-    XLSX.utils.book_append_sheet(pasta, montarPlanilha(satisfacao), 'Satisfação');
-
-    const hoje = new Date().toLocaleDateString('en-CA');
-    XLSX.writeFile(pasta, `relatorio-${paraNomeDeArquivo(nomeBarbearia)}-${selectedPeriod}-${hoje}.xlsx`);
+  const baixarPdf = async () => {
+    setGerandoPdf(true);
+    try {
+      const { gerarRelatorioPdf } = await import('../../../utils/relatorioPdf');
+      await gerarRelatorioPdf({
+        nomeBarbearia,
+        logoUrl: config?.logo || null,
+        periodo: PERIODOS[selectedPeriod],
+        tipo: TIPOS[selectedReport],
+        metricas: metrics,
+        dados: getCurrentData(),
+        horarios: peakHours,
+        satisfacao: clientSatisfaction,
+        analises: ANALISES.map(({ tipo, titulo, texto }) => ({ tipo, titulo, texto })),
+        nomeArquivo: `relatorio-${paraNomeDeArquivo(nomeBarbearia)}-${selectedPeriod}-${new Date().toLocaleDateString('en-CA')}.pdf`
+      });
+    } catch (error) {
+      console.error('Erro ao gerar o PDF:', error);
+      alert('Não foi possível gerar o PDF. Tente novamente.');
+    } finally {
+      setGerandoPdf(false);
+    }
   };
 
   // ---------- Imprimir / salvar em PDF ----------
@@ -466,18 +455,19 @@ const Reports = () => {
               
               <button
                 className="action-btn"
-                onClick={exportarRelatorio}
-                title="Exportar relatório para Excel"
-                aria-label="Exportar relatório para Excel"
+                onClick={baixarPdf}
+                disabled={gerandoPdf}
+                title="Baixar relatório em PDF"
+                aria-label="Baixar relatório em PDF"
               >
-                <FiDownload size={18} />
+                {gerandoPdf ? <span className="action-spinner" aria-hidden="true" /> : <FiDownload size={18} />}
               </button>
               
               <button
                 className="action-btn"
                 onClick={imprimirRelatorio}
-                title="Imprimir ou salvar em PDF"
-                aria-label="Imprimir ou salvar em PDF"
+                title="Imprimir relatório"
+                aria-label="Imprimir relatório"
               >
                 <FiPrinter size={18} />
               </button>
@@ -642,65 +632,20 @@ const Reports = () => {
         <div className="insights-section" aria-label="Análises e insights">
           <h2>Análises e Insights</h2>
           <div className="insights-grid">
-            <div className="insight-card" tabIndex={0}>
-              <div className="insight-icon positive" aria-hidden="true">
-                <FiTrendingUp size={20} />
-              </div>
-              <div className="insight-content">
-                <h3>Crescimento de Clientes</h3>
-                <p>A base de clientes cresceu 15.2% no período analisado, indicando boa atração e retenção de novos clientes.</p>
-              </div>
-            </div>
-
-            <div className="insight-card" tabIndex={0}>
-              <div className="insight-icon neutral" aria-hidden="true">
-                <FiClock size={20} />
-              </div>
-              <div className="insight-content">
-                <h3>Otimização do Tempo</h3>
-                <p>O tempo médio de atendimento diminuiu 1.5 minutos, melhorando a eficiência sem comprometer a qualidade.</p>
-              </div>
-            </div>
-
-            <div className="insight-card" tabIndex={0}>
-              <div className="insight-icon warning" aria-hidden="true">
-                <FiUsers size={20} />
-              </div>
-              <div className="insight-content">
-                <h3>Horários de Pico</h3>
-                <p>Os horários de maior movimento são entre 15h e 17h. Considere ajustar a equipe nestes períodos.</p>
-              </div>
-            </div>
-
-            <div className="insight-card" tabIndex={0}>
-              <div className="insight-icon positive" aria-hidden="true">
-                <FiScissors size={20} />
-              </div>
-              <div className="insight-content">
-                <h3>Alta Satisfação</h3>
-                <p>93% dos clientes estão satisfeitos ou muito satisfeitos com os serviços, um excelente indicador de qualidade.</p>
-              </div>
-            </div>
-
-            <div className="insight-card" tabIndex={0}>
-              <div className="insight-icon positive" aria-hidden="true">
-                <FiTrendingUp size={20} />
-              </div>
-              <div className="insight-content">
-                <h3>Retenção Excelente</h3>
-                <p>A taxa de retenção de 87.3% mostra que os clientes estão fiéis ao estabelecimento e retornam regularmente.</p>
-              </div>
-            </div>
-
-            <div className="insight-card" tabIndex={0}>
-              <div className="insight-icon neutral" aria-hidden="true">
-                <FiFilter size={20} />
-              </div>
-              <div className="insight-content">
-                <h3>Oportunidades</h3>
-                <p>Considere expandir o horário de funcionamento nos fins de semana para atender mais clientes nos horários de pico.</p>
-              </div>
-            </div>
+            {ANALISES.map((analise) => {
+              const Icone = analise.icone;
+              return (
+                <div key={analise.titulo} className="insight-card" tabIndex={0}>
+                  <div className={`insight-icon ${CLASSE_ICONE[analise.tipo]}`} aria-hidden="true">
+                    <Icone size={20} />
+                  </div>
+                  <div className="insight-content">
+                    <h3>{analise.titulo}</h3>
+                    <p>{analise.texto}</p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 

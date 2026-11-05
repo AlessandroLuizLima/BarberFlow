@@ -370,6 +370,25 @@ body:not(.light-mode) .insight-icon.warning {
 .table-wrapper::-webkit-scrollbar-thumb:hover {
   background: var(--text-primary);
 }
+/* Indicador de carregamento do botão "Baixar PDF" */
+.reports-page .action-btn:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.reports-page .action-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: report-spin 0.8s linear infinite;
+}
+
+@keyframes report-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ========================================
    IMPRESSÃO / SALVAR EM PDF
 ======================================== */
