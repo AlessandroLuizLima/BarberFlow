@@ -779,3 +779,60 @@
   align-items: center;
   gap: 0.75rem;
 }
+
+/* ---------- Novo agendamento: escolha da barbearia ---------- */
+.client-booking .cb-search {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+  padding: 0 0.9rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.6rem;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+}
+
+.client-booking .cb-search input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.75rem 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.client-booking .cb-card--shop {
+  align-items: center;
+}
+
+.client-booking .cb-card--shop .cb-logo {
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+}
+
+.client-booking .cb-card--shop .cb-card-meta {
+  justify-content: flex-start;
+}
+
+.client-booking .cb-card-arrow {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.client-booking .cb-demo-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}

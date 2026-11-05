@@ -117,3 +117,15 @@
       transform: translateY(0);
     }
   }
+.barber-details-maps {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #60a5fa;
+  text-decoration: none;
+}
+
+.barber-details-maps:hover {
+  text-decoration: underline;
+}

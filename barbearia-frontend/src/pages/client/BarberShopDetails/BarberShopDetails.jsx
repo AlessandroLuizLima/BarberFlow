@@ -1,5 +1,5 @@
 // BarberShopDetails/BarberShopDetails.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { 
   IoArrowBack,
@@ -13,18 +13,40 @@ import BarberServices from './BarberServices/BarberServices';
 import BarberProducts from './BarberProducts/BarberProducts';
 import BarberDetails from './BarberDetails/BarberDetails';
 import BarberAssessment from './BarberAssessment/BarberAssessment';
-import { linkGoogleMaps } from '../../../data/barbearias';
+import { linkGoogleMaps, BARBEARIA_REAL_ID } from '../../../data/barbearias';
 import useBarbearias from '../../../hooks/useBarbearias';
+import useConfiguracaoBarbearia from '../../../hooks/useConfiguracaoBarbearia';
+import { listarServicos } from '../../../services/servicoService';
 import './BarberShopDetails.css';
 
 const BarberShopDetails = ({ barbershop: barbershopProp, onBack: onBackProp }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { buscar } = useBarbearias();
+  const { config } = useConfiguracaoBarbearia();
   const barbershop = barbershopProp || buscar(id);
   const onBack = onBackProp || (() => navigate('/cliente'));
   const [activeTab, setActiveTab] = useState('servicos');
   const [isFavorite, setIsFavorite] = useState(false);
+  const ehReal = Boolean(barbershop?.real);
+
+  // Barbearia real: os serviços vêm do banco (os mesmos que o barbeiro cadastra)
+  const [servicosReais, setServicosReais] = useState([]);
+  const [carregandoServicos, setCarregandoServicos] = useState(ehReal);
+  useEffect(() => {
+    if (!ehReal) return;
+    setCarregandoServicos(true);
+    listarServicos()
+      .then((lista) => setServicosReais(lista.filter((s) => s.ativo !== false).map((s) => ({
+        id: s.id,
+        name: s.nome,
+        price: Number(s.preco),
+        duration: s.duracao_minutos,
+        description: s.descricao
+      }))))
+      .catch((error) => console.error('Erro ao carregar serviços:', error))
+      .finally(() => setCarregandoServicos(false));
+  }, [ehReal]);
 
   // Barbearia inexistente na URL: volta para a Home
   if (id && !barbershop) return <Navigate to="/cliente" replace />;
@@ -71,11 +93,6 @@ const BarberShopDetails = ({ barbershop: barbershopProp, onBack: onBackProp }) =
     setIsFavorite(!isFavorite);
   };
 
-  const handleSchedule = (serviceId) => {
-    console.log('Agendar serviço:', serviceId);
-    // Implementar lógica de agendamento
-  };
-
   const handleAddToCart = (productId) => {
     console.log('Adicionar ao carrinho:', productId);
     // Implementar lógica de carrinho
@@ -96,22 +113,26 @@ const BarberShopDetails = ({ barbershop: barbershopProp, onBack: onBackProp }) =
     switch (activeTab) {
       case 'servicos':
         return (
-          <BarberServices 
-            services={barbershopData.services} 
-            onSchedule={handleSchedule}
+          <BarberServices
+            services={ehReal ? servicosReais : barbershopData.services}
+            real={ehReal}
+            carregando={ehReal && carregandoServicos}
+            diasAtendimento={ehReal ? config?.diasAtendimento : undefined}
           />
         );
       case 'produtos':
         return (
-          <BarberProducts 
+          <BarberProducts
             products={barbershopData.products}
             onAddToCart={handleAddToCart}
+            usarExemplos={!ehReal}
           />
         );
       case 'detalhes':
         return (
-          <BarberDetails 
+          <BarberDetails
             barbershop={barbershopData.details}
+            mapsUrl={linkMaps}
           />
         );
       case 'avaliacao':
@@ -120,15 +141,11 @@ const BarberShopDetails = ({ barbershop: barbershopProp, onBack: onBackProp }) =
             reviews={barbershopData.reviews}
             averageRating={barbershopData.averageRating}
             totalReviews={barbershopData.totalReviews}
+            usarExemplos={!ehReal}
           />
         );
       default:
-        return (
-          <BarberServices 
-            services={barbershopData.services}
-            onSchedule={handleSchedule}
-          />
-        );
+        return null;
     }
   };
 
@@ -196,7 +213,10 @@ const BarberShopDetails = ({ barbershop: barbershopProp, onBack: onBackProp }) =
       {barbershopData.real === false && (
         <div className="demo-notice">
           Barbearia de demonstração: os dados são fictícios e o agendamento aqui não é salvo.
-          Para agendar de verdade, use a barbearia <strong>BarberFlow</strong>.
+          Para agendar de verdade, use a barbearia{' '}
+          <button type="button" className="demo-notice-link" onClick={() => navigate(`/cliente/barbearia/${BARBEARIA_REAL_ID}`)}>
+            <strong>{buscar(BARBEARIA_REAL_ID)?.name || 'BarberFlow'}</strong>
+          </button>.
         </div>
       )}
 

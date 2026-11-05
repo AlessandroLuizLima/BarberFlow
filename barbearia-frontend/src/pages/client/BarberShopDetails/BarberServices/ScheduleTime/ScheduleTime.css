@@ -633,3 +633,95 @@
     outline: 2px solid #3b82f6;
     outline-offset: 2px;
   }
+/* ---------- Agendamento real (horários da API, lista de espera, confirmação) ---------- */
+.schedule-hint {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #9ca3af;
+}
+
+.schedule-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.1);
+  color: #fbbf24;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.schedule-alert svg {
+  flex-shrink: 0;
+  font-size: 1.1rem;
+  margin-top: 0.05rem;
+}
+
+.schedule-alert--error {
+  margin: 0;
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+}
+
+.schedule-barber-card.busy {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.schedule-barber-card.busy:hover {
+  transform: none;
+  border-color: #374151;
+  background: rgba(31, 41, 55, 0.6);
+}
+
+.barber-avatar {
+  overflow: hidden;
+}
+
+.barber-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.barber-avatar-initials {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #93c5fd;
+}
+
+.schedule-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem 0.5rem;
+  text-align: center;
+}
+
+.schedule-done-icon {
+  font-size: 3.25rem;
+  color: #10b981;
+}
+
+.schedule-done h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: white;
+}
+
+.schedule-done p {
+  margin: 0 0 0.75rem;
+  max-width: 26rem;
+  color: #9ca3af;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.schedule-done p::first-letter {
+  text-transform: uppercase;
+}

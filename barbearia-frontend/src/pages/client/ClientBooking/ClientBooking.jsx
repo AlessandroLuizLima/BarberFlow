@@ -1,43 +1,90 @@
-import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import './ClientBooking.css';
 import {
   FiCalendar,
-  FiClock,
-  FiUser,
   FiScissors,
   FiDollarSign,
   FiMapPin,
-  FiCheck,
   FiCheckCircle,
-  FiChevronLeft,
   FiChevronRight,
-  FiInfo,
   FiPlus,
   FiTrendingUp,
   FiStar,
-  FiExternalLink
+  FiSearch
 } from 'react-icons/fi';
-import { listarServicos } from '../../../services/servicoService';
-import { listarProfissionais } from '../../../services/profissionalService';
-import { criarAgendamento, listarAgendamentos, cancelarAgendamento } from '../../../services/agendamentoService';
-import { entrarNaListaDeEspera } from '../../../services/listaEsperaService';
+import { listarAgendamentos, cancelarAgendamento } from '../../../services/agendamentoService';
 import { obterClienteLogado } from '../../../services/authStorage';
 import { proximosAgendamentos, gerarRelatorio, formatarMoeda } from '../../../utils/agendamentosCliente';
-import { linkGoogleMaps } from '../../../data/barbearias';
+import { ordenarPorDistancia } from '../../../utils/geo';
 import useBarbearias from '../../../hooks/useBarbearias';
+import useLocalizacao from '../../../hooks/useLocalizacao';
 import AgendamentoItem from '../components/AgendamentoItem/AgendamentoItem';
 
-const HORARIOS = [
-  '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
-  '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
-  '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
-  '17:00', '17:30', '18:00'
-];
+// Passo 1 do novo agendamento: escolher a barbearia (da mais perto para a mais longe).
+// Ao escolher, abre a página da barbearia, onde o cliente vê os serviços e agenda.
+function EscolherBarbearia({ barbearias, busca, setBusca, navigate }) {
+  const { posicao } = useLocalizacao();
+  const ordenadas = useMemo(() => ordenarPorDistancia(barbearias, posicao), [barbearias, posicao]);
+  const termo = busca.trim().toLowerCase();
+  const lista = ordenadas.filter((b) =>
+    !termo || b.name.toLowerCase().includes(termo) || (b.address || '').toLowerCase().includes(termo)
+  );
+
+  return (
+    <div className="cb-content">
+      <h2 className="cb-title">Escolha a barbearia</h2>
+      <p className="cb-subtitle">
+        {posicao ? 'Ordenadas da mais próxima para a mais distante de você.' : 'Selecione onde você quer ser atendido.'}
+      </p>
+
+      <div className="cb-search">
+        <FiSearch size={18} />
+        <input
+          type="text"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Buscar por nome ou endereço"
+          aria-label="Buscar barbearia"
+        />
+      </div>
+
+      {lista.length === 0 ? (
+        <p className="cb-muted">Nenhuma barbearia encontrada.</p>
+      ) : (
+        <div className="cb-grid">
+          {lista.map((b) => (
+            <button
+              type="button"
+              key={b.id}
+              className="cb-card cb-card--shop"
+              onClick={() => navigate(`/cliente/barbearia/${b.id}`)}
+            >
+              {b.logo
+                ? <img src={b.logo} alt="" className="cb-logo" />
+                : <div className="cb-card-icon cb-card-icon--round"><FiScissors size={22} /></div>}
+              <div className="cb-card-body">
+                <h3>
+                  {b.name}
+                  {!b.real && <span className="cb-demo-badge">Demonstração</span>}
+                </h3>
+                <p className="cb-card-desc">{b.address}</p>
+                <div className="cb-card-meta">
+                  <span><FiStar size={14} /> {Number(b.rating).toFixed(1)}</span>
+                  {b.distance && <span><FiMapPin size={14} /> {b.distance}</span>}
+                </div>
+              </div>
+              <FiChevronRight size={18} className="cb-card-arrow" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const ClientBooking = () => {
   const clienteLogado = obterClienteLogado();
-  const { barbeariaReal } = useBarbearias();
   const [searchParams, setSearchParams] = useSearchParams();
   const aba = searchParams.get('aba') === 'novo' ? 'novo' : 'meus';
 
@@ -46,23 +93,10 @@ const ClientBooking = () => {
   const [carregandoAgendamentos, setCarregandoAgendamentos] = useState(true);
   const [cancelandoId, setCancelandoId] = useState(null);
 
-  // ---- Novo agendamento (wizard)
-  const [currentStep, setCurrentStep] = useState(1);
-  const [selectedService, setSelectedService] = useState(null);
-  const [selectedBarber, setSelectedBarber] = useState(null);
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [selectedTime, setSelectedTime] = useState(null);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-
-  const [services, setServices] = useState([]);
-  const [barbers, setBarbers] = useState([]);
-  const [carregandoDados, setCarregandoDados] = useState(true);
-  const [erroCarregar, setErroCarregar] = useState('');
-  const [enviando, setEnviando] = useState(false);
-  const [erroAgendamento, setErroAgendamento] = useState('');
-  const [conflito, setConflito] = useState(false);
-  const [agendamentoConfirmado, setAgendamentoConfirmado] = useState(false);
-  const [entrouNaFila, setEntrouNaFila] = useState(false);
+  // ---- Novo agendamento: primeiro o cliente escolhe a barbearia
+  const navigate = useNavigate();
+  const { barbearias } = useBarbearias();
+  const [busca, setBusca] = useState('');
 
   const carregarAgendamentos = () => {
     if (!clienteLogado) {
@@ -78,29 +112,6 @@ const ClientBooking = () => {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(carregarAgendamentos, [clienteLogado?.id]);
-
-  useEffect(() => {
-    Promise.all([listarServicos(), listarProfissionais()])
-      .then(([servicosApi, profissionaisApi]) => {
-        setServices(servicosApi.filter((s) => s.ativo !== false).map((s) => ({
-          id: s.id,
-          name: s.nome,
-          price: Number(s.preco),
-          duration: s.duracao_minutos,
-          description: s.descricao
-        })));
-        setBarbers(profissionaisApi.filter((p) => p.ativo !== false).map((p) => ({
-          id: p.id,
-          name: p.nome_completo,
-          specialty: p.especialidade || 'Barbeiro'
-        })));
-      })
-      .catch((error) => {
-        console.error('Erro ao carregar serviços/profissionais:', error);
-        setErroCarregar('Não foi possível carregar os serviços e profissionais. Verifique se o backend está rodando.');
-      })
-      .finally(() => setCarregandoDados(false));
-  }, []);
 
   const irParaAba = (nova) => {
     if (nova === 'novo') setSearchParams({ aba: 'novo' });
@@ -119,164 +130,11 @@ const ClientBooking = () => {
     }
   };
 
-  // ---- Calendário
-  const getDaysInMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-  const getFirstDayOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
-
-  const formatDate = (date) =>
-    date.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-
-  const navigateMonth = (direction) => {
-    const newDate = new Date(currentMonth);
-    newDate.setMonth(currentMonth.getMonth() + direction);
-    setCurrentMonth(newDate);
-  };
-
-  const selecionarData = (date) => {
-    setSelectedDate(date);
-    setSelectedTime(null);
-  };
-
-  const horarioPassou = (time) => {
-    if (!selectedDate) return false;
-    const agora = new Date();
-    if (selectedDate.toDateString() !== agora.toDateString()) return false;
-    const [h, m] = time.split(':').map(Number);
-    const slot = new Date(selectedDate);
-    slot.setHours(h, m, 0, 0);
-    return slot <= agora;
-  };
-
-  const renderCalendar = () => {
-    const daysInMonth = getDaysInMonth(currentMonth);
-    const firstDay = getFirstDayOfMonth(currentMonth);
-    const days = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="cb-day cb-day--empty"></div>);
-    }
-
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-      const isPast = date < today;
-      const isSelected = selectedDate && date.toDateString() === selectedDate.toDateString();
-
-      days.push(
-        <button
-          type="button"
-          key={day}
-          className={`cb-day ${isPast ? 'cb-day--past' : ''} ${isSelected ? 'cb-day--selected' : ''}`}
-          onClick={() => !isPast && selecionarData(date)}
-          disabled={isPast}
-        >
-          {day}
-        </button>
-      );
-    }
-
-    return days;
-  };
-
-  // ---- Navegação do wizard
-  const handleNext = () => {
-    if (currentStep < 4) setCurrentStep(currentStep + 1);
-  };
-
-  const handleBack = () => {
-    if (currentStep > 1) setCurrentStep(currentStep - 1);
-  };
-
-  const canProceed = () => {
-    switch (currentStep) {
-      case 1: return selectedService !== null;
-      case 2: return selectedBarber !== null;
-      case 3: return selectedDate !== null && selectedTime !== null;
-      default: return false;
-    }
-  };
-
-  const montarDataHoraISO = () => {
-    const [hora, minuto] = selectedTime.split(':').map(Number);
-    const dataHora = new Date(selectedDate);
-    dataHora.setHours(hora, minuto, 0, 0);
-    return dataHora.toISOString();
-  };
-
-  const reiniciarWizard = () => {
-    setCurrentStep(1);
-    setSelectedService(null);
-    setSelectedBarber(null);
-    setSelectedDate(null);
-    setSelectedTime(null);
-    setConflito(false);
-    setEntrouNaFila(false);
-    setErroAgendamento('');
-    setAgendamentoConfirmado(false);
-  };
-
-  const handleConfirm = async () => {
-    if (!clienteLogado) {
-      setErroAgendamento('Você precisa estar logado para agendar.');
-      return;
-    }
-
-    setEnviando(true);
-    setErroAgendamento('');
-    setConflito(false);
-
-    try {
-      await criarAgendamento({
-        cliente_id: clienteLogado.id,
-        profissional_id: selectedBarber,
-        servico_id: selectedService,
-        data_hora: montarDataHoraISO()
-      });
-      setAgendamentoConfirmado(true);
-      carregarAgendamentos();
-    } catch (error) {
-      if (error.response?.status === 409) {
-        setConflito(true);
-      } else {
-        setErroAgendamento(error.response?.data?.error || 'Erro ao criar agendamento.');
-      }
-    } finally {
-      setEnviando(false);
-    }
-  };
-
-  const handleEntrarNaFila = async () => {
-    setEnviando(true);
-    try {
-      await entrarNaListaDeEspera({
-        cliente_id: clienteLogado.id,
-        profissional_id: selectedBarber,
-        servico_id: selectedService,
-        data_desejada: selectedDate.toISOString().slice(0, 10)
-      });
-      setEntrouNaFila(true);
-    } catch (error) {
-      setErroAgendamento(error.response?.data?.error || 'Erro ao entrar na lista de espera.');
-    } finally {
-      setEnviando(false);
-    }
-  };
-
-  const servicoEscolhido = services.find((s) => s.id === selectedService);
-  const barbeiroEscolhido = barbers.find((b) => b.id === selectedBarber);
-
-  const etapas = [
-    { n: 1, titulo: 'Serviço' },
-    { n: 2, titulo: 'Barbeiro' },
-    { n: 3, titulo: 'Data e Hora' },
-    { n: 4, titulo: 'Confirmação' }
-  ];
-
   // ---- Dados da aba "Meus agendamentos"
   const proximos = proximosAgendamentos(agendamentos);
   const proximo = proximos[0];
   const demais = proximos.slice(1, 6);
+  const barbeariaReal = barbearias[0];
   const relatorio = gerarRelatorio(agendamentos, { nome: barbeariaReal.name, logo: barbeariaReal.logo });
 
   const renderMeusAgendamentos = () => (
@@ -393,284 +251,7 @@ const ClientBooking = () => {
     </div>
   );
 
-  const renderWizard = () => (
-    <>
-      <div className="cb-progress">
-        {etapas.map((etapa, i) => (
-          <React.Fragment key={etapa.n}>
-            {i > 0 && <div className={`cb-step-line ${currentStep >= etapa.n ? 'cb-step-line--active' : ''}`}></div>}
-            <div className={`cb-step ${currentStep >= etapa.n ? 'cb-step--active' : ''} ${currentStep > etapa.n ? 'cb-step--done' : ''}`}>
-              <div className="cb-step-number">
-                {currentStep > etapa.n ? <FiCheck size={16} /> : etapa.n}
-              </div>
-              <span>{etapa.titulo}</span>
-            </div>
-          </React.Fragment>
-        ))}
-      </div>
-
-      <div className="cb-content">
-        {carregandoDados && <p className="cb-muted">Carregando serviços e profissionais...</p>}
-        {erroCarregar && <p className="cb-error">{erroCarregar}</p>}
-
-        {!carregandoDados && !erroCarregar && currentStep === 1 && (
-          <div>
-            <h2 className="cb-title">Escolha o Serviço</h2>
-            <p className="cb-subtitle">Selecione o serviço que deseja realizar</p>
-
-            {services.length === 0 ? (
-              <p className="cb-muted">Nenhum serviço disponível no momento.</p>
-            ) : (
-              <div className="cb-grid">
-                {services.map((service) => (
-                  <button
-                    type="button"
-                    key={service.id}
-                    className={`cb-card ${selectedService === service.id ? 'cb-card--selected' : ''}`}
-                    onClick={() => setSelectedService(service.id)}
-                  >
-                    <div className="cb-card-icon"><FiScissors size={22} /></div>
-                    <div className="cb-card-body">
-                      <h3>{service.name}</h3>
-                      {service.description && <p className="cb-card-desc">{service.description}</p>}
-                      <div className="cb-card-meta">
-                        <span><FiClock size={14} /> {service.duration} min</span>
-                        <strong>{formatarMoeda(service.price)}</strong>
-                      </div>
-                    </div>
-                    {selectedService === service.id && (
-                      <span className="cb-check"><FiCheck size={16} /></span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {!carregandoDados && !erroCarregar && currentStep === 2 && (
-          <div>
-            <h2 className="cb-title">Escolha o Barbeiro</h2>
-            <p className="cb-subtitle">Selecione o profissional de sua preferência</p>
-
-            {barbers.length === 0 ? (
-              <p className="cb-muted">Nenhum profissional disponível no momento.</p>
-            ) : (
-              <div className="cb-grid">
-                {barbers.map((barber) => (
-                  <button
-                    type="button"
-                    key={barber.id}
-                    className={`cb-card ${selectedBarber === barber.id ? 'cb-card--selected' : ''}`}
-                    onClick={() => setSelectedBarber(barber.id)}
-                  >
-                    <div className="cb-card-icon cb-card-icon--round"><FiUser size={22} /></div>
-                    <div className="cb-card-body">
-                      <h3>{barber.name}</h3>
-                      <p className="cb-card-desc">{barber.specialty}</p>
-                    </div>
-                    {selectedBarber === barber.id && (
-                      <span className="cb-check"><FiCheck size={16} /></span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {!carregandoDados && !erroCarregar && currentStep === 3 && (
-          <div>
-            <h2 className="cb-title">Escolha Data e Horário</h2>
-            <p className="cb-subtitle">Selecione quando deseja ser atendido</p>
-
-            <div className="cb-datetime">
-              <div className="cb-calendar">
-                <div className="cb-calendar-head">
-                  <button type="button" onClick={() => navigateMonth(-1)} className="cb-nav-btn" aria-label="Mês anterior">
-                    <FiChevronLeft />
-                  </button>
-                  <h3>
-                    {currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-                  </h3>
-                  <button type="button" onClick={() => navigateMonth(1)} className="cb-nav-btn" aria-label="Próximo mês">
-                    <FiChevronRight />
-                  </button>
-                </div>
-
-                <div className="cb-weekdays">
-                  {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
-                    <div key={day}>{day}</div>
-                  ))}
-                </div>
-
-                <div className="cb-days">{renderCalendar()}</div>
-              </div>
-
-              <div className="cb-times">
-                <h3>Horários Disponíveis</h3>
-                {selectedDate ? (
-                  <>
-                    <p className="cb-selected-date">{formatDate(selectedDate)}</p>
-                    <div className="cb-time-grid">
-                      {HORARIOS.map((time) => {
-                        const passou = horarioPassou(time);
-                        return (
-                          <button
-                            type="button"
-                            key={time}
-                            className={`cb-time ${selectedTime === time ? 'cb-time--selected' : ''}`}
-                            onClick={() => setSelectedTime(time)}
-                            disabled={passou}
-                          >
-                            {time}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </>
-                ) : (
-                  <p className="cb-muted">Escolha um dia no calendário para ver os horários.</p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {currentStep === 4 && agendamentoConfirmado && (
-          <div className="cb-success">
-            <span className="cb-success-icon"><FiCheckCircle size={48} /></span>
-            <h2 className="cb-title">Agendamento confirmado!</h2>
-            <p className="cb-subtitle">
-              Você receberá uma mensagem de confirmação. Chegue com 5 minutos de antecedência.
-            </p>
-            <div className="cb-success-actions">
-              <button
-                type="button"
-                className="cb-btn cb-btn--primary"
-                onClick={() => { reiniciarWizard(); irParaAba('meus'); }}
-              >
-                Ver meus agendamentos
-              </button>
-              <button type="button" className="cb-btn cb-btn--secondary" onClick={reiniciarWizard}>
-                Fazer outro agendamento
-              </button>
-            </div>
-          </div>
-        )}
-
-        {currentStep === 4 && !agendamentoConfirmado && conflito && (
-          <div className="cb-success">
-            <h2 className="cb-title">Horário indisponível</h2>
-            <p className="cb-subtitle">
-              Esse horário acabou de ser ocupado por outro cliente para este profissional.
-            </p>
-            {entrouNaFila ? (
-              <p className="cb-info">Você entrou na lista de espera! Avisaremos assim que um horário vagar nesse dia.</p>
-            ) : (
-              <div className="cb-success-actions">
-                <button type="button" className="cb-btn cb-btn--primary" onClick={handleEntrarNaFila} disabled={enviando}>
-                  {enviando ? 'Entrando...' : 'Entrar na lista de espera'}
-                </button>
-                <button
-                  type="button"
-                  className="cb-btn cb-btn--secondary"
-                  onClick={() => { setConflito(false); setCurrentStep(3); }}
-                >
-                  Escolher outro horário
-                </button>
-              </div>
-            )}
-            {erroAgendamento && <p className="cb-error">{erroAgendamento}</p>}
-          </div>
-        )}
-
-        {currentStep === 4 && !agendamentoConfirmado && !conflito && (
-          <div>
-            <h2 className="cb-title">Confirmação do Agendamento</h2>
-            <p className="cb-subtitle">Revise os detalhes do seu agendamento</p>
-            {erroAgendamento && <p className="cb-error">{erroAgendamento}</p>}
-
-            <div className="cb-confirm">
-              <div className="cb-confirm-row">
-                <div className="cb-confirm-icon"><FiScissors size={22} /></div>
-                <div>
-                  <h4>Serviço</h4>
-                  <p>{servicoEscolhido?.name}</p>
-                  <span><FiClock size={14} /> {servicoEscolhido?.duration} minutos</span>
-                  <span><FiDollarSign size={14} /> {formatarMoeda(servicoEscolhido?.price || 0)}</span>
-                </div>
-              </div>
-
-              <div className="cb-confirm-row">
-                <div className="cb-confirm-icon"><FiUser size={22} /></div>
-                <div>
-                  <h4>Barbeiro</h4>
-                  <p>{barbeiroEscolhido?.name}</p>
-                  <span>{barbeiroEscolhido?.specialty}</span>
-                </div>
-              </div>
-
-              <div className="cb-confirm-row">
-                <div className="cb-confirm-icon"><FiCalendar size={22} /></div>
-                <div>
-                  <h4>Data e Horário</h4>
-                  <p>{selectedDate && formatDate(selectedDate)}</p>
-                  <span><FiClock size={14} /> {selectedTime}</span>
-                </div>
-              </div>
-
-              <div className="cb-confirm-row">
-                {barbeariaReal.logo
-                  ? <img src={barbeariaReal.logo} alt={`Logo ${barbeariaReal.name}`} className="cb-logo" />
-                  : <div className="cb-confirm-icon"><FiMapPin size={22} /></div>}
-                <div>
-                  <h4>Local</h4>
-                  <p>{barbeariaReal.name}</p>
-                  {barbeariaReal.details.address.city && <span>{barbeariaReal.address}</span>}
-                  <a
-                    className="cb-maps-link"
-                    href={linkGoogleMaps(barbeariaReal)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <FiExternalLink size={14} /> Ver no Google Maps
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            <div className="cb-note">
-              <FiInfo size={18} />
-              <p>Você receberá uma confirmação por mensagem. Por favor, chegue com 5 minutos de antecedência.</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {!agendamentoConfirmado && (
-        <div className="cb-nav">
-          {currentStep > 1 && !conflito && (
-            <button type="button" className="cb-btn cb-btn--secondary" onClick={handleBack}>
-              <FiChevronLeft size={18} /> Voltar
-            </button>
-          )}
-
-          <div className="cb-spacer"></div>
-
-          {currentStep < 4 ? (
-            <button type="button" className="cb-btn cb-btn--primary" onClick={handleNext} disabled={!canProceed()}>
-              Próximo <FiChevronRight size={18} />
-            </button>
-          ) : !conflito ? (
-            <button type="button" className="cb-btn cb-btn--primary" onClick={handleConfirm} disabled={enviando}>
-              <FiCheck size={18} /> {enviando ? 'Confirmando...' : 'Confirmar Agendamento'}
-            </button>
-          ) : null}
-        </div>
-      )}
-    </>
-  );
+  const renderEscolherBarbearia = () => <EscolherBarbearia barbearias={barbearias} busca={busca} setBusca={setBusca} navigate={navigate} />;
 
   return (
     <div className="client-booking">
@@ -701,7 +282,7 @@ const ClientBooking = () => {
           </button>
         </div>
 
-        {aba === 'meus' ? renderMeusAgendamentos() : renderWizard()}
+        {aba === 'meus' ? renderMeusAgendamentos() : renderEscolherBarbearia()}
       </div>
     </div>
   );

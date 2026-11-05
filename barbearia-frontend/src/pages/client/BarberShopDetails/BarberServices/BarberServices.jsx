@@ -4,7 +4,8 @@ import { IoCut } from 'react-icons/io5';
 import ScheduleModal from './ScheduleTime/ScheduleTime';
 import './BarberServices.css';
 
-const BarberServices = ({ services = [], clientName = "Miguel Oliveira Rodrigues" }) => {
+// real = barbearia cadastrada no sistema: serviços vêm da API e o modal agenda de verdade
+const BarberServices = ({ services = [], real = false, carregando = false, diasAtendimento }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedService, setSelectedService] = useState(null);
 
@@ -17,12 +18,20 @@ const BarberServices = ({ services = [], clientName = "Miguel Oliveira Rodrigues
     { id: 6, name: 'Platinado', price: 120.00 }
   ];
 
-  const servicesList = services.length > 0 ? services : defaultServices;
+  const servicesList = services.length > 0 || real ? services : defaultServices;
 
   const handleSchedule = (service) => {
     setSelectedService(service);
     setIsModalOpen(true);
   };
+
+  if (carregando) {
+    return (
+      <div className="barber-services-empty">
+        <p>Carregando serviços...</p>
+      </div>
+    );
+  }
 
   if (servicesList.length === 0) {
     return (
@@ -46,8 +55,10 @@ const BarberServices = ({ services = [], clientName = "Miguel Oliveira Rodrigues
               <div className="barber-service-info">
                 <h4 className="barber-service-name">{service.name}</h4>
                 <p className="barber-service-price">
-                  R$ {service.price.toFixed(2).replace('.', ',')}
+                  R$ {Number(service.price).toFixed(2).replace('.', ',')}
+                  {service.duration && <span className="barber-service-duration"> · {service.duration} min</span>}
                 </p>
+                {service.description && <p className="barber-service-description">{service.description}</p>}
               </div>
             </div>
             <div className="barber-service-right">
@@ -66,9 +77,9 @@ const BarberServices = ({ services = [], clientName = "Miguel Oliveira Rodrigues
       <ScheduleModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        serviceName={selectedService?.name}
-        servicePrice={selectedService ? `R$ ${Number(selectedService.price).toFixed(2).replace('.', ',')}` : undefined}
-        serviceDuration={selectedService?.duration ? `${selectedService.duration}min` : undefined}
+        service={selectedService}
+        real={real}
+        diasAtendimento={diasAtendimento}
       />
     </div>
   );

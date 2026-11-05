@@ -96,6 +96,13 @@ const horariosDaConfig = (config) =>
     hours: config?.diasAtendimento?.includes(dia) ? `${config.horarioInicio} - ${config.horarioFim}` : 'Fechado',
   }));
 
+// Endereço em uma linha: "Rua 14 de Dezembro, 67 - Centro, Paulo Frontin/PR"
+const enderecoEmLinha = (d = {}) => {
+  const rua = [d.rua, d.numero].filter(Boolean).join(', ');
+  const cidade = [d.cidade, d.estado].filter(Boolean).join('/');
+  return [[rua, d.bairro].filter(Boolean).join(' - '), cidade].filter(Boolean).join(', ');
+};
+
 // Barbearia real, montada a partir das Configurações salvas pelo barbeiro
 export function montarBarbeariaReal(config) {
   const d = config?.enderecoDetalhado || {};
@@ -112,14 +119,14 @@ export function montarBarbeariaReal(config) {
     distance: '',
     phone: config?.telefone || '',
     email: config?.email || '',
-    address: config?.endereco || 'Endereço ainda não informado',
+    address: config?.endereco || enderecoEmLinha(d) || 'Endereço ainda não informado',
     services: [],
     products: [],
     reviews: [],
     averageRating: 5,
     totalReviews: 0,
     details: {
-      address: { street: rua, neighborhood: d.bairro || '', city: d.cidade || '', state: d.estado || '' },
+      address: { street: rua, neighborhood: d.bairro || '', city: d.cidade || '', state: d.estado || '', cep: d.cep || '' },
       openingHours: config ? horariosDaConfig(config) : horarioPadrao,
       paymentMethods: pagamentos,
     },
@@ -132,13 +139,18 @@ export const listarBarbearias = (config) => [montarBarbeariaReal(config), ...dem
 export const obterBarbearia = (id, config) =>
   listarBarbearias(config).find((b) => String(b.id) === String(id));
 
-// Link do Google Maps. Com coordenadas, abre o ponto exato; sem endereço cadastrado, procura pelo nome.
-export function linkGoogleMaps(barbearia) {
+// Texto de busca do endereço (o Google Maps localiza melhor pelo endereço escrito do que
+// por coordenadas aproximadas). Sem endereço, cai nas coordenadas ou no nome da barbearia.
+export function destinoNoMaps(barbearia) {
+  const e = barbearia?.details?.address || {};
+  const partes = [e.street, e.neighborhood, e.city, e.state, e.cep].filter(Boolean);
+  if (partes.length > 0 && (e.city || e.street)) return [...partes, 'Brasil'].join(', ');
   if (Number.isFinite(barbearia?.latitude) && Number.isFinite(barbearia?.longitude)) {
-    return `https://www.google.com/maps/search/?api=1&query=${barbearia.latitude},${barbearia.longitude}`;
+    return `${barbearia.latitude},${barbearia.longitude}`;
   }
-  const e = barbearia?.details?.address;
-  const partes = e ? [e.street, e.neighborhood, e.city, e.state].filter(Boolean) : [];
-  const consulta = partes.length > 0 ? partes.join(', ') : `${barbearia?.name || ''} barbearia`.trim();
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(consulta)}`;
+  return `${barbearia?.name || ''} barbearia`.trim();
+}
+
+export function linkGoogleMaps(barbearia) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destinoNoMaps(barbearia))}`;
 }

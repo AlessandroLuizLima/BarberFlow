@@ -149,3 +149,13 @@
       transform: translateY(0);
     }
   }
+.barber-service-duration {
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+.barber-service-description {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  color: #9ca3af;
+}

@@ -4,7 +4,7 @@ import { IoBag } from 'react-icons/io5';
 import { FiShoppingCart } from 'react-icons/fi';
 import './BarberProducts.css';
 
-const BarberProducts = ({ products = [], onAddToCart }) => {
+const BarberProducts = ({ products = [], onAddToCart, usarExemplos = true }) => {
   
   const defaultProducts = [
     { id: 1, name: 'Pomada em pó 150g', price: 30.00 },
@@ -15,7 +15,7 @@ const BarberProducts = ({ products = [], onAddToCart }) => {
     { id: 6, name: 'Máscara De Hidratação', price: 75.00 }
   ];
 
-  const productsList = products.length > 0 ? products : defaultProducts;
+  const productsList = products.length > 0 || !usarExemplos ? products : defaultProducts;
 
   const handleAddToCart = (productId) => {
     if (onAddToCart) {

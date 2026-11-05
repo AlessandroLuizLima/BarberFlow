@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { IoStar, IoStarOutline, IoPerson, IoSend, IoAdd } from 'react-icons/io5';
 import './BarberAssessment.css';
 
-const BarberAssessment = ({ reviews = [], averageRating = 5.0, totalReviews = 127, onSubmitReview }) => {
+const BarberAssessment = ({ reviews = [], averageRating = 5.0, totalReviews = 127, onSubmitReview, usarExemplos = true }) => {
   const [visibleReviews, setVisibleReviews] = useState(3);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [rating, setRating] = useState(0);
@@ -56,7 +56,7 @@ const BarberAssessment = ({ reviews = [], averageRating = 5.0, totalReviews = 12
     }
   ];
 
-  const reviewsList = reviews.length > 0 ? reviews : defaultReviews;
+  const reviewsList = reviews.length > 0 || !usarExemplos ? reviews : defaultReviews;
   const allReviews = [...userReviews, ...reviewsList];
   const displayedReviews = allReviews.slice(0, visibleReviews);
   const hasMore = visibleReviews < allReviews.length;

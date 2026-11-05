@@ -2,7 +2,7 @@
 import React from 'react';
 import './BarberDetails.css';
 
-const BarberDetails = ({ barbershop = {} }) => {
+const BarberDetails = ({ barbershop = {}, mapsUrl }) => {
   
   const defaultData = {
     address: {
@@ -30,12 +30,24 @@ const BarberDetails = ({ barbershop = {} }) => {
       <div className="barber-details-card">
         <h3 className="barber-details-title">Endereço</h3>
         <div className="barber-details-content">
-          <p className="barber-details-text">
-            {data.address.street}, {data.address.neighborhood}
-          </p>
-          <p className="barber-details-text">
-            {data.address.city} - {data.address.state}
-          </p>
+          {[data.address.street, data.address.neighborhood].some(Boolean) && (
+            <p className="barber-details-text">
+              {[data.address.street, data.address.neighborhood].filter(Boolean).join(', ')}
+            </p>
+          )}
+          {[data.address.city, data.address.state].some(Boolean) ? (
+            <p className="barber-details-text">
+              {[data.address.city, data.address.state].filter(Boolean).join(' - ')}
+              {data.address.cep && ` · CEP ${data.address.cep}`}
+            </p>
+          ) : (
+            <p className="barber-details-text">Endereço ainda não informado</p>
+          )}
+          {mapsUrl && (
+            <a className="barber-details-maps" href={mapsUrl} target="_blank" rel="noopener noreferrer">
+              Ver no Google Maps
+            </a>
+          )}
         </div>
       </div>
 

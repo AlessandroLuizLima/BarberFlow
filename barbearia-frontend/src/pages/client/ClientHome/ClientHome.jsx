@@ -5,7 +5,7 @@ import { FaMapMarkerAlt, FaBell, FaSearch, FaLocationArrow, FaDirections } from 
 import { obterClienteLogado } from '../../../services/authStorage';
 import { listarAgendamentos, cancelarAgendamento } from '../../../services/agendamentoService';
 import { proximosAgendamentos } from '../../../utils/agendamentosCliente';
-import { linkGoogleMaps } from '../../../data/barbearias';
+import { linkGoogleMaps, destinoNoMaps } from '../../../data/barbearias';
 import useBarbearias from '../../../hooks/useBarbearias';
 import useLocalizacao from '../../../hooks/useLocalizacao';
 import { ordenarPorDistancia, linkRotaGoogleMaps } from '../../../utils/geo';
@@ -146,7 +146,7 @@ function BarbeariaMaisProxima({ shop, origem, onAgendar }) {
         </button>
         <a
           className="nearest-btn"
-          href={linkRotaGoogleMaps(origem, shop)}
+          href={linkRotaGoogleMaps(origem, destinoNoMaps(shop))}
           target="_blank"
           rel="noopener noreferrer"
         >
@@ -293,13 +293,10 @@ const HomePage = () => {
     navigate('/cliente/agendamentos');
   };
 
-  // Barbearia real: agenda de verdade. As de demonstração abrem a página de detalhes.
+  // Todas as barbearias abrem a mesma página (serviços, produtos, detalhes, avaliação).
+  // Na barbearia real o agendamento é gravado de verdade; nas de demonstração é simulado.
   const handleCardClick = (shop) => {
-    if (shop.real) {
-      navigate('/cliente/agendamentos?aba=novo');
-    } else {
-      navigate(`/cliente/barbearia/${shop.id}`);
-    }
+    navigate(`/cliente/barbearia/${shop.id}`);
   };
 
   return (

@@ -48,9 +48,11 @@ export function ordenarPorDistancia(barbearias, origem) {
     });
 }
 
-// Link de rota no Google Maps saindo da posição do cliente até a barbearia
+// Link de rota no Google Maps saindo da posição do cliente até a barbearia.
+// destino: texto do endereço (preferível) ou um ponto { latitude, longitude }.
 export function linkRotaGoogleMaps(origem, destino) {
-  const params = new URLSearchParams({ api: '1', destination: `${destino.latitude},${destino.longitude}` });
+  const textoDestino = typeof destino === 'string' ? destino : `${destino.latitude},${destino.longitude}`;
+  const params = new URLSearchParams({ api: '1', destination: textoDestino });
   if (temCoordenadas(origem)) params.set('origin', `${origem.latitude},${origem.longitude}`);
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
