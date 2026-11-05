@@ -370,3 +370,146 @@ body:not(.light-mode) .insight-icon.warning {
 .table-wrapper::-webkit-scrollbar-thumb:hover {
   background: var(--text-primary);
 }
+/* ========================================
+   IMPRESSÃO / SALVAR EM PDF
+======================================== */
+.reports-page .print-header {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  body,
+  body:not(.light-mode) {
+    background: #ffffff !important;
+  }
+
+  /* Só o relatório vai para o papel */
+  .sidebar,
+  .hamburger-btn,
+  .sidebar-overlay,
+  .reports-page .header-actions {
+    display: none !important;
+  }
+
+  .reports-page,
+  body:not(.light-mode) .reports-page {
+    margin: 0 !important;
+    width: 100% !important;
+    min-height: auto;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  .reports-page .print-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #111827;
+    font-size: 0.85rem;
+    color: #374151;
+  }
+
+  .reports-page .print-header strong {
+    font-size: 1rem;
+    color: #111827;
+  }
+
+  /* Cartões claros, sem sombra e sem animação */
+  .reports-page .stat-card,
+  .reports-page .chart-section,
+  .reports-page .insight-card,
+  .reports-page .insights-section,
+  .reports-page .summary-section,
+  body:not(.light-mode) .reports-page .stat-card,
+  body:not(.light-mode) .reports-page .chart-section,
+  body:not(.light-mode) .reports-page .insight-card,
+  body:not(.light-mode) .reports-page .insights-section,
+  body:not(.light-mode) .reports-page .summary-section {
+    background: #ffffff !important;
+    color: #111827 !important;
+    border: 1px solid #d1d5db !important;
+    box-shadow: none !important;
+    animation: none !important;
+    transform: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .reports-page h1,
+  .reports-page h2,
+  .reports-page h3,
+  .reports-page p,
+  .reports-page span,
+  .reports-page svg {
+    color: #111827 !important;
+  }
+
+  .reports-page .chart-header p,
+  .reports-page .insight-content p,
+  .reports-page .stat-card-content > div > p:first-child {
+    color: #4b5563 !important;
+  }
+
+  /* Mantém as cores dos gráficos, barras e números */
+  .reports-page * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .reports-page .stat-number.total { color: #1d4ed8 !important; }
+  .reports-page .stat-number.average { color: #7c3aed !important; }
+  .reports-page .stat-number.period { color: #dc2626 !important; }
+  .reports-page .stat-number.new { color: #059669 !important; }
+
+  .reports-page .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+
+  /* Seções que agrupam cartões: sem moldura, só os cartões de dentro */
+  .reports-page .insights-section,
+  body:not(.light-mode) .reports-page .insights-section {
+    border: none !important;
+    padding: 0 !important;
+  }
+
+  /* Tabela do resumo legível no papel */
+  .reports-page .summary-table th,
+  .reports-page .summary-table td,
+  body:not(.light-mode) .reports-page .summary-table th,
+  body:not(.light-mode) .reports-page .summary-table td {
+    background: #ffffff !important;
+    color: #111827 !important;
+    border-bottom: 1px solid #e5e7eb !important;
+  }
+
+  .reports-page .summary-table th {
+    font-weight: 700;
+  }
+
+  .reports-page .summary-table .currency-cell {
+    color: #047857 !important;
+  }
+
+  .reports-page .summary-table tr {
+    break-inside: avoid;
+  }
+
+  .reports-page .charts-container,
+  .reports-page .secondary-charts {
+    gap: 0.75rem !important;
+  }
+
+  .reports-page .insights-section {
+    break-before: auto;
+  }
+}

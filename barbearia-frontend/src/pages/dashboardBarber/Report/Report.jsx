@@ -12,12 +12,33 @@ import {
   FiPrinter,
   FiFilter
 } from 'react-icons/fi';
+import * as XLSX from 'xlsx';
+import useConfiguracaoBarbearia from '../../../hooks/useConfiguracaoBarbearia';
 import './Report.css';
+
+const PERIODOS = { diario: 'Diário', semanal: 'Semanal', mensal: 'Mensal', anual: 'Anual' };
+const TIPOS = { geral: 'Geral', clientes: 'Clientes', servicos: 'Serviços', tempo: 'Tempo' };
+
+// "Barber Style's" -> "barber-styles" (para o nome do arquivo)
+const paraNomeDeArquivo = (texto) =>
+  String(texto || 'barbearia').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+// Planilha a partir de linhas, com largura de coluna ajustada ao conteúdo
+const montarPlanilha = (linhas) => {
+  const planilha = XLSX.utils.aoa_to_sheet(linhas);
+  planilha['!cols'] = linhas[0].map((_, coluna) => ({
+    wch: Math.min(60, Math.max(10, ...linhas.map((l) => String(l[coluna] ?? '').length + 2)))
+  }));
+  return planilha;
+};
 
 const Reports = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('mensal');
   const [showValues, setShowValues] = useState(true);
   const [selectedReport, setSelectedReport] = useState('geral');
+  const { config } = useConfiguracaoBarbearia();
+  const nomeBarbearia = config?.nome || 'Barbearia';
 
   // Dados simulados para relatórios
   const dailyReports = [
@@ -109,6 +130,60 @@ const Reports = () => {
   };
 
   const metrics = getCurrentMetrics();
+
+  // ---------- Exportar (Excel) ----------
+  // Gera um .xlsx com o resumo, os dados do período escolhido, horários de pico e satisfação.
+  // Os valores saem completos mesmo com o "olho" fechado: ele só esconde os números na tela.
+  const exportarRelatorio = () => {
+    const dados = getCurrentData();
+    const geradoEm = new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+
+    const resumo = [
+      ['Relatório', `${nomeBarbearia} · ${TIPOS[selectedReport]} · ${PERIODOS[selectedPeriod]}`],
+      ['Gerado em', geradoEm],
+      [],
+      ['Indicador', 'Valor'],
+      ['Total de clientes', metrics.totalClients],
+      ['Serviços realizados', metrics.totalServices],
+      ['Faturamento (R$)', metrics.totalRevenue],
+      ['Ticket médio (R$)', metrics.totalServices ? Number((metrics.totalRevenue / metrics.totalServices).toFixed(2)) : 0],
+      ['Tempo médio de atendimento (min)', metrics.avgTime],
+      ['Retenção de clientes (%)', metrics.clientRetention],
+      ['Satisfação dos clientes (%)', metrics.satisfaction]
+    ];
+
+    const periodo = [
+      ['Período', 'Clientes', 'Serviços', 'Faturamento (R$)', 'Tempo médio (min)'],
+      ...dados.map((d) => [d.name, d.clients, d.services, d.revenue, d.avgTime]),
+      ['Total', metrics.totalClients, metrics.totalServices, metrics.totalRevenue, metrics.avgTime]
+    ];
+
+    const horarios = [['Horário', 'Clientes'], ...peakHours.map((h) => [h.name, h.clients])];
+    const satisfacao = [['Avaliação', 'Percentual (%)'], ...clientSatisfaction.map((c) => [c.name, c.value])];
+
+    const pasta = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(pasta, montarPlanilha(resumo), 'Resumo');
+    XLSX.utils.book_append_sheet(pasta, montarPlanilha(periodo), PERIODOS[selectedPeriod]);
+    XLSX.utils.book_append_sheet(pasta, montarPlanilha(horarios), 'Horários de pico');
+    XLSX.utils.book_append_sheet(pasta, montarPlanilha(satisfacao), 'Satisfação');
+
+    const hoje = new Date().toLocaleDateString('en-CA');
+    XLSX.writeFile(pasta, `relatorio-${paraNomeDeArquivo(nomeBarbearia)}-${selectedPeriod}-${hoje}.xlsx`);
+  };
+
+  // ---------- Imprimir / salvar em PDF ----------
+  // Abre a janela de impressão do navegador (dá para escolher "Salvar como PDF").
+  // O CSS de impressão (Report.css) esconde menu e botões e usa fundo branco.
+  const imprimirRelatorio = () => {
+    const tituloOriginal = document.title;
+    document.title = `Relatório ${PERIODOS[selectedPeriod]} - ${nomeBarbearia}`; // vira o nome do PDF
+    const restaurar = () => {
+      document.title = tituloOriginal;
+      window.removeEventListener('afterprint', restaurar);
+    };
+    window.addEventListener('afterprint', restaurar);
+    window.print();
+  };
 
   const formatCurrency = (value) => {
     if (!showValues) return '***';
@@ -391,21 +466,32 @@ const Reports = () => {
               
               <button
                 className="action-btn"
-                title="Exportar relatório"
-                aria-label="Exportar relatório"
+                onClick={exportarRelatorio}
+                title="Exportar relatório para Excel"
+                aria-label="Exportar relatório para Excel"
               >
                 <FiDownload size={18} />
               </button>
               
               <button
                 className="action-btn"
-                title="Imprimir relatório"
-                aria-label="Imprimir relatório"
+                onClick={imprimirRelatorio}
+                title="Imprimir ou salvar em PDF"
+                aria-label="Imprimir ou salvar em PDF"
               >
                 <FiPrinter size={18} />
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Cabeçalho que só aparece na impressão */}
+        <div className="print-header" aria-hidden="true">
+          <strong>{nomeBarbearia}</strong>
+          <span>
+            Relatório {TIPOS[selectedReport].toLowerCase()} · período {PERIODOS[selectedPeriod].toLowerCase()} ·
+            gerado em {new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+          </span>
         </div>
 
         {/* Métricas principais */}
