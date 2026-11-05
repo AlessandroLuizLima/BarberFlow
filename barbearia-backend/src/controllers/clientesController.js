@@ -1,5 +1,38 @@
-const { Cliente } = require('../models');
+const { sequelize, Cliente } = require('../models');
 const { buscarEnderecoPorCep } = require('../services/viaCepService');
+const { geocodificarEndereco } = require('../services/geocodingService');
+const imagemService = require('../services/imagemService');
+
+// Formato devolvido pela API: sem a senha, com a URL da foto e coordenadas como número
+function serializarCliente(cliente) {
+  const { senha: _senha, ...dados } = cliente.toJSON();
+  return {
+    ...dados,
+    latitude: dados.latitude === null || dados.latitude === undefined ? null : Number(dados.latitude),
+    longitude: dados.longitude === null || dados.longitude === undefined ? null : Number(dados.longitude),
+    foto_url: imagemService.urlDaImagem(dados.foto_id)
+  };
+}
+
+// Calcula as coordenadas do endereço do cliente sem atrasar a resposta da API.
+// Elas servem de plano B para achar a barbearia mais próxima quando o navegador não libera a localização.
+function atualizarCoordenadasEmSegundoPlano(cliente) {
+  const endereco = {
+    rua: cliente.logradouro,
+    numero: cliente.numero,
+    cidade: cliente.cidade,
+    uf: cliente.uf,
+    cep: cliente.cep
+  };
+  geocodificarEndereco(endereco)
+    .then((coordenadas) =>
+      Cliente.update(
+        { latitude: coordenadas?.latitude ?? null, longitude: coordenadas?.longitude ?? null },
+        { where: { id: cliente.id }, hooks: false }
+      )
+    )
+    .catch((error) => console.warn(`[geocoding] cliente ${cliente.id}: ${error.message}`));
+}
 
 // Monta os campos de endereço a partir do CEP, se informado.
 // Se a consulta ao ViaCEP falhar, o cadastro segue sem travar (endereço fica em branco).
@@ -37,11 +70,11 @@ exports.criarCliente = async (req, res) => {
       ...enderecoResolvido
     });
 
-    const { senha: _senha, ...clienteSemSenha } = cliente.toJSON();
+    if (cliente.cep || cliente.cidade) atualizarCoordenadasEmSegundoPlano(cliente);
 
     res.status(201).json({
       message: `Cliente ${cliente.nome_completo} cadastrado com sucesso!`,
-      cliente: clienteSemSenha
+      cliente: serializarCliente(cliente)
     });
   } catch (error) {
     if (error.name === 'SequelizeUniqueConstraintError') {
@@ -54,10 +87,8 @@ exports.criarCliente = async (req, res) => {
 // READ - Listar todos os clientes
 exports.listarClientes = async (req, res) => {
   try {
-    const clientes = await Cliente.findAll({
-      attributes: { exclude: ['senha'] }
-    });
-    res.status(200).json(clientes);
+    const clientes = await Cliente.findAll({ order: [['nome_completo', 'ASC']] });
+    res.status(200).json(clientes.map(serializarCliente));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -66,15 +97,13 @@ exports.listarClientes = async (req, res) => {
 // READ - Buscar cliente por ID
 exports.buscarClientePorId = async (req, res) => {
   try {
-    const cliente = await Cliente.findByPk(req.params.id, {
-      attributes: { exclude: ['senha'] }
-    });
+    const cliente = await Cliente.findByPk(req.params.id);
 
     if (!cliente) {
       return res.status(404).json({ message: 'Cliente não encontrado' });
     }
 
-    res.status(200).json(cliente);
+    res.status(200).json(serializarCliente(cliente));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -90,6 +119,7 @@ exports.atualizarCliente = async (req, res) => {
       return res.status(404).json({ message: 'Cliente não encontrado' });
     }
 
+    const numeroAnterior = cliente.numero;
     let enderecoResolvido = {};
     if (cep && cep !== cliente.cep) {
       enderecoResolvido = await resolverEndereco(cep);
@@ -107,11 +137,15 @@ exports.atualizarCliente = async (req, res) => {
 
     await cliente.update(camposParaAtualizar);
 
-    const { senha: _senha, ...clienteAtualizado } = cliente.toJSON();
+    // Endereço mudou (CEP ou número) ou ainda não tem coordenadas: recalcula
+    const enderecoMudou = enderecoResolvido.cep || (numero !== undefined && numero !== numeroAnterior);
+    if (enderecoMudou || (cliente.latitude === null && cliente.cep)) {
+      atualizarCoordenadasEmSegundoPlano(cliente);
+    }
 
     res.status(200).json({
-      message: `Cliente ${clienteAtualizado.nome_completo} atualizado com sucesso!`,
-      cliente: clienteAtualizado
+      message: `Cliente ${cliente.nome_completo} atualizado com sucesso!`,
+      cliente: serializarCliente(cliente)
     });
   } catch (error) {
     if (error.name === 'SequelizeUniqueConstraintError') {
@@ -130,7 +164,11 @@ exports.deletarCliente = async (req, res) => {
       return res.status(404).json({ message: 'Cliente não encontrado' });
     }
 
-    await cliente.destroy();
+    const fotoId = cliente.foto_id;
+    await sequelize.transaction(async (transaction) => {
+      await cliente.destroy({ transaction });
+      await imagemService.removerImagem(fotoId, { transaction });
+    });
 
     res.status(200).json({ message: `Cliente ${cliente.nome_completo} deletado com sucesso!` });
   } catch (error) {
@@ -150,7 +188,7 @@ exports.loginCliente = async (req, res) => {
       return res.status(400).json({ error: 'Email e senha são obrigatórios' });
     }
 
-    const cliente = await Cliente.findOne({ where: { email } });
+    const cliente = await Cliente.findOne({ where: { email: String(email).trim().toLowerCase() } });
     if (!cliente) {
       return res.status(401).json({ error: 'Email ou senha inválidos' });
     }
@@ -160,8 +198,7 @@ exports.loginCliente = async (req, res) => {
       return res.status(401).json({ error: 'Email ou senha inválidos' });
     }
 
-    const { senha: _senha, ...clienteSemSenha } = cliente.toJSON();
-    res.status(200).json({ message: 'Login realizado com sucesso!', cliente: clienteSemSenha });
+    res.status(200).json({ message: 'Login realizado com sucesso!', cliente: serializarCliente(cliente) });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -175,5 +212,43 @@ exports.consultarCep = async (req, res) => {
     res.status(200).json(endereco);
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+};
+
+// UPDATE - Troca a foto de perfil. Corpo: { imagem: "data:image/...;base64,..." }
+// A foto antiga é apagada da tabela imagens na mesma transação.
+exports.atualizarFoto = async (req, res) => {
+  try {
+    const cliente = await Cliente.findByPk(req.params.id);
+    if (!cliente) return res.status(404).json({ message: 'Cliente não encontrado' });
+
+    const fotoAntiga = cliente.foto_id;
+    await sequelize.transaction(async (transaction) => {
+      const novaFoto = await imagemService.salvarImagem(req.body?.imagem, { transaction });
+      await cliente.update({ foto_id: novaFoto }, { transaction });
+      await imagemService.removerImagem(fotoAntiga, { transaction });
+    });
+
+    res.status(200).json({ message: 'Foto atualizada com sucesso!', cliente: serializarCliente(cliente) });
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message });
+  }
+};
+
+// DELETE - Remove a foto de perfil
+exports.removerFoto = async (req, res) => {
+  try {
+    const cliente = await Cliente.findByPk(req.params.id);
+    if (!cliente) return res.status(404).json({ message: 'Cliente não encontrado' });
+
+    const fotoAntiga = cliente.foto_id;
+    await sequelize.transaction(async (transaction) => {
+      await cliente.update({ foto_id: null }, { transaction });
+      await imagemService.removerImagem(fotoAntiga, { transaction });
+    });
+
+    res.status(200).json({ message: 'Foto removida.', cliente: serializarCliente(cliente) });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };

@@ -9,6 +9,10 @@ router.get('/clientes/:id', clientesController.buscarClientePorId);
 router.put('/clientes/:id', clientesController.atualizarCliente);
 router.delete('/clientes/:id', clientesController.deletarCliente);
 
+// Foto de perfil
+router.put('/clientes/:id/foto', clientesController.atualizarFoto);
+router.delete('/clientes/:id/foto', clientesController.removerFoto);
+
 // Consulta de endereço por CEP (usada pelo formulário de cadastro no frontend)
 router.get('/cep/:cep', clientesController.consultarCep);
 

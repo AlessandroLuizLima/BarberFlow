@@ -19,9 +19,10 @@ const routerAgendamentos = require('./src/routes/routesAgendamentos');
 const routerListaEspera = require('./src/routes/routesListaEspera');
 const routerMensagens = require('./src/routes/routesMensagens');
 const routerConfiguracoes = require('./src/routes/routesConfiguracoes');
+const routerImagens = require('./src/routes/routesImagens');
 
 app.use(cors());
-// Limite maior por causa da logo da barbearia (enviada como imagem em base64)
+// Limite maior por causa das imagens (logo e fotos de perfil chegam em base64)
 app.use(express.json({ limit: '2mb' }));
 
 // Se o banco/migrações falharem na inicialização, o servidor continua de pé e
@@ -55,6 +56,7 @@ app.use(routerAgendamentos);
 app.use(routerListaEspera);
 app.use(routerMensagens);
 app.use(routerConfiguracoes);
+app.use(routerImagens);
 
 // Tratamento de rota não encontrada
 app.use((req, res) => {

@@ -1,9 +1,9 @@
-const ConfiguracaoBarbearia = require('../models/ConfiguracaoBarbearia');
+const { sequelize, ConfiguracaoBarbearia } = require('../models');
+const imagemService = require('../services/imagemService');
+const { geocodificarEndereco } = require('../services/geocodingService');
 
 const DIAS_VALIDOS = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo'];
 const NOTIFICACOES = ['novosAgendamentos', 'cancelamentos', 'reagendamentos', 'lembretes', 'relatorios'];
-const LOGO_MAX_CARACTERES = 700000; // ~500 KB de imagem em base64
-const REGEX_LOGO = /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/;
 const REGEX_HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 const REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -17,7 +17,9 @@ const PADRAO = {
   dias_atendimento: ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'],
   horario_inicio: '08:00',
   horario_fim: '18:00',
-  logo: null,
+  logo_id: null,
+  latitude: null,
+  longitude: null,
   email_notificacoes: '',
   notificacoes: { novosAgendamentos: true, cancelamentos: true, reagendamentos: false, lembretes: true, relatorios: false }
 };
@@ -27,10 +29,33 @@ const minutos = (hhmm) => {
   return h * 60 + m;
 };
 
+const paraNumero = (valor) => (valor === null || valor === undefined ? null : Number(valor));
+
 const paraResposta = (registro) => {
   const dados = registro ? registro.toJSON() : { ...PADRAO };
-  return { ...dados, id: 1, configurado: Boolean(registro) };
+  const logoUrl = imagemService.urlDaImagem(dados.logo_id);
+  return {
+    ...dados,
+    id: 1,
+    configurado: Boolean(registro),
+    logo_url: logoUrl,
+    logo: logoUrl, // compatibilidade com versões antigas do frontend
+    latitude: paraNumero(dados.latitude),
+    longitude: paraNumero(dados.longitude)
+  };
 };
+
+// Endereço no formato do serviço de geocodificação
+const enderecoParaGeocodificar = (d = {}) => ({
+  rua: d.rua,
+  numero: d.numero,
+  bairro: d.bairro,
+  cidade: d.cidade,
+  uf: d.estado
+});
+
+const mesmoEndereco = (a = {}, b = {}) =>
+  ['rua', 'numero', 'bairro', 'cidade', 'estado'].every((campo) => (a[campo] || '') === (b[campo] || ''));
 
 // Valida o corpo da requisição e devolve { dados } ou { erro }
 const validar = (corpo) => {
@@ -70,14 +95,11 @@ const validar = (corpo) => {
   if (!REGEX_HORA.test(inicio) || !REGEX_HORA.test(fim)) return { erro: 'Horário de funcionamento inválido.' };
   if (minutos(fim) <= minutos(inicio)) return { erro: 'O horário de fim deve ser posterior ao de início.' };
 
-  let logo = null;
-  if (corpo.logo) {
-    if (typeof corpo.logo !== 'string' || !REGEX_LOGO.test(corpo.logo)) {
-      return { erro: 'Logo inválida. Envie uma imagem PNG, JPG, WEBP ou GIF.' };
-    }
-    if (corpo.logo.length > LOGO_MAX_CARACTERES) return { erro: 'A logo é muito grande. Use uma imagem de até 500 KB.' };
-    logo = corpo.logo;
-  }
+  // Logo: data URL = imagem nova; vazio/null = remover; qualquer outra string (a URL atual) = manter
+  let logo;
+  if (!corpo.logo) logo = { acao: 'remover' };
+  else if (imagemService.ehDataUrl(corpo.logo)) logo = { acao: 'trocar', dataUrl: corpo.logo };
+  else logo = { acao: 'manter' };
 
   const recebidas = corpo.notificacoes && typeof corpo.notificacoes === 'object' ? corpo.notificacoes : {};
   const notificacoes = {};
@@ -95,10 +117,10 @@ const validar = (corpo) => {
       dias_atendimento: diasOrdenados,
       horario_inicio: inicio,
       horario_fim: fim,
-      logo,
       email_notificacoes: emailNotificacoes || null,
       notificacoes
-    }
+    },
+    logo
   };
 };
 
@@ -112,18 +134,45 @@ exports.obterConfiguracao = async (req, res) => {
   }
 };
 
-// UPDATE - Salva as configurações (cria o registro na primeira vez)
+// UPDATE - Salva as configurações (cria o registro na primeira vez).
+// Também troca/remove a logo e recalcula as coordenadas quando o endereço muda.
 exports.salvarConfiguracao = async (req, res) => {
   try {
-    const { dados, erro } = validar(req.body || {});
+    const { dados, logo, erro } = validar(req.body || {});
     if (erro) return res.status(400).json({ error: erro });
 
-    const valores = { ...dados, id: 1, atualizado_em: new Date() };
-    await ConfiguracaoBarbearia.upsert(valores);
+    const atual = await ConfiguracaoBarbearia.findByPk(1);
+
+    // Geocodifica fora da transação (é uma chamada externa e pode demorar alguns segundos)
+    let coordenadas = { latitude: atual?.latitude ?? null, longitude: atual?.longitude ?? null };
+    const enderecoMudou = !atual || !mesmoEndereco(atual.endereco_detalhado, dados.endereco_detalhado);
+    if (enderecoMudou || coordenadas.latitude === null) {
+      const encontradas = await geocodificarEndereco(enderecoParaGeocodificar(dados.endereco_detalhado));
+      coordenadas = encontradas || { latitude: null, longitude: null };
+    }
+
+    const logoAntiga = atual?.logo_id ?? null;
+    await sequelize.transaction(async (transaction) => {
+      let logoId = logoAntiga;
+      if (logo.acao === 'trocar') logoId = await imagemService.salvarImagem(logo.dataUrl, { transaction });
+      if (logo.acao === 'remover') logoId = null;
+
+      await ConfiguracaoBarbearia.upsert(
+        { ...dados, ...coordenadas, logo_id: logoId, id: 1, atualizado_em: new Date() },
+        { transaction }
+      );
+      if (logoAntiga && logoAntiga !== logoId) {
+        await imagemService.removerImagem(logoAntiga, { transaction });
+      }
+    });
 
     const registro = await ConfiguracaoBarbearia.findByPk(1);
-    res.status(200).json({ message: 'Configurações salvas com sucesso!', configuracao: paraResposta(registro) });
+    res.status(200).json({
+      message: 'Configurações salvas com sucesso!',
+      configuracao: paraResposta(registro),
+      localizacao_encontrada: registro.latitude !== null
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(error.status || 500).json({ error: error.message });
   }
 };
