@@ -26,6 +26,8 @@ configurações da barbearia.
 - [Imagens (logo e fotos de perfil)](#imagens-logo-e-fotos-de-perfil)
 - [Barbearia mais próxima](#barbearia-mais-próxima)
 - [Notificações por e-mail](#notificações-por-e-mail)
+- [Segurança](#segurança)
+- [Zerar o banco de dados](#zerar-o-banco-de-dados)
 - [Rotas da API](#rotas-da-api)
 - [Deploy](#deploy)
 - [Limitações conhecidas e próximos passos](#limitações-conhecidas-e-próximos-passos)
@@ -83,11 +85,14 @@ BarberFlow/
 │   ├── config/sequelize.js     Conexão com o PostgreSQL (SSL automático fora do localhost)
 │   ├── database/
 │   │   ├── schema.sql          Modelo completo do banco, para consulta/documentação
-│   │   └── seed.js             Serviços e profissionais de exemplo
+│   │   ├── seed.js             Serviços e profissionais de exemplo
+│   │   ├── criar-admin.js      Cria/redefine a conta do painel do barbeiro
+│   │   └── reset.js            Apaga todos os dados (pede confirmação)
 │   ├── src/
 │   │   ├── controllers/        Regras de cada recurso (clientes, agendamentos, imagens...)
 │   │   ├── database/migrations.js  Migrações versionadas (rodam sozinhas ao subir)
 │   │   ├── jobs/lembreteJob.js Lembrete 2h antes
+│   │   ├── middlewares/        Autenticação (JWT), permissões, limites e cabeçalhos de segurança
 │   │   ├── models/             Modelos Sequelize e relacionamentos (index.js)
 │   │   ├── routes/             Rotas Express
 │   │   ├── services/           ViaCEP, geocodificação, imagens, notificações
@@ -126,7 +131,8 @@ Não é preciso rodar nenhum SQL: ao subir, o backend cria as tabelas
 ```bash
 cd barbearia-backend
 npm install
-cp .env.example .env      # ajuste usuário/senha do Postgres se necessário
+cp .env.example .env      # ajuste usuário/senha do Postgres e preencha JWT_SECRET
+npm run criar-admin       # cria a conta de acesso ao painel do barbeiro
 npm run seed              # opcional: cria serviços e profissionais de exemplo
 npm run dev
 ```
@@ -152,7 +158,7 @@ npm run dev
 Acesse `http://localhost:5173`.
 
 ### 4. Roteiro de teste
-1. Em `/auth/barbeiro`, entre no painel e abra **Configurações**: defina nome,
+1. Em `/auth/barbeiro`, entre com a conta criada no `npm run criar-admin` e abra o painel e abra **Configurações**: defina nome,
    logo e o endereço (comece pelo CEP) e salve. Em **Notificações**, envie um
    e-mail de teste.
 2. Em `/auth/cliente`, crie uma conta (informe o CEP) e faça login.
@@ -184,6 +190,9 @@ Acesse `http://localhost:5173`.
 | `SMTP_USER` / `SMTP_PASS` | — | Login do e-mail (no Gmail, a **senha de app**) |
 | `SMTP_FROM` | `SMTP_USER` | Endereço que aparece como remetente |
 | `RESUMO_DIARIO_HORA` | `07:00` | Horário do resumo do dia (horário de Brasília) |
+| `JWT_SECRET` | — | **Obrigatório em produção.** Segredo dos tokens de login (mín. 32 caracteres) |
+| `CORS_ORIGINS` | localhost + Azure + GitHub Pages | Sites que podem chamar a API pelo navegador (separados por vírgula) |
+| `TRUST_PROXY` | `1` no Azure, `0` fora | Quantos proxies existem na frente da API (para o limite de tentativas usar o IP real) |
 
 ### Frontend (`barbearia-frontend/.env`)
 
@@ -354,51 +363,123 @@ registradas como **simuladas** e aparecem no console (`[email:simulado]`).
 
 ---
 
+## Segurança
+
+O sistema passou por um pentest que conseguiu cadastrar um barbeiro sem
+permissão. A causa: o login do barbeiro era simulado no navegador e a API não
+pedia login em nenhuma rota. Isso foi corrigido assim:
+
+| Problema encontrado | Correção |
+|---|---|
+| Login do barbeiro falso (qualquer email/senha entrava) e cadastro de barbeiro aberto | Contas do painel na tabela `administradores`, com senha bcrypt. **Não há cadastro pelo site**: a conta é criada com `npm run criar-admin` |
+| Nenhuma rota exigia login (`POST /profissionais`, `PUT /configuracoes`...) | Token JWT em toda rota privada; ações administrativas exigem papel `barbeiro` |
+| `localStorage.auth = "true"` abria o painel | Sessões separadas de cliente e barbeiro; o painel exige token de barbeiro válido |
+| Qualquer pessoa via/alterava/apagava o cadastro de outro cliente (IDOR) | Cliente só acessa o próprio `:id`, agendamentos, fila e mensagens |
+| Troca de email/senha sem confirmação | Exige a senha atual; trocar a senha derruba as outras sessões (`token_versao`) |
+| `GET /clientes` e `GET /mensagens` listavam dados pessoais de todos | Só o barbeiro |
+| Dados internos em rotas públicas (email/telefone dos profissionais, email de notificações) | Rotas públicas devolvem só o necessário |
+| Erros devolviam mensagens do banco | Resposta genérica; o detalhe fica só no log do servidor |
+| Sem limite de tentativas | Login: 10 erros a cada 15 min por IP; cadastro: 5 por hora; limite geral por minuto |
+| Sem cabeçalhos de segurança e CORS aberto | `helmet` (HSTS, nosniff, frame-ancestors...) e CORS só para os sites do projeto |
+| Senhas fracas aceitas | Mínimo de 8 caracteres com letras e números |
+| Dependências com vulnerabilidades conhecidas (`npm audit`) | Atualizadas; `xlsx` (sem correção disponível) removido. `npm audit` zerado nos dois projetos |
+
+### Quem pode fazer o quê
+
+| Ação | Visitante | Cliente | Barbeiro |
+|---|:-:|:-:|:-:|
+| Ver barbearia, serviços, profissionais e horários livres | ✓ | ✓ | ✓ |
+| Criar conta de cliente / fazer login | ✓ | — | — |
+| Ver e editar o **próprio** cadastro e foto | — | ✓ | ✓ (qualquer um, sem trocar email/senha) |
+| Agendar, remarcar e cancelar **os próprios** agendamentos | — | ✓ | ✓ (todos) |
+| Lista de espera e mensagens **próprias** | — | ✓ | ✓ (todas) |
+| Listar clientes, concluir atendimentos | — | — | ✓ |
+| Cadastrar/editar profissionais e serviços | — | — | ✓ |
+| Alterar configurações e notificações da barbearia | — | — | ✓ |
+
+### Contas do painel do barbeiro
+```bash
+cd barbearia-backend
+npm run criar-admin     # pede email, nome e senha (a senha não aparece na tela)
+```
+Rodar de novo com um email que já existe **redefine a senha** e encerra as
+sessões abertas dessa conta. Para usar no Azure, rode com o `.env` apontando para
+o banco de produção (ou pelo console SSH do App Service).
+
+---
+
+## Zerar o banco de dados
+
+Apaga **todos os dados** (clientes, contas do painel, profissionais, serviços,
+agendamentos, fila, mensagens, notificações, imagens e configurações) do banco
+configurado no `.env`. As tabelas continuam, e os IDs voltam a começar do 1.
+**Não tem como desfazer.**
+
+```bash
+cd barbearia-backend
+npm run reset-db        # mostra quantos registros existem e pede o nome do banco para confirmar
+npm run criar-admin     # recria a conta do painel
+npm run seed            # opcional: dados de exemplo
+```
+
+---
+
 ## Rotas da API
 
-Base local: `http://localhost:3000`
+Base local: `http://localhost:3000`. Rotas privadas pedem o cabeçalho
+`Authorization: Bearer <token>`, devolvido no login. A coluna **Acesso** diz
+quem pode chamar: 🌐 público · 👤 cliente (só o que é dele) · ✂️ barbeiro.
+
+### Autenticação
+| Método | Rota | Acesso | Descrição |
+|---|---|---|---|
+| POST | `/auth/barbeiro/login` | 🌐 | Login do painel: devolve `token` e `barbeiro` |
+| PUT | `/auth/barbeiro/senha` | ✂️ | Troca a senha (`senha_atual`, `nova_senha`) |
+| GET | `/auth/eu` | 👤 ✂️ | Quem está logado |
 
 ### Clientes
-| Método | Rota | Descrição |
-|---|---|---|
-| POST | `/clientes` | Cadastra (endereço completado pelo CEP; coordenadas calculadas em segundo plano) |
-| POST | `/clientes/login` | Login |
-| GET | `/clientes` · `/clientes/:id` | Lista / busca (nunca devolve a senha) |
-| PUT | `/clientes/:id` | Atualiza dados; troca de CEP recalcula endereço e coordenadas |
-| DELETE | `/clientes/:id` | Exclui (bloqueado se houver agendamentos) |
-| PUT | `/clientes/:id/foto` | Envia foto de perfil — corpo `{ "imagem": "data:image/png;base64,..." }` |
-| DELETE | `/clientes/:id/foto` | Remove a foto |
-| GET | `/cep/:cep` | Consulta de endereço por CEP |
+| Método | Rota | Acesso | Descrição |
+|---|---|---|---|
+| POST | `/clientes` | 🌐 | Cadastra (senha com 8+ caracteres, letras e números) |
+| POST | `/clientes/login` | 🌐 | Login: devolve `token` e `cliente` |
+| GET | `/clientes` | ✂️ | Lista todos os clientes |
+| GET | `/clientes/:id` | 👤 ✂️ | Busca (nunca devolve a senha) |
+| PUT | `/clientes/:id` | 👤 ✂️ | Atualiza. Trocar `email` ou `senha` exige `senha_atual` (só o próprio cliente) |
+| DELETE | `/clientes/:id` | 👤 ✂️ | Exclui (cliente informa `senha_atual`; bloqueado se houver agendamentos) |
+| PUT · DELETE | `/clientes/:id/foto` | 👤 ✂️ | Envia/remove a foto — corpo `{ "imagem": "data:image/png;base64,..." }` |
+| GET | `/cep/:cep` | 🌐 | Consulta de endereço por CEP |
 
 ### Profissionais e serviços
-| Método | Rota | Descrição |
-|---|---|---|
-| POST · GET · PUT · DELETE | `/profissionais[/:id]` | CRUD de profissionais |
-| PUT · DELETE | `/profissionais/:id/foto` | Foto do profissional |
-| POST · GET · PUT · DELETE | `/servicos[/:id]` | CRUD de serviços |
+| Método | Rota | Acesso | Descrição |
+|---|---|---|---|
+| GET | `/profissionais[/:id]` | 🌐 | Lista/busca (email e telefone só para o barbeiro) |
+| POST · PUT · DELETE | `/profissionais[/:id]` | ✂️ | Cadastra, edita, exclui |
+| PUT · DELETE | `/profissionais/:id/foto` | ✂️ | Foto do profissional |
+| GET | `/servicos[/:id]` | 🌐 | Lista/busca |
+| POST · PUT · DELETE | `/servicos[/:id]` | ✂️ | Cadastra, edita, exclui |
 
 ### Agendamentos, lista de espera e mensagens
-| Método | Rota | Descrição |
-|---|---|---|
-| POST | `/agendamentos` | Cria (verifica expediente e conflito, envia a confirmação) |
-| GET | `/disponibilidade?data=AAAA-MM-DD&servico_id=` | Horários livres do dia, com os barbeiros livres em cada um |
-| GET | `/agendamentos?cliente_id=&profissional_id=&status=` | Lista com filtros |
-| GET | `/agendamentos/:id` | Detalhe |
-| PUT | `/agendamentos/:id` | Remarca |
-| PATCH | `/agendamentos/:id/concluir` | Marca como concluído |
-| DELETE | `/agendamentos/:id` | Cancela e avisa a lista de espera |
-| POST · GET · DELETE | `/lista-espera[/:id]` | Entrar, listar e sair da fila |
-| GET | `/mensagens?cliente_id=&tipo=` | Histórico de notificações |
+| Método | Rota | Acesso | Descrição |
+|---|---|---|---|
+| GET | `/disponibilidade?data=AAAA-MM-DD&servico_id=` | 🌐 | Horários livres do dia, com os barbeiros livres em cada um |
+| POST | `/agendamentos` | 👤 ✂️ | Cria (cliente agenda para si; barbeiro informa `cliente_id`) |
+| GET | `/agendamentos?profissional_id=&status=` | 👤 ✂️ | Lista (cliente: só os dele; barbeiro: todos, com `cliente_id` opcional) |
+| GET | `/agendamentos/:id` | 👤 ✂️ | Detalhe |
+| PUT | `/agendamentos/:id` | 👤 ✂️ | Remarca |
+| DELETE | `/agendamentos/:id` | 👤 ✂️ | Cancela e avisa a lista de espera |
+| PATCH | `/agendamentos/:id/concluir` | ✂️ | Marca como concluído |
+| POST · GET · DELETE | `/lista-espera[/:id]` | 👤 ✂️ | Entrar, listar e sair da fila |
+| GET | `/mensagens?tipo=` | 👤 ✂️ | Histórico de notificações enviadas ao cliente |
 
 ### Barbearia e imagens
-| Método | Rota | Descrição |
-|---|---|---|
-| GET | `/configuracoes` | Dados da barbearia, incluindo `logo_url`, `latitude` e `longitude` |
-| PUT | `/configuracoes` | Salva. Campo `logo`: data URL = nova logo · URL atual = manter · `null` = remover. Responde `localizacao_encontrada` |
-| GET | `/imagens/:id` | Arquivo da imagem |
-| GET | `/configuracoes/notificacoes/status` | Se o SMTP está configurado e para qual e-mail vão os avisos |
-| POST | `/configuracoes/notificacoes/teste` | Envia um e-mail de teste para a barbearia |
-| GET | `/notificacoes-barbearia?limite=` | Últimas notificações enviadas para a barbearia |
+| Método | Rota | Acesso | Descrição |
+|---|---|---|---|
+| GET | `/configuracoes` | 🌐 | Dados públicos da barbearia (o barbeiro recebe também notificações e preferências) |
+| PUT | `/configuracoes` | ✂️ | Salva. Campo `logo`: data URL = nova logo · URL atual = manter · `null` = remover |
+| GET | `/imagens/:id` | 🌐 | Arquivo da imagem |
+| GET | `/configuracoes/notificacoes/status` | ✂️ | Se o SMTP está configurado e para qual e-mail vão os avisos |
+| POST | `/configuracoes/notificacoes/teste` | ✂️ | Envia um e-mail de teste para a barbearia |
+| GET | `/notificacoes-barbearia?limite=` | ✂️ | Últimas notificações enviadas para a barbearia |
 
 ---
 
@@ -410,9 +491,10 @@ Cada push na `main` dispara os workflows de `.github/workflows/`:
   publica o frontend no Azure, servido pelo `server.cjs`.
 - `deploy.yaml` publica o build do frontend no GitHub Pages.
 
-No Azure, configure as variáveis do backend (`DB_*` e, se quiser,
-`GEOCODING_USER_AGENT`) em *Configuration → Application settings*. As migrações
-rodam sozinhas na primeira inicialização depois do deploy.
+No Azure, configure as variáveis do backend em *Configuration → Application
+settings*: `DB_*`, **`JWT_SECRET`** (sem ele a API responde 503), `SMTP_*` e, se
+quiser, `GEOCODING_USER_AGENT`. As migrações rodam sozinhas na primeira
+inicialização depois do deploy.
 
 ---
 
@@ -425,11 +507,11 @@ rodam sozinhas na primeira inicialização depois do deploy.
   criar a tabela `barbearias` e ligar profissionais, serviços e agendamentos a ela
   (`barbearia_id`). Aí a busca por proximidade pode ir para o backend
   (`GET /barbearias/proximas?lat=&lng=`).
-- **Autenticação**: o login devolve os dados do cliente, mas a API ainda não usa
-  token, então as rotas `/clientes/:id` não conferem quem está chamando.
-  Próximo passo: JWT no login e um middleware que verifica se o `:id` é do
-  usuário logado.
-- **Login do barbeiro** ainda é simulado no frontend.
+- **Token no navegador**: o token fica no `localStorage`. Com o React escapando
+  todo texto, o risco de XSS é baixo, mas um passo além seria usar cookie
+  `httpOnly` (exige frontend e API no mesmo domínio ou `SameSite=None`).
+- **Recuperação de senha por e-mail** ainda não existe: o barbeiro redefine com
+  `npm run criar-admin`; o cliente troca a senha logado.
 - **Telas do painel com dados de exemplo**: clientes, serviços, produtos,
   financeiro e relatórios.
 - **WhatsApp/SMS**: as notificações saem por e-mail. Para WhatsApp seria
@@ -445,6 +527,11 @@ rodam sozinhas na primeira inicialização depois do deploy.
 - **API responde `503 Backend iniciou com erro`**: o servidor subiu, mas o banco
   ou uma migração falhou. O campo `detalhe` da resposta e o log mostram o motivo.
 - **Tela de agendamento vazia**: rode `npm run seed` no backend.
+- **API responde `503 Serviço temporariamente indisponível` no Azure**: falta
+  `JWT_SECRET` nas Application settings (ou o banco está fora).
+- **"Sessão expirada" ao reiniciar o backend em desenvolvimento**: sem
+  `JWT_SECRET` no `.env`, o segredo muda a cada reinício. Defina um fixo.
+- **Login bloqueado ("Muitas tentativas")**: espere 15 minutos ou reinicie o backend.
 - **Erro de CORS**: confira se `VITE_API_URL` aponta para o backend que está rodando.
 - **CEP não preenche o endereço / barbearia não aparece como "mais próxima"**:
   ViaCEP e Nominatim precisam de acesso à internet (`viacep.com.br` e
