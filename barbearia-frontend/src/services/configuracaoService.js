@@ -25,6 +25,7 @@ const paraCoordenada = (valor) => (valor === null || valor === undefined || valo
 
 // API (snake_case) -> formato usado no app (camelCase)
 export const deApi = (d = {}) => ({
+  id: d.id ?? null,
   nome: d.nome || PADRAO.nome,
   telefone: d.telefone || '',
   email: d.email || '',

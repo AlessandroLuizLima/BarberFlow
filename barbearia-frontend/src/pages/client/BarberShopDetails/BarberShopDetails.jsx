@@ -13,30 +13,30 @@ import BarberServices from './BarberServices/BarberServices';
 import BarberProducts from './BarberProducts/BarberProducts';
 import BarberDetails from './BarberDetails/BarberDetails';
 import BarberAssessment from './BarberAssessment/BarberAssessment';
-import { linkGoogleMaps, BARBEARIA_REAL_ID } from '../../../data/barbearias';
+import { linkGoogleMaps } from '../../../data/barbearias';
 import useBarbearias from '../../../hooks/useBarbearias';
-import useConfiguracaoBarbearia from '../../../hooks/useConfiguracaoBarbearia';
 import { listarServicos } from '../../../services/servicoService';
 import './BarberShopDetails.css';
 
 const BarberShopDetails = ({ barbershop: barbershopProp, onBack: onBackProp }) => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { buscar } = useBarbearias();
-  const { config } = useConfiguracaoBarbearia();
+  const { buscar, carregando, primeiraReal } = useBarbearias();
   const barbershop = barbershopProp || buscar(id);
   const onBack = onBackProp || (() => navigate('/cliente'));
   const [activeTab, setActiveTab] = useState('servicos');
   const [isFavorite, setIsFavorite] = useState(false);
   const ehReal = Boolean(barbershop?.real);
 
-  // Barbearia real: os serviços vêm do banco (os mesmos que o barbeiro cadastra)
+  const barbeariaId = ehReal ? barbershop.id : null;
+
+  // Barbearia real: os serviços vêm do banco (os mesmos que o barbeiro dela cadastra)
   const [servicosReais, setServicosReais] = useState([]);
   const [carregandoServicos, setCarregandoServicos] = useState(ehReal);
   useEffect(() => {
-    if (!ehReal) return;
+    if (!barbeariaId) return;
     setCarregandoServicos(true);
-    listarServicos()
+    listarServicos(barbeariaId)
       .then((lista) => setServicosReais(lista.filter((s) => s.ativo !== false).map((s) => ({
         id: s.id,
         name: s.nome,
@@ -46,10 +46,13 @@ const BarberShopDetails = ({ barbershop: barbershopProp, onBack: onBackProp }) =
       }))))
       .catch((error) => console.error('Erro ao carregar serviços:', error))
       .finally(() => setCarregandoServicos(false));
-  }, [ehReal]);
+  }, [barbeariaId]);
 
-  // Barbearia inexistente na URL: volta para a Home
-  if (id && !barbershop) return <Navigate to="/cliente" replace />;
+  // Barbearia inexistente na URL (ou com assinatura vencida): volta para a Home
+  if (id && !barbershop) {
+    if (carregando) return <div className="barbershop-details-page"><p style={{ padding: 24, color: '#94a3b8' }}>Carregando barbearia...</p></div>;
+    return <Navigate to="/cliente" replace />;
+  }
 
   // Dados de exemplo - você deve substituir pelos dados reais
   const barbershopData = barbershop || {
@@ -117,7 +120,8 @@ const BarberShopDetails = ({ barbershop: barbershopProp, onBack: onBackProp }) =
             services={ehReal ? servicosReais : barbershopData.services}
             real={ehReal}
             carregando={ehReal && carregandoServicos}
-            diasAtendimento={ehReal ? config?.diasAtendimento : undefined}
+            barbeariaId={barbeariaId}
+            diasAtendimento={ehReal ? barbershopData.diasAtendimento : undefined}
           />
         );
       case 'produtos':
@@ -213,10 +217,14 @@ const BarberShopDetails = ({ barbershop: barbershopProp, onBack: onBackProp }) =
       {barbershopData.real === false && (
         <div className="demo-notice">
           Barbearia de demonstração: os dados são fictícios e o agendamento aqui não é salvo.
-          Para agendar de verdade, use a barbearia{' '}
-          <button type="button" className="demo-notice-link" onClick={() => navigate(`/cliente/barbearia/${BARBEARIA_REAL_ID}`)}>
-            <strong>{buscar(BARBEARIA_REAL_ID)?.name || 'BarberFlow'}</strong>
-          </button>.
+          {primeiraReal && (
+            <>
+              {' '}Para agendar de verdade, use uma barbearia sem o selo "Demonstração", como a{' '}
+              <button type="button" className="demo-notice-link" onClick={() => navigate(`/cliente/barbearia/${primeiraReal.id}`)}>
+                <strong>{primeiraReal.name}</strong>
+              </button>.
+            </>
+          )}
         </div>
       )}
 

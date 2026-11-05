@@ -1,5 +1,5 @@
 import React from 'react';
-import { FiScissors, FiClock, FiUser } from 'react-icons/fi';
+import { FiScissors, FiClock, FiUser, FiMapPin } from 'react-icons/fi';
 import { STATUS_LABEL, STATUS_ATIVOS, formatarMoeda, valorDoAgendamento } from '../../../../utils/agendamentosCliente';
 import './AgendamentoItem.css';
 
@@ -25,6 +25,11 @@ const AgendamentoItem = ({ agendamento, onCancelar, cancelando = false, destaque
         <p className="ag-pro">
           <FiUser size={13} /> com {agendamento.profissional?.nome_completo || 'profissional'}
         </p>
+        {agendamento.barbearia?.nome && (
+          <p className="ag-meta">
+            <FiMapPin size={13} /> {agendamento.barbearia.nome}
+          </p>
+        )}
         {agendamento.servico?.duracao_minutos && (
           <p className="ag-meta">
             <FiClock size={13} /> {agendamento.servico.duracao_minutos} min

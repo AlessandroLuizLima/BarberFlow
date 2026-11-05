@@ -5,7 +5,7 @@ import ScheduleModal from './ScheduleTime/ScheduleTime';
 import './BarberServices.css';
 
 // real = barbearia cadastrada no sistema: serviços vêm da API e o modal agenda de verdade
-const BarberServices = ({ services = [], real = false, carregando = false, diasAtendimento }) => {
+const BarberServices = ({ services = [], real = false, carregando = false, diasAtendimento, barbeariaId }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedService, setSelectedService] = useState(null);
 
@@ -79,6 +79,7 @@ const BarberServices = ({ services = [], real = false, carregando = false, diasA
         onClose={() => setIsModalOpen(false)}
         service={selectedService}
         real={real}
+        barbeariaId={barbeariaId}
         diasAtendimento={diasAtendimento}
       />
     </div>

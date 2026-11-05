@@ -134,8 +134,7 @@ const ClientBooking = () => {
   const proximos = proximosAgendamentos(agendamentos);
   const proximo = proximos[0];
   const demais = proximos.slice(1, 6);
-  const barbeariaReal = barbearias[0];
-  const relatorio = gerarRelatorio(agendamentos, { nome: barbeariaReal.name, logo: barbeariaReal.logo });
+  const relatorio = gerarRelatorio(agendamentos);
 
   const renderMeusAgendamentos = () => (
     <div className="cb-overview">

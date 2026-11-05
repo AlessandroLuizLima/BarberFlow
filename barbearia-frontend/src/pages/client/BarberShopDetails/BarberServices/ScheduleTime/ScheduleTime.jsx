@@ -49,6 +49,7 @@ const ScheduleTime = ({
   onClose,
   service,
   real = false,
+  barbeariaId,
   diasAtendimento,
   serviceName = service?.name || "Corte de Cabelo",
   servicePrice = service ? `R$ ${Number(service.price).toFixed(2).replace('.', ',')}` : "R$ 45,00",
@@ -83,8 +84,8 @@ const ScheduleTime = ({
   }, [isOpen, service?.id]);
 
   useEffect(() => {
-    if (!isOpen || !real) return;
-    listarProfissionais()
+    if (!isOpen || !real || !barbeariaId) return;
+    listarProfissionais(barbeariaId)
       .then((lista) => setBarbeirosApi(lista.filter((p) => p.ativo !== false).map((p) => ({
         id: p.id,
         name: p.nome_completo,
@@ -92,7 +93,7 @@ const ScheduleTime = ({
         foto: p.foto_url ? urlImagem(p.foto_url) : null
       }))))
       .catch(() => setErro('Não foi possível carregar os barbeiros. Verifique sua conexão.'));
-  }, [isOpen, real]);
+  }, [isOpen, real, barbeariaId]);
 
   const carregarHorarios = useCallback((date) => {
     if (!real || !date || !service?.id) return;

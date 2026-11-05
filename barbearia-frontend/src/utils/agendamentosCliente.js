@@ -1,3 +1,5 @@
+import { urlImagem } from '../services/api';
+
 // Regras de apresentação dos agendamentos do cliente (próximos + histórico).
 
 export const STATUS_ATIVOS = ['agendado', 'confirmado', 'remarcado'];
@@ -29,9 +31,10 @@ export function gerarRelatorio(lista, barbearia = { nome: NOME_BARBEARIA, logo: 
   const porBarbearia = new Map();
 
   concluidos.forEach((a) => {
+    // Cada agendamento traz a barbearia onde foi feito (nome e logo)
     const nomeBarbearia = a.barbearia?.nome || barbearia.nome;
     if (!porBarbearia.has(nomeBarbearia)) {
-      porBarbearia.set(nomeBarbearia, { nome: nomeBarbearia, logo: barbearia.logo || null, visitas: 0, total: 0, servicos: new Map(), ultima: null });
+      porBarbearia.set(nomeBarbearia, { nome: nomeBarbearia, logo: urlImagem(a.barbearia?.logo_url) || barbearia.logo || null, visitas: 0, total: 0, servicos: new Map(), ultima: null });
     }
     const b = porBarbearia.get(nomeBarbearia);
     const valor = valorDoAgendamento(a);
