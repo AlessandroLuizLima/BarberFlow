@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const mensagensController = require('../controllers/mensagensController');
+const { exigirLogin } = require('../middlewares/auth');
 
-router.get('/mensagens', mensagensController.listarMensagens);
+// Cliente: só as próprias mensagens. Barbeiro: todas.
+router.get('/mensagens', exigirLogin, mensagensController.listarMensagens);
 
 module.exports = router;

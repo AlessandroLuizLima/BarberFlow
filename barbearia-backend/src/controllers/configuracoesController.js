@@ -1,6 +1,18 @@
 const { sequelize, ConfiguracaoBarbearia, NotificacaoBarbearia } = require('../models');
 const notificacaoService = require('../services/notificacaoService');
 const { smtpConfigurado, verificarConexao } = require('../services/emailService');
+const { ehBarbeiro } = require('../middlewares/auth');
+const { responderErroInterno } = require('../middlewares/seguranca');
+
+const responderErro = (res, error) =>
+  (error?.status === 400 ? res.status(400).json({ error: error.message }) : responderErroInterno(res, error));
+
+// O que clientes e visitantes podem ver (sem email de notificações e preferências internas)
+const CAMPOS_PUBLICOS = [
+  'id', 'nome', 'telefone', 'email', 'endereco', 'endereco_detalhado', 'dias_atendimento',
+  'horario_inicio', 'horario_fim', 'logo_url', 'logo', 'latitude', 'longitude', 'configurado'
+];
+const somentePublico = (dados) => Object.fromEntries(CAMPOS_PUBLICOS.map((c) => [c, dados[c]]));
 const imagemService = require('../services/imagemService');
 const { geocodificarEndereco } = require('../services/geocodingService');
 
@@ -150,9 +162,10 @@ exports.obterConfiguracao = async (req, res) => {
   try {
     const registro = await ConfiguracaoBarbearia.findByPk(1);
     completarCoordenadasEmSegundoPlano(registro);
-    res.status(200).json(paraResposta(registro));
+    const dados = paraResposta(registro);
+    res.status(200).json(ehBarbeiro(req) ? dados : somentePublico(dados));
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    responderErro(res, error);
   }
 };
 
@@ -195,7 +208,7 @@ exports.salvarConfiguracao = async (req, res) => {
       localizacao_encontrada: registro.latitude !== null
     });
   } catch (error) {
-    res.status(error.status || 500).json({ error: error.message });
+    responderErro(res, error);
   }
 };
 
@@ -208,7 +221,7 @@ exports.statusNotificacoes = async (req, res) => {
       email_destino: registro?.email_notificacoes || registro?.email || null
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    responderErro(res, error);
   }
 };
 
@@ -223,7 +236,8 @@ exports.testarNotificacoes = async (req, res) => {
     if (smtpConfigurado()) {
       const conexao = await verificarConexao();
       if (!conexao.ok) {
-        return res.status(502).json({ error: `O servidor de e-mail recusou a conexão: ${conexao.motivo}` });
+        console.error('[email] falha ao conectar no SMTP:', conexao.motivo);
+        return res.status(502).json({ error: 'O servidor de e-mail recusou a conexão. Confira SMTP_USER e SMTP_PASS no .env do backend.' });
       }
     }
     const notificacao = await notificacaoService.enviarTeste(emailDigitado || null);
@@ -240,7 +254,7 @@ exports.testarNotificacoes = async (req, res) => {
       notificacao
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    responderErro(res, error);
   }
 };
 
@@ -251,6 +265,6 @@ exports.listarNotificacoesBarbearia = async (req, res) => {
     const notificacoes = await NotificacaoBarbearia.findAll({ order: [['criado_em', 'DESC']], limit: limite });
     res.status(200).json(notificacoes);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    responderErro(res, error);
   }
 };

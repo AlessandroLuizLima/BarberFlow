@@ -1,6 +1,8 @@
 const { Op } = require('sequelize');
 const { sequelize, Agendamento, Cliente, Profissional, Servico, ListaEspera, ConfiguracaoBarbearia } = require('../models');
 const notificacaoService = require('../services/notificacaoService');
+const { ehBarbeiro } = require('../middlewares/auth');
+const { responderErroInterno } = require('../middlewares/seguranca');
 const { dataLocalISO, dataHoraLocal, diaDaSemana, minutosDoDia, paraMinutos, paraHHMM } = require('../utils/datas');
 
 const INTERVALO_MINUTOS = 30; // de quanto em quanto tempo a agenda oferece horários
@@ -34,8 +36,8 @@ const STATUS_ATIVOS = ['agendado', 'confirmado', 'remarcado'];
 const DURACAO_MAXIMA_MS = 12 * 60 * 60 * 1000; // nenhum serviço dura mais que isso
 
 const includePadrao = [
-  { model: Cliente, as: 'cliente', attributes: { exclude: ['senha'] } },
-  { model: Profissional, as: 'profissional' },
+  { model: Cliente, as: 'cliente', attributes: ['id', 'nome_completo', 'email', 'telefone', 'foto_id'] },
+  { model: Profissional, as: 'profissional', attributes: ['id', 'nome_completo', 'especialidade', 'foto_id', 'ativo'] },
   { model: Servico, as: 'servico' }
 ];
 
@@ -50,8 +52,19 @@ function responderErro(res, error) {
   if (error instanceof ErroNegocio) {
     return res.status(error.status).json({ error: error.message });
   }
-  return res.status(500).json({ error: error.message });
+  return responderErroInterno(res, error);
 }
+
+// Cliente só mexe nos próprios agendamentos; o barbeiro mexe em todos.
+// Para não revelar quais IDs existem, agendamento de outra pessoa responde 404.
+function garantirAcesso(req, agendamento) {
+  if (!agendamento) throw new ErroNegocio(404, 'Agendamento não encontrado');
+  if (!ehBarbeiro(req) && agendamento.cliente_id !== req.usuario.id) {
+    throw new ErroNegocio(404, 'Agendamento não encontrado');
+  }
+}
+
+const idValido = (valor) => Number.isInteger(Number(valor)) && Number(valor) > 0;
 
 function lerData(valor) {
   const data = new Date(valor);
@@ -117,10 +130,16 @@ async function avisarListaDeEspera({ profissional_id, servico_id, data_hora }) {
 // Cria já confirmado, guarda o preço cobrado e dispara a mensagem de confirmação.
 exports.criarAgendamento = async (req, res) => {
   try {
-    const { cliente_id, profissional_id, servico_id, data_hora } = req.body;
+    const { profissional_id, servico_id, data_hora } = req.body || {};
+    // O cliente logado agenda para si mesmo (o cliente_id do corpo é ignorado);
+    // o barbeiro pode agendar em nome de um cliente.
+    const cliente_id = ehBarbeiro(req) ? req.body?.cliente_id : req.usuario.id;
 
     if (!cliente_id || !profissional_id || !servico_id || !data_hora) {
-      throw new ErroNegocio(400, 'cliente_id, profissional_id, servico_id e data_hora são obrigatórios');
+      throw new ErroNegocio(400, 'profissional_id, servico_id e data_hora são obrigatórios');
+    }
+    if (![cliente_id, profissional_id, servico_id].every(idValido)) {
+      throw new ErroNegocio(400, 'Identificadores inválidos');
     }
 
     const [cliente, profissional, servico] = await Promise.all([
@@ -182,9 +201,11 @@ exports.listarAgendamentos = async (req, res) => {
   try {
     const { cliente_id, profissional_id, status } = req.query;
     const where = {};
-    if (cliente_id) where.cliente_id = cliente_id;
-    if (profissional_id) where.profissional_id = profissional_id;
-    if (status) where.status = status;
+    // Cliente vê só os próprios agendamentos, seja qual for o filtro enviado
+    if (!ehBarbeiro(req)) where.cliente_id = req.usuario.id;
+    else if (idValido(cliente_id)) where.cliente_id = Number(cliente_id);
+    if (idValido(profissional_id)) where.profissional_id = Number(profissional_id);
+    if (status && [...STATUS_ATIVOS, 'cancelado', 'concluido'].includes(status)) where.status = status;
 
     const agendamentos = await Agendamento.findAll({
       where,
@@ -201,7 +222,7 @@ exports.listarAgendamentos = async (req, res) => {
 exports.buscarAgendamentoPorId = async (req, res) => {
   try {
     const agendamento = await Agendamento.findByPk(req.params.id, { include: includePadrao });
-    if (!agendamento) throw new ErroNegocio(404, 'Agendamento não encontrado');
+    garantirAcesso(req, agendamento);
     res.status(200).json(agendamento);
   } catch (error) {
     responderErro(res, error);
@@ -219,7 +240,8 @@ exports.atualizarAgendamento = async (req, res) => {
     }
 
     const agendamento = await Agendamento.findByPk(req.params.id, { include: [{ model: Servico, as: 'servico' }] });
-    if (!agendamento) throw new ErroNegocio(404, 'Agendamento não encontrado');
+    garantirAcesso(req, agendamento);
+    if (profissional_id !== undefined && !idValido(profissional_id)) throw new ErroNegocio(400, 'profissional_id inválido');
 
     if (!STATUS_ATIVOS.includes(agendamento.status)) {
       throw new ErroNegocio(409, `Um agendamento ${agendamento.status} não pode ser remarcado`);
@@ -310,7 +332,7 @@ exports.concluirAgendamento = async (req, res) => {
 exports.cancelarAgendamento = async (req, res) => {
   try {
     const agendamento = await Agendamento.findByPk(req.params.id);
-    if (!agendamento) throw new ErroNegocio(404, 'Agendamento não encontrado');
+    garantirAcesso(req, agendamento);
 
     if (!STATUS_ATIVOS.includes(agendamento.status)) {
       throw new ErroNegocio(409, `Um agendamento ${agendamento.status} não pode ser cancelado`);

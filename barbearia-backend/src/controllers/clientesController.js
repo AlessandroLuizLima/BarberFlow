@@ -1,11 +1,28 @@
+const bcrypt = require('bcryptjs');
 const { sequelize, Cliente } = require('../models');
 const { buscarEnderecoPorCep } = require('../services/viaCepService');
 const { geocodificarEndereco } = require('../services/geocodingService');
 const imagemService = require('../services/imagemService');
+const { gerarToken, ehBarbeiro } = require('../middlewares/auth');
+const { responderErroInterno, respostaDeValidacao } = require('../middlewares/seguranca');
+const { validarSenha } = require('../utils/senha');
+
+const REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const texto = (valor, max) => (typeof valor === 'string' ? valor.trim().slice(0, max) : undefined);
+
+// Hash qualquer para o login levar o mesmo tempo com ou sem conta (evita descobrir emails cadastrados)
+const HASH_FALSO = '$2b$10$e5teNY9/JA4SmK60ELNJWu2GRqOBXDVloHgHt/BjcQ63KRw2cWoyi';
+
+function responderErro(res, error) {
+  const validacao = respostaDeValidacao(error);
+  if (validacao) return res.status(400).json({ error: validacao });
+  if (error?.status === 400) return res.status(400).json({ error: error.message });
+  return responderErroInterno(res, error);
+}
 
 // Formato devolvido pela API: sem a senha, com a URL da foto e coordenadas como número
 function serializarCliente(cliente) {
-  const { senha: _senha, ...dados } = cliente.toJSON();
+  const { senha: _senha, token_versao: _versao, ...dados } = cliente.toJSON();
   return {
     ...dados,
     latitude: dados.latitude === null || dados.latitude === undefined ? null : Number(dados.latitude),
@@ -69,9 +86,21 @@ const isCepGeral = (cliente) => /000$/.test(String(cliente.cep || '').replace(/\
 // CREATE - Criar cliente (endereço é completado automaticamente via ViaCEP)
 exports.criarCliente = async (req, res) => {
   try {
-    const { nome_completo, email, telefone, senha, cep, numero, complemento } = req.body;
+    const corpo = req.body || {};
+    const nome_completo = texto(corpo.nome_completo, 100);
+    const email = texto(corpo.email, 100)?.toLowerCase();
+    const telefone = texto(corpo.telefone, 20) || null;
+    const { senha } = corpo;
+    const cep = texto(corpo.cep, 9);
+    const numero = texto(corpo.numero, 20);
+    const complemento = texto(corpo.complemento, 100);
 
-    const enderecoResolvido = completarComDigitado(await resolverEndereco(cep), req.body);
+    if (!nome_completo || nome_completo.length < 3) return res.status(400).json({ error: 'Informe o nome completo.' });
+    if (!email || !REGEX_EMAIL.test(email)) return res.status(400).json({ error: 'Email inválido.' });
+    const erroSenha = validarSenha(senha);
+    if (erroSenha) return res.status(400).json({ error: erroSenha });
+
+    const enderecoResolvido = completarComDigitado(await resolverEndereco(cep), corpo);
 
     const cliente = await Cliente.create({
       nome_completo,
@@ -90,10 +119,7 @@ exports.criarCliente = async (req, res) => {
       cliente: serializarCliente(cliente)
     });
   } catch (error) {
-    if (error.name === 'SequelizeUniqueConstraintError') {
-      return res.status(400).json({ error: 'Email já cadastrado' });
-    }
-    res.status(500).json({ error: error.message });
+    responderErro(res, error);
   }
 };
 
@@ -103,7 +129,7 @@ exports.listarClientes = async (req, res) => {
     const clientes = await Cliente.findAll({ order: [['nome_completo', 'ASC']] });
     res.status(200).json(clientes.map(serializarCliente));
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    responderErro(res, error);
   }
 };
 
@@ -118,18 +144,42 @@ exports.buscarClientePorId = async (req, res) => {
 
     res.status(200).json(serializarCliente(cliente));
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    responderErro(res, error);
   }
 };
 
 // UPDATE - Atualizar cliente (se o CEP mudar, endereço é recalculado via ViaCEP)
 exports.atualizarCliente = async (req, res) => {
   try {
-    const { nome_completo, email, telefone, senha, cep, numero, complemento } = req.body;
+    const corpo = req.body || {};
+    const nome_completo = texto(corpo.nome_completo, 100);
+    const email = texto(corpo.email, 100)?.toLowerCase();
+    const telefone = texto(corpo.telefone, 20);
+    const cep = texto(corpo.cep, 9);
+    const numero = texto(corpo.numero, 20);
+    const complemento = texto(corpo.complemento, 100);
+    const { senha, senha_atual } = corpo;
 
     const cliente = await Cliente.findByPk(req.params.id);
     if (!cliente) {
       return res.status(404).json({ message: 'Cliente não encontrado' });
+    }
+
+    if (nome_completo !== undefined && nome_completo.length < 3) return res.status(400).json({ error: 'Informe o nome completo.' });
+    if (email !== undefined && !REGEX_EMAIL.test(email)) return res.status(400).json({ error: 'Email inválido.' });
+
+    // Trocar senha ou email exige a senha atual, e só o próprio cliente pode fazer isso
+    // (impede que alguém com a sessão aberta, ou o barbeiro, tome a conta)
+    const trocandoEmail = email !== undefined && email !== cliente.email;
+    if (senha || trocandoEmail) {
+      if (ehBarbeiro(req)) return res.status(403).json({ error: 'Só o próprio cliente pode alterar email e senha.' });
+      if (!(await cliente.verificarSenha(senha_atual))) {
+        return res.status(400).json({ error: 'Informe sua senha atual para alterar email ou senha.' });
+      }
+    }
+    if (senha) {
+      const erroSenha = validarSenha(senha);
+      if (erroSenha) return res.status(400).json({ error: erroSenha });
     }
 
     const numeroAnterior = cliente.numero;
@@ -140,7 +190,7 @@ exports.atualizarCliente = async (req, res) => {
     }
     // Rua e bairro digitados só valem quando o CEP não traz essas informações (CEP geral da cidade)
     const cepSemRua = cepNovo ? !enderecoResolvido.logradouro : (isCepGeral(cliente) || !cliente.logradouro);
-    if (cepSemRua) enderecoResolvido = completarComDigitado(enderecoResolvido, req.body);
+    if (cepSemRua) enderecoResolvido = completarComDigitado(enderecoResolvido, corpo);
     const logradouroAnterior = cliente.logradouro;
 
     const camposBrutos = { nome_completo, email, telefone, numero, complemento, ...enderecoResolvido };
@@ -165,13 +215,12 @@ exports.atualizarCliente = async (req, res) => {
 
     res.status(200).json({
       message: `Cliente ${cliente.nome_completo} atualizado com sucesso!`,
-      cliente: serializarCliente(cliente)
+      cliente: serializarCliente(cliente),
+      // Trocar a senha derruba as sessões antigas; o próprio cliente recebe um token novo
+      ...(senha ? { token: gerarToken(cliente, 'cliente') } : {})
     });
   } catch (error) {
-    if (error.name === 'SequelizeUniqueConstraintError') {
-      return res.status(400).json({ error: 'Email já cadastrado' });
-    }
-    res.status(500).json({ error: error.message });
+    responderErro(res, error);
   }
 };
 
@@ -182,6 +231,9 @@ exports.deletarCliente = async (req, res) => {
 
     if (!cliente) {
       return res.status(404).json({ message: 'Cliente não encontrado' });
+    }
+    if (!ehBarbeiro(req) && !(await cliente.verificarSenha(req.body?.senha_atual))) {
+      return res.status(400).json({ error: 'Informe sua senha para excluir a conta.' });
     }
 
     const fotoId = cliente.foto_id;
@@ -195,32 +247,33 @@ exports.deletarCliente = async (req, res) => {
     if (error.name === 'SequelizeForeignKeyConstraintError') {
       return res.status(409).json({ error: 'Este cliente possui agendamentos e não pode ser excluído.' });
     }
-    res.status(500).json({ error: error.message });
+    responderErro(res, error);
   }
 };
 
 // AUTH - Login do cliente (compara senha com o hash salvo)
 exports.loginCliente = async (req, res) => {
   try {
-    const { email, senha } = req.body;
+    const email = String(req.body?.email ?? '').trim().toLowerCase();
+    const senha = String(req.body?.senha ?? '');
 
     if (!email || !senha) {
       return res.status(400).json({ error: 'Email e senha são obrigatórios' });
     }
 
-    const cliente = await Cliente.findOne({ where: { email: String(email).trim().toLowerCase() } });
-    if (!cliente) {
+    const cliente = await Cliente.findOne({ where: { email } });
+    const senhaValida = cliente ? await cliente.verificarSenha(senha) : await bcrypt.compare(senha, HASH_FALSO);
+    if (!cliente || !senhaValida) {
       return res.status(401).json({ error: 'Email ou senha inválidos' });
     }
 
-    const senhaValida = await cliente.verificarSenha(senha);
-    if (!senhaValida) {
-      return res.status(401).json({ error: 'Email ou senha inválidos' });
-    }
-
-    res.status(200).json({ message: 'Login realizado com sucesso!', cliente: serializarCliente(cliente) });
+    res.status(200).json({
+      message: 'Login realizado com sucesso!',
+      token: gerarToken(cliente, 'cliente'),
+      cliente: serializarCliente(cliente)
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    responderErro(res, error);
   }
 };
 
@@ -231,7 +284,8 @@ exports.consultarCep = async (req, res) => {
     const endereco = await buscarEnderecoPorCep(req.params.cep);
     res.status(200).json(endereco);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    const conhecido = /CEP/.test(error.message);
+    res.status(conhecido ? 400 : 502).json({ error: conhecido ? error.message : 'Não foi possível consultar o CEP agora.' });
   }
 };
 
@@ -251,7 +305,7 @@ exports.atualizarFoto = async (req, res) => {
 
     res.status(200).json({ message: 'Foto atualizada com sucesso!', cliente: serializarCliente(cliente) });
   } catch (error) {
-    res.status(error.status || 500).json({ error: error.message });
+    responderErro(res, error);
   }
 };
 
@@ -269,6 +323,6 @@ exports.removerFoto = async (req, res) => {
 
     res.status(200).json({ message: 'Foto removida.', cliente: serializarCliente(cliente) });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    responderErro(res, error);
   }
 };

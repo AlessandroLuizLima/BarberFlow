@@ -1,4 +1,5 @@
 const { Imagem } = require('../models');
+const { responderErroInterno } = require('../middlewares/seguranca');
 
 const REGEX_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -22,6 +23,6 @@ exports.obterImagem = async (req, res) => {
     });
     res.send(imagem.dados);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    responderErroInterno(res, error);
   }
 };
