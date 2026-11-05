@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import './LandingPage.css'; 
 import { useNavigate } from 'react-router-dom';
+import { enviarContato } from '../../services/contatoService';
+import { PLANOS, formatarPreco } from '../../data/planos';
 import Logo from '../../assets/imagens/logo.png';
 import { FaCalendarAlt, FaUsers, FaChartLine, FaMobileAlt, FaClock, FaChartBar } from 'react-icons/fa';
 
@@ -10,6 +12,7 @@ function Button(props) {
       type={props.type || "button"}
       className={props.className}
       onClick={props.onClick}
+      disabled={props.disabled}
       aria-label={props.ariaLabel}
     >
       {props.children}
@@ -71,6 +74,7 @@ function Navbar(props) {
             <NavLink href="#about" text="Sobre" />
             <NavLink href="#services" text="Serviços" />
             <NavLink href="#prices" text="Planos" />
+            <NavLink href="#contact" text="Contato" />
           </ul>
         </div>
       </div>
@@ -184,7 +188,7 @@ function PricingCard(props) {
           <PlanFeature key={index} text={feature} />
         ))}
       </ul>
-      <Button className="btn-outline">Adquirir</Button>
+      <Button className="btn-outline" onClick={props.onAdquirir}>Adquirir</Button>
     </div>
   );
 }
@@ -207,6 +211,7 @@ function PricingSection(props) {
               price={plan.price}
               period={plan.period}
               features={plan.features}
+              onAdquirir={() => props.onAdquirir(plan.chave)}
             />
           ))}
         </div>
@@ -224,9 +229,14 @@ function FormInput(props) {
       <input 
         type={props.type}
         id={props.id}
+        name={props.name}
         className="form-input"
         placeholder={props.placeholder}
         required={props.required}
+        maxLength={props.maxLength}
+        autoComplete={props.autoComplete}
+        value={props.value}
+        onChange={props.onChange}
       />
     </div>
   );
@@ -240,43 +250,129 @@ function FormTextarea(props) {
       </label>
       <textarea 
         id={props.id}
+        name={props.name}
         className="form-textarea"
         placeholder={props.placeholder}
         required={props.required}
+        maxLength={props.maxLength}
+        value={props.value}
+        onChange={props.onChange}
       ></textarea>
     </div>
   );
 }
 
+const CONTATO_VAZIO = { nome: '', email: '', perfil: 'cliente', assunto: '', mensagem: '', site: '' };
+
+// Formulário "Entre em contato": a mensagem vai por e-mail para o suporte do BarberFlow,
+// que responde direto para o e-mail informado aqui.
 function ContactSection(props) {
+  const [form, setForm] = useState(CONTATO_VAZIO);
+  const [enviando, setEnviando] = useState(false);
+  const [aviso, setAviso] = useState(null); // { tipo: 'ok' | 'erro', texto }
+
+  const alterar = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+
+  const enviar = async (e) => {
+    e.preventDefault();
+    if (enviando) return;
+    setAviso(null);
+    if (form.mensagem.trim().length < 10) {
+      setAviso({ tipo: 'erro', texto: 'Escreva uma mensagem com pelo menos 10 caracteres.' });
+      return;
+    }
+    setEnviando(true);
+    try {
+      const resposta = await enviarContato(form);
+      setAviso({ tipo: 'ok', texto: resposta.message || 'Mensagem enviada! Responderemos no seu e-mail.' });
+      setForm(CONTATO_VAZIO);
+    } catch (error) {
+      const status = error.response?.status;
+      const texto = status === 429
+        ? 'Você enviou muitas mensagens seguidas. Tente novamente mais tarde.'
+        : error.response?.data?.error || 'Não foi possível enviar agora. Verifique sua conexão e tente novamente.';
+      setAviso({ tipo: 'erro', texto });
+    } finally {
+      setEnviando(false);
+    }
+  };
+
   return (
-    <section className="section">
+    <section id="contact" className="section">
       <div className="contact-container">
         <SectionTitle text={props.title} centered={true} />
         <p className="contact-intro">{props.description}</p>
-        <form onSubmit={props.onSubmit} className="contact-form">
-          <FormInput 
-            type="email"
-            id="email"
-            label="Seu e-mail"
-            placeholder="exemplo@gmail.com"
-            required={true}
-          />
+        <form onSubmit={enviar} className="contact-form" noValidate={false}>
+          <div className="form-row">
+            <FormInput 
+              type="text"
+              id="contato-nome"
+              name="nome"
+              label="Seu nome"
+              placeholder="Como podemos te chamar?"
+              autoComplete="name"
+              maxLength={100}
+              required={true}
+              value={form.nome}
+              onChange={alterar}
+            />
+            <FormInput 
+              type="email"
+              id="contato-email"
+              name="email"
+              label="Seu e-mail"
+              placeholder="exemplo@gmail.com"
+              autoComplete="email"
+              maxLength={150}
+              required={true}
+              value={form.email}
+              onChange={alterar}
+            />
+          </div>
+          <fieldset className="form-group contact-perfil">
+            <legend className="form-label">Você é</legend>
+            <div className="contact-perfil-opcoes">
+              {[['cliente', 'Cliente'], ['barbeiro', 'Barbeiro / dono de barbearia']].map(([valor, rotulo]) => (
+                <label key={valor} className={`contact-perfil-opcao ${form.perfil === valor ? 'ativo' : ''}`}>
+                  <input type="radio" name="perfil" value={valor} checked={form.perfil === valor} onChange={alterar} />
+                  {rotulo}
+                </label>
+              ))}
+            </div>
+          </fieldset>
           <FormInput 
             type="text"
-            id="subject"
+            id="contato-assunto"
+            name="assunto"
             label="Assunto"
             placeholder="Deixe-nos saber como podemos ajudar você"
+            maxLength={150}
             required={true}
+            value={form.assunto}
+            onChange={alterar}
           />
           <FormTextarea 
-            id="message"
+            id="contato-mensagem"
+            name="mensagem"
             label="Sua mensagem"
             placeholder="Deixe sua mensagem"
+            maxLength={5000}
             required={true}
+            value={form.mensagem}
+            onChange={alterar}
           />
-          <Button type="submit" className="btn-outline">
-            Enviar
+          {/* Armadilha para robôs de spam: escondido de pessoas, não preencher */}
+          <div className="contact-hp" aria-hidden="true">
+            <label htmlFor="contato-site">Site</label>
+            <input type="text" id="contato-site" name="site" tabIndex={-1} autoComplete="off" value={form.site} onChange={alterar} />
+          </div>
+          {aviso && (
+            <p className={`contact-aviso contact-aviso--${aviso.tipo}`} role={aviso.tipo === 'erro' ? 'alert' : 'status'}>
+              {aviso.texto}
+            </p>
+          )}
+          <Button type="submit" className="btn-outline" disabled={enviando}>
+            {enviando ? 'Enviando...' : 'Enviar'}
           </Button>
         </form>
       </div>
@@ -350,9 +446,9 @@ const LandingPage = () => {
     navigate('/auth/barbeiro');
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    alert('Formulário enviado com sucesso!');
+  // Botão "Adquirir" de cada plano: vai para o checkout daquele plano
+  const handleAdquirir = (chave) => {
+    navigate(`/assinar/${chave}`);
   };
 
   const services = [
@@ -388,47 +484,14 @@ const LandingPage = () => {
     }
   ];
 
-  const plans = [
-    {
-      name: "Plano Starter",
-      description: "Ideal para profissionais autônomos que estão começando.",
-      price: "R$ 29,90",
-      period: "/mês",
-      features: [
-        "Até 100 agendamentos/mês",
-        "1 profissional",
-        "Acesso a dashboard básico",
-        "Suporte por email"
-      ]
-    },
-    {
-      name: "Plano Profissional",
-      description: "Perfeito para barbearias em crescimento.",
-      price: "R$ 59,90",
-      period: "/mês",
-      features: [
-        "Até 1000 agendamentos/mês",
-        "Até 3 profissionais",
-        "Acesso a dashboard avançado",
-        "Suporte por email",
-        "Suporte por whatsapp"
-      ]
-    },
-    {
-      name: "Plano Enterprise",
-      description: "Solução completa para grandes estabelecimentos.",
-      price: "R$ 99,90",
-      period: "/mês",
-      features: [
-        "Agendamentos ilimitados",
-        "Profissionais ilimitados",
-        "Acesso a dashboard avançado",
-        "Suporte por email",
-        "Suporte por whatsapp",
-        "Suporte prioritário via chat"
-      ]
-    }
-  ];
+  const plans = PLANOS.map((p) => ({
+    chave: p.chave,
+    name: p.nome,
+    description: p.descricao,
+    price: formatarPreco(p.preco),
+    period: "/mês",
+    features: p.recursos
+  }));
 
   const footerSections = [
     {
@@ -486,14 +549,14 @@ const LandingPage = () => {
 
       <PricingSection 
         title="Escolha o plano ideal para seu negócio"
-        description="Todos os planos incluem 14 dias de teste grátis. Sem compromisso, cancele quando quiser. Oferecemos opções flexíveis que se ajustam ao seu orçamento e objetivos de crescimento."
+        description="Pagamento mensal pelo Mercado Pago (Pix, cartão ou boleto), sem fidelidade: renove quando quiser pelo painel. Assim que o pagamento é aprovado, você recebe no e-mail o acesso ao painel da sua barbearia."
         plans={plans}
+        onAdquirir={handleAdquirir}
       />
 
       <ContactSection 
         title="Entre em contato"
         description="Tem dúvidas sobre nossos serviços? Precisa de mais detalhes sobre nossos planos? Nossa equipe está pronta para ajudar você a transformar sua barbearia. Responderemos em até 24 horas."
-        onSubmit={handleSubmit}
       />
 
       <Footer 
