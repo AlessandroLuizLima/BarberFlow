@@ -34,12 +34,20 @@ function naFila(tarefa) {
   return execucao;
 }
 
-async function consultar(parametros) {
+const ESTADOS = {
+  AC: 'Acre', AL: 'Alagoas', AP: 'Amapá', AM: 'Amazonas', BA: 'Bahia', CE: 'Ceará', DF: 'Distrito Federal',
+  ES: 'Espírito Santo', GO: 'Goiás', MA: 'Maranhão', MT: 'Mato Grosso', MS: 'Mato Grosso do Sul',
+  MG: 'Minas Gerais', PA: 'Pará', PB: 'Paraíba', PR: 'Paraná', PE: 'Pernambuco', PI: 'Piauí',
+  RJ: 'Rio de Janeiro', RN: 'Rio Grande do Norte', RS: 'Rio Grande do Sul', RO: 'Rondônia', RR: 'Roraima',
+  SC: 'Santa Catarina', SP: 'São Paulo', SE: 'Sergipe', TO: 'Tocantins'
+};
+
+async function consultar(parametros, uf) {
   const chave = JSON.stringify(parametros);
   if (cache.has(chave)) return cache.get(chave);
 
   const url = new URL(URL_NOMINATIM);
-  Object.entries({ ...parametros, format: 'jsonv2', limit: '1', countrycodes: 'br' }).forEach(([k, v]) => {
+  Object.entries({ ...parametros, format: 'jsonv2', limit: '5', countrycodes: 'br', addressdetails: '1' }).forEach(([k, v]) => {
     if (v) url.searchParams.set(k, v);
   });
 
@@ -51,9 +59,11 @@ async function consultar(parametros) {
   );
   if (!resposta.ok) throw new Error(`Nominatim respondeu ${resposta.status}`);
 
-  const [primeiro] = await resposta.json();
-  const resultado = primeiro
-    ? { latitude: Number(Number(primeiro.lat).toFixed(6)), longitude: Number(Number(primeiro.lon).toFixed(6)) }
+  // Descarta resultados de outro estado (ex.: "Paulo Frontin/PR" x "Engenheiro Paulo de Frontin/RJ")
+  const resultados = await resposta.json();
+  const certo = resultados.find((r) => !uf || r.address?.['ISO3166-2-lvl4'] === `BR-${uf}`);
+  const resultado = certo
+    ? { latitude: Number(Number(certo.lat).toFixed(6)), longitude: Number(Number(certo.lon).toFixed(6)) }
     : null;
   cache.set(chave, resultado);
   return resultado;
@@ -61,26 +71,30 @@ async function consultar(parametros) {
 
 /**
  * Busca as coordenadas de um endereço brasileiro.
- * Tenta primeiro com rua + número; se não achar, tenta só com CEP/cidade (menos preciso).
+ * Tenta do mais preciso (rua + número) para o menos preciso (só a cidade).
  * @param {{rua?: string, numero?: string, bairro?: string, cidade?: string, uf?: string, cep?: string}} endereco
  * @returns {Promise<{latitude: number, longitude: number} | null>}
  */
 async function geocodificarEndereco(endereco = {}) {
   if (process.env.GEOCODING_DESABILITADO === 'true') return null;
 
-  const { rua, numero, cidade, uf, cep } = endereco;
+  const { rua, numero, bairro, cidade, cep } = endereco;
+  const uf = String(endereco.uf || '').trim().toUpperCase();
+  const estado = ESTADOS[uf] || uf;
   if (!cidade && !cep) return null;
 
+  const cepFormatado = cep ? String(cep).replace(/\D/g, '').replace(/^(\d{5})(\d{3})$/, '$1-$2') : '';
   const tentativas = [];
   if (rua && cidade) {
-    tentativas.push({ street: [numero, rua].filter(Boolean).join(' '), city: cidade, state: uf });
+    tentativas.push({ street: [numero, rua].filter(Boolean).join(' '), city: cidade, state: estado });
+    tentativas.push({ q: [[rua, numero].filter(Boolean).join(', '), bairro, `${cidade} - ${estado}`, 'Brasil'].filter(Boolean).join(', ') });
   }
-  if (cep) tentativas.push({ postalcode: String(cep).replace(/\D/g, '').replace(/^(\d{5})(\d{3})$/, '$1-$2'), city: cidade, state: uf });
-  if (cidade) tentativas.push({ city: cidade, state: uf });
+  if (cepFormatado) tentativas.push({ postalcode: cepFormatado, state: estado });
+  if (cidade) tentativas.push({ city: cidade, state: estado });
 
   try {
     for (const parametros of tentativas) {
-      const resultado = await consultar(parametros);
+      const resultado = await consultar(parametros, ESTADOS[uf] ? uf : null);
       if (resultado) return resultado;
     }
   } catch (error) {

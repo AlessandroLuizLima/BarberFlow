@@ -1,4 +1,6 @@
-const { sequelize, ConfiguracaoBarbearia } = require('../models');
+const { sequelize, ConfiguracaoBarbearia, NotificacaoBarbearia } = require('../models');
+const notificacaoService = require('../services/notificacaoService');
+const { smtpConfigurado, verificarConexao } = require('../services/emailService');
 const imagemService = require('../services/imagemService');
 const { geocodificarEndereco } = require('../services/geocodingService');
 
@@ -51,11 +53,24 @@ const enderecoParaGeocodificar = (d = {}) => ({
   numero: d.numero,
   bairro: d.bairro,
   cidade: d.cidade,
-  uf: d.estado
+  uf: d.estado,
+  cep: d.cep
 });
 
 const mesmoEndereco = (a = {}, b = {}) =>
-  ['rua', 'numero', 'bairro', 'cidade', 'estado'].every((campo) => (a[campo] || '') === (b[campo] || ''));
+  ['cep', 'rua', 'numero', 'bairro', 'cidade', 'estado'].every((campo) => (a[campo] || '') === (b[campo] || ''));
+
+// Se a barbearia tem endereço mas ficou sem coordenadas (ex.: o mapa estava fora do ar quando salvou),
+// tenta de novo em segundo plano, no máximo a cada 10 minutos.
+let ultimaTentativaGeocoding = 0;
+function completarCoordenadasEmSegundoPlano(registro) {
+  if (!registro || registro.latitude !== null || !registro.endereco_detalhado?.cidade) return;
+  if (Date.now() - ultimaTentativaGeocoding < 10 * 60 * 1000) return;
+  ultimaTentativaGeocoding = Date.now();
+  geocodificarEndereco(enderecoParaGeocodificar(registro.endereco_detalhado))
+    .then((c) => c && ConfiguracaoBarbearia.update({ latitude: c.latitude, longitude: c.longitude }, { where: { id: 1 } }))
+    .catch((error) => console.warn(`[geocoding] barbearia: ${error.message}`));
+}
 
 // Valida o corpo da requisição e devolve { dados } ou { erro }
 const validar = (corpo) => {
@@ -81,9 +96,15 @@ const validar = (corpo) => {
     ? corpo.endereco_detalhado
     : {};
   const enderecoDetalhado = {};
-  ['rua', 'numero', 'bairro', 'cidade', 'estado', 'pontoReferencia'].forEach((campo) => {
+  ['cep', 'rua', 'numero', 'bairro', 'cidade', 'estado', 'pontoReferencia'].forEach((campo) => {
     enderecoDetalhado[campo] = String(detalhado[campo] ?? '').trim().slice(0, 100);
   });
+  if (enderecoDetalhado.cep) {
+    const digitos = enderecoDetalhado.cep.replace(/\D/g, '');
+    if (digitos.length !== 8) return { erro: 'CEP inválido: use 8 dígitos.' };
+    enderecoDetalhado.cep = `${digitos.slice(0, 5)}-${digitos.slice(5)}`;
+  }
+  enderecoDetalhado.estado = enderecoDetalhado.estado.toUpperCase().slice(0, 2);
 
   const dias = Array.isArray(corpo.dias_atendimento) ? corpo.dias_atendimento : [];
   if (dias.length === 0) return { erro: 'Selecione pelo menos um dia de atendimento.' };
@@ -128,6 +149,7 @@ const validar = (corpo) => {
 exports.obterConfiguracao = async (req, res) => {
   try {
     const registro = await ConfiguracaoBarbearia.findByPk(1);
+    completarCoordenadasEmSegundoPlano(registro);
     res.status(200).json(paraResposta(registro));
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -174,5 +196,56 @@ exports.salvarConfiguracao = async (req, res) => {
     });
   } catch (error) {
     res.status(error.status || 500).json({ error: error.message });
+  }
+};
+
+// GET - Situação do envio de e-mails (para a aba Notificações mostrar se está tudo certo)
+exports.statusNotificacoes = async (req, res) => {
+  try {
+    const registro = await ConfiguracaoBarbearia.findByPk(1);
+    res.status(200).json({
+      smtp_configurado: smtpConfigurado(),
+      email_destino: registro?.email_notificacoes || registro?.email || null
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// POST - Envia um e-mail de teste para o e-mail de notificações da barbearia
+exports.testarNotificacoes = async (req, res) => {
+  try {
+    if (smtpConfigurado()) {
+      const conexao = await verificarConexao();
+      if (!conexao.ok) {
+        return res.status(502).json({ error: `O servidor de e-mail recusou a conexão: ${conexao.motivo}` });
+      }
+    }
+    const notificacao = await notificacaoService.enviarTeste();
+    if (!notificacao) return res.status(500).json({ error: 'Não foi possível registrar o teste.' });
+
+    const mensagens = {
+      enviado: `E-mail de teste enviado para ${notificacao.email_destino}. Confira a caixa de entrada (e o spam).`,
+      simulado: 'O servidor de e-mail (SMTP) ainda não foi configurado no backend. O teste foi registrado, mas nenhum e-mail saiu.',
+      falhou: `Não foi possível enviar: ${notificacao.erro_envio}`
+    };
+    res.status(notificacao.status_envio === 'falhou' ? 400 : 200).json({
+      status: notificacao.status_envio,
+      message: mensagens[notificacao.status_envio],
+      notificacao
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// GET - Últimas notificações enviadas para a barbearia (histórico na aba Notificações)
+exports.listarNotificacoesBarbearia = async (req, res) => {
+  try {
+    const limite = Math.min(Number(req.query.limite) || 20, 100);
+    const notificacoes = await NotificacaoBarbearia.findAll({ order: [['criado_em', 'DESC']], limit: limite });
+    res.status(200).json(notificacoes);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };

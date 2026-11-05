@@ -53,12 +53,25 @@ async function resolverEndereco(cep) {
   }
 }
 
+// Cidades pequenas têm um CEP único (ex.: 84635-000): o ViaCEP devolve cidade/UF mas sem rua e bairro.
+// Nesses casos vale o que o cliente digitou.
+function completarComDigitado(enderecoResolvido, { logradouro, bairro }) {
+  const limpo = (v) => (typeof v === 'string' ? v.trim().slice(0, 150) : undefined);
+  const resultado = { ...enderecoResolvido };
+  if (!resultado.logradouro && limpo(logradouro) !== undefined) resultado.logradouro = limpo(logradouro);
+  if (!resultado.bairro && limpo(bairro) !== undefined) resultado.bairro = limpo(bairro).slice(0, 100);
+  return resultado;
+}
+
+// Endereço atual veio de um CEP geral? (ViaCEP não trouxe rua: o que está salvo foi digitado)
+const isCepGeral = (cliente) => /000$/.test(String(cliente.cep || '').replace(/\D/g, ''));
+
 // CREATE - Criar cliente (endereço é completado automaticamente via ViaCEP)
 exports.criarCliente = async (req, res) => {
   try {
     const { nome_completo, email, telefone, senha, cep, numero, complemento } = req.body;
 
-    const enderecoResolvido = await resolverEndereco(cep);
+    const enderecoResolvido = completarComDigitado(await resolverEndereco(cep), req.body);
 
     const cliente = await Cliente.create({
       nome_completo,
@@ -121,9 +134,14 @@ exports.atualizarCliente = async (req, res) => {
 
     const numeroAnterior = cliente.numero;
     let enderecoResolvido = {};
-    if (cep && cep !== cliente.cep) {
+    const cepNovo = cep && String(cep).replace(/\D/g, '') !== String(cliente.cep || '').replace(/\D/g, '');
+    if (cepNovo) {
       enderecoResolvido = await resolverEndereco(cep);
     }
+    // Rua e bairro digitados só valem quando o CEP não traz essas informações (CEP geral da cidade)
+    const cepSemRua = cepNovo ? !enderecoResolvido.logradouro : (isCepGeral(cliente) || !cliente.logradouro);
+    if (cepSemRua) enderecoResolvido = completarComDigitado(enderecoResolvido, req.body);
+    const logradouroAnterior = cliente.logradouro;
 
     const camposBrutos = { nome_completo, email, telefone, numero, complemento, ...enderecoResolvido };
     // Remove campos não enviados para não sobrescrever dados existentes com undefined
@@ -138,7 +156,9 @@ exports.atualizarCliente = async (req, res) => {
     await cliente.update(camposParaAtualizar);
 
     // Endereço mudou (CEP ou número) ou ainda não tem coordenadas: recalcula
-    const enderecoMudou = enderecoResolvido.cep || (numero !== undefined && numero !== numeroAnterior);
+    const enderecoMudou = Boolean(enderecoResolvido.cep) ||
+      (numero !== undefined && numero !== numeroAnterior) ||
+      cliente.logradouro !== logradouroAnterior;
     if (enderecoMudou || (cliente.latitude === null && cliente.cep)) {
       atualizarCoordenadasEmSegundoPlano(cliente);
     }
