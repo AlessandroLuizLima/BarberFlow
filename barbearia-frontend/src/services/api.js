@@ -8,4 +8,13 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' }
 });
 
+// O backend devolve imagens como caminho relativo ("/imagens/<id>"). Para usar no <img src>
+// é preciso completar com o endereço da API (frontend e backend rodam em hosts diferentes).
+// Data URLs e URLs completas passam sem mudança.
+export const urlImagem = (caminho) => {
+  if (!caminho) return null;
+  if (/^(data:|https?:\/\/|blob:)/.test(caminho)) return caminho;
+  return `${API_URL.replace(/\/$/, '')}${caminho.startsWith('/') ? '' : '/'}${caminho}`;
+};
+
 export default api;

@@ -28,6 +28,8 @@ import "./Settings.css";
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("perfil");
   const [showSuccess, setShowSuccess] = useState(false);
+  // Aviso quando o endereço salvo não foi encontrado no mapa (a barbearia não entra no "mais próxima")
+  const [avisoLocalizacao, setAvisoLocalizacao] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [showValues, setShowValues] = useState(true);
   const [logoPreview, setLogoPreview] = useState(null);
@@ -409,8 +411,11 @@ export default function Settings() {
       }));
       setLogoPreview(salvo.logo);
 
+      const temEndereco = Boolean(salvo.enderecoDetalhado?.cidade);
+      setAvisoLocalizacao(temEndereco && !salvo.localizacaoEncontrada);
+
       setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
+      setTimeout(() => setShowSuccess(false), temEndereco && !salvo.localizacaoEncontrada ? 6000 : 3000);
     } catch (error) {
       const mensagem = error.response?.data?.error || "Erro ao salvar configurações. Tente novamente.";
       setCurrentError({ field: "general", message: mensagem });
@@ -853,6 +858,12 @@ export default function Settings() {
             <div className="success-message" role="status">
               <FiCheck size={20} />
               Configurações salvas com sucesso!
+              {avisoLocalizacao && (
+                <span className="success-message-hint">
+                  {" "}Não encontramos o endereço no mapa: confira rua, número e cidade para a barbearia
+                  aparecer na busca por proximidade dos clientes.
+                </span>
+              )}
             </div>
           )}
 

@@ -1,6 +1,10 @@
-// Reduz a imagem escolhida para caber como logo (quadrada, até 256px) e devolve um data URL.
+// Reduz a imagem escolhida (logo da barbearia ou foto de perfil) para no máximo 256px
+// no maior lado e devolve um data URL, que o backend converte e grava na tabela de imagens.
 // Mantém a transparência de PNG/WEBP/GIF; fotos (JPG) viram JPEG comprimido.
+// O limite fica abaixo dos 512 KB aceitos pelo backend (base64 ocupa ~33% a mais).
 const LIMITE_CARACTERES = 600000;
+const TIPOS_ACEITOS = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+export const TAMANHO_MAXIMO_ARQUIVO = 5 * 1024 * 1024; // arquivo original escolhido pelo usuário
 
 const lerArquivo = (file) =>
   new Promise((resolve, reject) => {
@@ -18,9 +22,12 @@ const carregarImagem = (src) =>
     img.src = src;
   });
 
-export async function prepararLogo(file) {
-  if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type)) {
+export async function prepararImagem(file) {
+  if (!file || !TIPOS_ACEITOS.includes(file.type)) {
     throw new Error('Formato não suportado. Use PNG, JPG, WEBP ou GIF.');
+  }
+  if (file.size > TAMANHO_MAXIMO_ARQUIVO) {
+    throw new Error('O arquivo deve ter no máximo 5MB.');
   }
 
   const img = await carregarImagem(await lerArquivo(file));
@@ -41,3 +48,6 @@ export async function prepararLogo(file) {
   }
   throw new Error('A imagem é muito pesada. Escolha uma imagem menor.');
 }
+
+// Nome mantido para o painel do barbeiro (Configurações > logo)
+export const prepararLogo = prepararImagem;

@@ -4,11 +4,12 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   FiHome, FiCalendar, FiUser, FiLogOut, FiSun, FiMoon, FiMenu, FiX, FiSettings
 } from "react-icons/fi"; // Ícones do React Icons
-import { obterClienteLogado, encerrarSessaoCliente } from "../../../services/authStorage";
+import { obterClienteLogado, encerrarSessaoCliente, EVENTO_CLIENTE } from "../../../services/authStorage";
+import { urlImagem } from "../../../services/api";
 import { obterTema, aplicarTema, salvarTema } from "../../../utils/tema";
 
 const SidebarClient = () => {  // Renomeei para SidebarClient para consistência com o App.js
-  const clienteLogado = obterClienteLogado();
+  const [clienteLogado, setClienteLogado] = useState(obterClienteLogado());
   const [isLightMode, setIsLightMode] = useState(obterTema() === 'claro');
   const [isOpen, setIsOpen] = useState(false); // Para mobile
 
@@ -36,6 +37,13 @@ const SidebarClient = () => {  // Renomeei para SidebarClient para consistência
     return () => window.removeEventListener('tema-cliente', sincronizar);
   }, []);
 
+  // Atualiza nome e foto quando o cliente muda os dados nas Configurações
+  useEffect(() => {
+    const aoAtualizar = (e) => setClienteLogado(e.detail);
+    window.addEventListener(EVENTO_CLIENTE, aoAtualizar);
+    return () => window.removeEventListener(EVENTO_CLIENTE, aoAtualizar);
+  }, []);
+
   const navigate = useNavigate();
 
   return (
@@ -52,8 +60,10 @@ const SidebarClient = () => {  // Renomeei para SidebarClient para consistência
       {/* Sidebar */}
       <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
         <div className="profile">
-          <div className="profile-icon">
-            <FiUser size={28} /> {/* Ícone genérico para cliente */}
+          <div className={`profile-icon ${clienteLogado?.foto_url ? 'profile-icon--foto' : ''}`}>
+            {clienteLogado?.foto_url
+              ? <img src={urlImagem(clienteLogado.foto_url)} alt="Foto de perfil" />
+              : <FiUser size={28} />}
           </div>
           <div className="profile-text">
             <h2>Bem-vindo, {clienteLogado?.nome_completo?.split(' ')[0] || 'Cliente'}</h2>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './ClientProfile.css';
 import {
   FiUser,
@@ -10,10 +10,20 @@ import {
   FiPhone,
   FiSave,
   FiCheckCircle,
-  FiExternalLink
+  FiExternalLink,
+  FiCamera,
+  FiTrash2
 } from 'react-icons/fi';
-import { buscarCliente, atualizarCliente, consultarCep } from '../../../services/clienteService';
+import {
+  buscarCliente,
+  atualizarCliente,
+  consultarCep,
+  enviarFotoCliente,
+  removerFotoCliente
+} from '../../../services/clienteService';
 import { obterClienteLogado, salvarSessaoCliente } from '../../../services/authStorage';
+import { urlImagem } from '../../../services/api';
+import { prepararImagem } from '../../../utils/imagem';
 import { formatarTelefone, telefoneValido } from '../../../utils/telefone';
 import { obterTema, salvarTema } from '../../../utils/tema';
 
@@ -59,6 +69,9 @@ function ClientProfile() {
   const [salvando, setSalvando] = useState(false);
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [mensagemSucesso, setMensagemSucesso] = useState('');
+  const [enviandoFoto, setEnviandoFoto] = useState(false);
+  const [erroFoto, setErroFoto] = useState('');
+  const inputFotoRef = useRef(null);
 
   useEffect(() => {
     if (!clienteLogado) {
@@ -145,12 +158,56 @@ function ClientProfile() {
       setProfile((prev) => ({ ...prev, ...resposta.cliente, senha: '' }));
       setConfirmarSenha('');
       setErrors({});
-      setMensagemSucesso('Alterações salvas com sucesso!');
-      setTimeout(() => setMensagemSucesso(''), 3000);
+      mostrarSucesso('Alterações salvas com sucesso!');
     } catch (error) {
       setErrors({ submit: error.response?.data?.error || 'Erro ao salvar as alterações.' });
     } finally {
       setSalvando(false);
+    }
+  };
+
+  const mostrarSucesso = (texto) => {
+    setMensagemSucesso(texto);
+    setTimeout(() => setMensagemSucesso(''), 3000);
+  };
+
+  // Atualiza a tela, a sessão salva no navegador e a sidebar com o cliente devolvido pela API
+  const aplicarClienteAtualizado = (cliente) => {
+    salvarSessaoCliente(cliente);
+    setProfile((prev) => ({ ...prev, foto_id: cliente.foto_id, foto_url: cliente.foto_url }));
+  };
+
+  // A imagem é reduzida no navegador (até 256px) antes de ir para o backend
+  const handleFotoSelecionada = async (e) => {
+    const arquivo = e.target.files?.[0];
+    e.target.value = '';
+    if (!arquivo) return;
+
+    setErroFoto('');
+    setEnviandoFoto(true);
+    try {
+      const imagem = await prepararImagem(arquivo);
+      const resposta = await enviarFotoCliente(clienteLogado.id, imagem);
+      aplicarClienteAtualizado(resposta.cliente);
+      mostrarSucesso('Foto de perfil atualizada!');
+    } catch (error) {
+      setErroFoto(error.response?.data?.error || error.message || 'Não foi possível enviar a foto.');
+    } finally {
+      setEnviandoFoto(false);
+    }
+  };
+
+  const handleRemoverFoto = async () => {
+    setErroFoto('');
+    setEnviandoFoto(true);
+    try {
+      const resposta = await removerFotoCliente(clienteLogado.id);
+      aplicarClienteAtualizado(resposta.cliente);
+      mostrarSucesso('Foto de perfil removida.');
+    } catch (error) {
+      setErroFoto(error.response?.data?.error || 'Não foi possível remover a foto.');
+    } finally {
+      setEnviandoFoto(false);
     }
   };
 
@@ -207,11 +264,51 @@ function ClientProfile() {
         </div>
 
         <div className="cs-account">
-          <div className="cs-avatar">{iniciais(profile.nome_completo)}</div>
+          <div className="cs-avatar-area">
+            <div className={`cs-avatar ${profile.foto_url ? 'cs-avatar--foto' : ''}`}>
+              {profile.foto_url
+                ? <img src={urlImagem(profile.foto_url)} alt="Sua foto de perfil" />
+                : iniciais(profile.nome_completo)}
+            </div>
+            <button
+              type="button"
+              className="cs-avatar-edit"
+              onClick={() => inputFotoRef.current?.click()}
+              disabled={enviandoFoto}
+              title={profile.foto_url ? 'Trocar foto' : 'Adicionar foto'}
+              aria-label={profile.foto_url ? 'Trocar foto de perfil' : 'Adicionar foto de perfil'}
+            >
+              <FiCamera size={14} />
+            </button>
+            <input
+              ref={inputFotoRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              onChange={handleFotoSelecionada}
+              hidden
+            />
+          </div>
           <div className="cs-account-info">
             <h2>{profile.nome_completo || 'Cliente'}</h2>
             <span><FiMail size={14} /> {profile.email}</span>
             {profile.telefone && <span><FiPhone size={14} /> {profile.telefone}</span>}
+            <div className="cs-photo-actions">
+              {enviandoFoto ? (
+                <span className="cs-muted">Enviando foto...</span>
+              ) : (
+                <>
+                  <button type="button" className="cs-photo-btn" onClick={() => inputFotoRef.current?.click()}>
+                    <FiCamera size={14} /> {profile.foto_url ? 'Trocar foto' : 'Adicionar foto'}
+                  </button>
+                  {profile.foto_url && (
+                    <button type="button" className="cs-photo-btn cs-photo-btn--danger" onClick={handleRemoverFoto}>
+                      <FiTrash2 size={14} /> Remover
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+            {erroFoto && <span className="cs-error-text">{erroFoto}</span>}
           </div>
         </div>
 

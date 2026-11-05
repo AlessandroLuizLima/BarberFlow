@@ -1,4 +1,4 @@
-import api from './api';
+import api, { urlImagem } from './api';
 
 // Configurações da barbearia (nome, logo, endereço, horários, notificações).
 // O painel do barbeiro edita; a sidebar e o app do cliente apenas leem.
@@ -15,9 +15,13 @@ const PADRAO = {
   horarioInicio: '08:00',
   horarioFim: '18:00',
   logo: null,
+  latitude: null,
+  longitude: null,
   emailNotificacoes: '',
   notificacoes: { novosAgendamentos: true, cancelamentos: true, reagendamentos: false, lembretes: true, relatorios: false }
 };
+
+const paraCoordenada = (valor) => (valor === null || valor === undefined || valor === '' ? null : Number(valor));
 
 // API (snake_case) -> formato usado no app (camelCase)
 export const deApi = (d = {}) => ({
@@ -29,7 +33,10 @@ export const deApi = (d = {}) => ({
   diasAtendimento: Array.isArray(d.dias_atendimento) && d.dias_atendimento.length > 0 ? d.dias_atendimento : PADRAO.diasAtendimento,
   horarioInicio: d.horario_inicio || PADRAO.horarioInicio,
   horarioFim: d.horario_fim || PADRAO.horarioFim,
-  logo: d.logo || null,
+  // A logo fica na tabela de imagens do backend; aqui vira uma URL completa para o <img>
+  logo: urlImagem(d.logo_url || d.logo),
+  latitude: paraCoordenada(d.latitude),
+  longitude: paraCoordenada(d.longitude),
   emailNotificacoes: d.email_notificacoes || '',
   notificacoes: { ...PADRAO.notificacoes, ...(d.notificacoes || {}) }
 });
@@ -44,6 +51,7 @@ export const paraApi = (c) => ({
   dias_atendimento: c.diasAtendimento,
   horario_inicio: c.horarioInicio,
   horario_fim: c.horarioFim,
+  // data URL = logo nova; a URL atual = manter; null = remover (o backend decide pelo formato)
   logo: typeof c.logo === 'string' ? c.logo : null,
   email_notificacoes: c.emailNotificacoes,
   notificacoes: c.notificacoes
@@ -74,10 +82,12 @@ export const obterConfiguracao = () =>
   });
 
 // Salva no banco e avisa o resto do app (sidebar, área do cliente) para atualizar na hora
+// Devolve a configuração salva com o campo extra "localizacaoEncontrada" (o backend tenta
+// transformar o endereço em coordenadas para o cliente achar a barbearia mais próxima).
 export const salvarConfiguracao = (formulario) =>
   api.put('/configuracoes', paraApi(formulario)).then((r) => {
     const config = deApi(r.data.configuracao);
     gravarCache(config);
     window.dispatchEvent(new CustomEvent(EVENTO_CONFIGURACAO, { detail: config }));
-    return config;
+    return { ...config, localizacaoEncontrada: Boolean(r.data.localizacao_encontrada) };
   });

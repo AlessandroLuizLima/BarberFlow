@@ -89,6 +89,74 @@
   overflow-wrap: anywhere;
 }
 
+/* ---------- Foto de perfil ---------- */
+.client-profile-page .cs-avatar-area {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.client-profile-page .cs-avatar--foto {
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.client-profile-page .cs-avatar--foto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.client-profile-page .cs-avatar-edit {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-secondary);
+  background: var(--primary-blue);
+  color: #fff;
+  cursor: pointer;
+}
+
+.client-profile-page .cs-avatar-edit:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.client-profile-page .cs-photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.client-profile-page .cs-photo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.client-profile-page .cs-photo-btn:hover {
+  border-color: var(--primary-blue);
+  color: var(--primary-blue);
+}
+
+.client-profile-page .cs-photo-btn--danger:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
 /* ---------- Abas (mesmo estilo das configurações do barbeiro) ---------- */
 .client-profile-page .cs-tabs {
   display: flex;
