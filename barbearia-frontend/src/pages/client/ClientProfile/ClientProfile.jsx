@@ -62,6 +62,9 @@ function ClientProfile() {
     complemento: ''
   });
   const [confirmarSenha, setConfirmarSenha] = useState('');
+  // Trocar email ou senha exige a senha atual (o backend confere)
+  const [senhaAtual, setSenhaAtual] = useState('');
+  const [emailOriginal, setEmailOriginal] = useState('');
   const [tema, setTema] = useState(obterTema());
 
   const [errors, setErrors] = useState({});
@@ -84,6 +87,7 @@ function ClientProfile() {
     buscarCliente(clienteLogado.id)
       .then((cliente) => {
         setProfile((prev) => ({ ...prev, ...cliente, senha: '' }));
+        setEmailOriginal(cliente.email || '');
         ultimoCepBuscado.current = String(cliente.cep || '').replace(/\D/g, '');
         setCepGeral(Boolean(cliente.cep) && (!cliente.logradouro || /000$/.test(String(cliente.cep).replace(/\D/g, ''))));
       })
@@ -145,8 +149,15 @@ function ClientProfile() {
     if (!profile.telefone?.trim()) newErrors.telefone = 'Telefone é obrigatório.';
     else if (!telefoneValido(profile.telefone)) newErrors.telefone = 'Telefone inválido. Use DDD + número.';
     if (profile.senha) {
-      if (profile.senha.length < 6) newErrors.senha = 'A senha deve ter pelo menos 6 caracteres.';
-      else if (profile.senha !== confirmarSenha) newErrors.confirmarSenha = 'As senhas não conferem.';
+      if (profile.senha.length < 8 || !/[A-Za-zÀ-ÿ]/.test(profile.senha) || !/\d/.test(profile.senha)) {
+        newErrors.senha = 'A senha deve ter pelo menos 8 caracteres, com letras e números.';
+      } else if (profile.senha !== confirmarSenha) newErrors.confirmarSenha = 'As senhas não conferem.';
+    }
+    const trocandoEmail = profile.email?.trim().toLowerCase() !== emailOriginal.toLowerCase();
+    if ((profile.senha || trocandoEmail) && !senhaAtual) {
+      newErrors.senhaAtual = trocandoEmail
+        ? 'Para alterar o email, informe sua senha atual.'
+        : 'Informe sua senha atual para definir uma nova.';
     }
     return newErrors;
   };
@@ -157,24 +168,36 @@ function ClientProfile() {
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       // leva o cliente para a aba que tem o erro
-      if (validationErrors.senha || validationErrors.confirmarSenha) setAba('seguranca');
+      if (validationErrors.senha || validationErrors.confirmarSenha || validationErrors.senhaAtual) setAba('seguranca');
       else if (validationErrors.nome_completo || validationErrors.email || validationErrors.telefone) setAba('dados');
       return;
     }
 
     setSalvando(true);
     try {
-      const payload = { ...profile };
-      if (!payload.senha) delete payload.senha; // não envia senha vazia
+      // Só os campos editáveis
+      const campos = ['nome_completo', 'email', 'telefone', 'cep', 'logradouro', 'bairro', 'numero', 'complemento'];
+      const payload = Object.fromEntries(campos.map((c) => [c, profile[c] ?? '']));
+      if (profile.senha) payload.senha = profile.senha;
+      if (senhaAtual) payload.senha_atual = senhaAtual;
 
       const resposta = await atualizarCliente(clienteLogado.id, payload);
-      salvarSessaoCliente(resposta.cliente);
+      // Trocar a senha derruba as outras sessões; o backend devolve um token novo para esta
+      salvarSessaoCliente(resposta.cliente, resposta.token);
       setProfile((prev) => ({ ...prev, ...resposta.cliente, senha: '' }));
+      setEmailOriginal(resposta.cliente.email || '');
       setConfirmarSenha('');
+      setSenhaAtual('');
       setErrors({});
       mostrarSucesso('Alterações salvas com sucesso!');
     } catch (error) {
-      setErrors({ submit: error.response?.data?.error || 'Erro ao salvar as alterações.' });
+      const mensagem = error.response?.data?.error || 'Erro ao salvar as alterações.';
+      if (/senha atual/i.test(mensagem)) {
+        setErrors({ senhaAtual: 'Senha atual incorreta.' });
+        setAba('seguranca');
+      } else {
+        setErrors({ submit: mensagem });
+      }
     } finally {
       setSalvando(false);
     }
@@ -428,8 +451,27 @@ function ClientProfile() {
           {aba === 'seguranca' && (
             <section>
               <h3 className="cs-panel-title"><FiLock size={20} /> Segurança</h3>
-              <p className="cs-muted cs-help">Deixe em branco para manter a senha atual.</p>
+              <p className="cs-muted cs-help">
+                Deixe a nova senha em branco para manter a atual. A senha atual é pedida para trocar a senha ou o email.
+              </p>
               <div className="cs-grid">
+                <div className="cs-field cs-field--wide">
+                  <label htmlFor="senhaAtual" className="cs-label">Senha atual</label>
+                  <input
+                    id="senhaAtual"
+                    type="password"
+                    autoComplete="current-password"
+                    value={senhaAtual}
+                    onChange={(e) => {
+                      setSenhaAtual(e.target.value);
+                      if (errors.senhaAtual) setErrors({ ...errors, senhaAtual: '' });
+                    }}
+                    className={`cs-input ${errors.senhaAtual ? 'cs-input--error' : ''}`}
+                    placeholder="Sua senha atual"
+                  />
+                  {errors.senhaAtual && <span className="cs-error-text">{errors.senhaAtual}</span>}
+                </div>
+
                 <div className="cs-field">
                   <label htmlFor="senha" className="cs-label">Nova senha</label>
                   <input
@@ -440,7 +482,7 @@ function ClientProfile() {
                     value={profile.senha || ''}
                     onChange={handleChange}
                     className={`cs-input ${errors.senha ? 'cs-input--error' : ''}`}
-                    placeholder="Mínimo de 6 caracteres"
+                    placeholder="Mínimo de 8 caracteres, com letras e números"
                   />
                   {errors.senha && <span className="cs-error-text">{errors.senha}</span>}
                 </div>

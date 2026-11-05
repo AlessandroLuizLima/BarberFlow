@@ -8,12 +8,14 @@ import { GoGear } from "react-icons/go";
 import "./Sidebar.css";
 import Logo from "../../../assets/imagens/logo.png";
 import useConfiguracaoBarbearia from "../../../hooks/useConfiguracaoBarbearia";
+import { obterBarbeiroLogado, encerrarSessaoBarbeiro } from "../../../services/authStorage";
 
 const Sidebar = () => {
   const [isLightMode, setIsLightMode] = useState(false);
   // Nome e logo vêm das Configurações da barbearia (banco) e atualizam assim que o barbeiro salva
   const { config } = useConfiguracaoBarbearia();
   const nomeBarbearia = config?.nome || "sua barbearia";
+  const primeiroNome = obterBarbeiroLogado()?.nome?.split(" ")[0] || "barbeiro";
 
   const toggleTheme = () => {
     setIsLightMode(!isLightMode);
@@ -39,7 +41,7 @@ const Sidebar = () => {
           alt={`Logo ${nomeBarbearia}`}
         />
         <div className="profile-text">
-          <h2>Bem-vindo, Alessandro</h2>
+          <h2>Bem-vindo, {primeiroNome}</h2>
           <p>Gerenciando {nomeBarbearia}</p>
         </div>
       </div>
@@ -62,7 +64,7 @@ const Sidebar = () => {
           {isLightMode ? <LuMoon className="icon" /> : <LuSun className="icon" />}
           {isLightMode ? "Modo Escuro" : "Modo Claro"}
         </div>
-        <div className="logout" onClick={() => navigate('/')}>
+        <div className="logout" onClick={() => { encerrarSessaoBarbeiro(); navigate('/'); }}>
           <LuLogOut className="icon" /> Sair
         </div>
       </div>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Route, Navigate } from 'react-router-dom';
+import { obterTokenBarbeiro, tokenValido } from '../services/authStorage';
 
 // Importações do dashboard barbeiro
 import Dashboard from '../pages/dashboardBarber/Dashboard/Dashboard';
@@ -12,10 +13,10 @@ import Report from '../pages/dashboardBarber/Report/Report';
 import Barbers from '../pages/dashboardBarber/Barbers/Barbers';
 import Settings from '../pages/dashboardBarber/Settings/Settings';
 
-// Componente para proteger rotas privadas
+// Só entra quem tem sessão de barbeiro válida (o backend confere o token em toda requisição)
 const PrivateRoute = ({ children }) => {
-  const isAuth = localStorage.getItem('auth') === 'true';
-  return isAuth ? children : <Navigate to="/auth/barbeiro" />;
+  const token = obterTokenBarbeiro();
+  return token && tokenValido(token, 'barbeiro') ? children : <Navigate to="/auth/barbeiro" replace />;
 };
 
 const BarberRoutes = () => {

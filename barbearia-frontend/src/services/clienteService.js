@@ -10,3 +10,6 @@ export const consultarCep = (cep) => api.get(`/cep/${cep}`).then(r => r.data);
 // Foto de perfil: envia a imagem já reduzida (data URL) e recebe o cliente atualizado
 export const enviarFotoCliente = (id, imagem) => api.put(`/clientes/${id}/foto`, { imagem }).then(r => r.data);
 export const removerFotoCliente = (id) => api.delete(`/clientes/${id}/foto`).then(r => r.data);
+
+// Login do painel do barbeiro (não existe cadastro de barbeiro pelo site)
+export const loginBarbeiro = (email, senha) => api.post('/auth/barbeiro/login', { email, senha }).then(r => r.data);

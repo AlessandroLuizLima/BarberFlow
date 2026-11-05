@@ -12,9 +12,9 @@ import {
   AiOutlineExclamationCircle
 } from 'react-icons/ai';
 import { MdSecurity } from 'react-icons/md';
-import { cadastrarCliente, loginCliente } from '../../services/clienteService';
+import { cadastrarCliente, loginCliente, loginBarbeiro } from '../../services/clienteService';
 import { buscarCep } from '../../utils/cep';
-import { salvarSessaoCliente } from '../../services/authStorage';
+import { salvarSessaoCliente, salvarSessaoBarbeiro } from '../../services/authStorage';
 import './AuthPage.css';
 
 function FormInput({ 
@@ -130,7 +130,7 @@ function ModeToggle({ isLogin, onToggle }) {
   );
 }
 
-function PasswordMatchIndicator({ show }) {
+function PasswordMatchIndicator() {
   // Componente removido - não exibe mais o indicador
   return null;
 }
@@ -193,6 +193,10 @@ const AuthPage = () => {
   const isClientRoute = location.pathname.includes('/cliente');
   
   const [isLogin, setIsLogin] = useState(true);
+  // Na tela do barbeiro só existe login
+  useEffect(() => {
+    if (!isClientRoute) setIsLogin(true);
+  }, [isClientRoute]);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
@@ -366,7 +370,8 @@ const AuthPage = () => {
       newErrors.senha = 'Senha é obrigatória';
     } else if (!isLogin) {
       const passwordValidation = validatePassword(form.senha);
-      if (!passwordValidation.isValid) {
+      // Mesma regra do backend: 8+ caracteres, com letras e números
+      if (!passwordValidation.isValid || form.senha.length < 8 || !/[A-Za-zÀ-ÿ]/.test(form.senha) || !/\d/.test(form.senha)) {
         newErrors.senha = 'Senha deve ter no mínimo 8 caracteres com letras e números';
       }
     } else if (form.senha.length < 6) {
@@ -417,22 +422,14 @@ const AuthPage = () => {
 
     try {
       if (!isClientRoute) {
-        // Login/cadastro de barbeiro ainda não tem backend de autenticação
-        // (fora do escopo desta atividade, que é focada no fluxo do cliente).
-        await new Promise(resolve => setTimeout(resolve, 800));
-        setSuccessMessage(isLogin ? 'Login realizado!' : 'Cadastro realizado! Faça login para continuar.');
-        if (isLogin) {
-          localStorage.setItem('auth', 'true');
-          setTimeout(() => navigate('/dashboard'), 1000);
-        } else {
-          setTimeout(() => {
-            setIsLogin(true);
-            setSuccessMessage('');
-          }, 1500);
-        }
+        // Barbeiro: só login. A conta é criada pelo administrador com "npm run criar-admin".
+        const resposta = await loginBarbeiro(form.email, form.senha);
+        salvarSessaoBarbeiro(resposta.barbeiro, resposta.token);
+        setSuccessMessage('Login realizado!');
+        setTimeout(() => navigate('/dashboard'), 600);
       } else if (isLogin) {
         const resposta = await loginCliente(form.email, form.senha);
-        salvarSessaoCliente(resposta.cliente);
+        salvarSessaoCliente(resposta.cliente, resposta.token);
         setSuccessMessage('Login realizado!');
         setTimeout(() => navigate('/cliente'), 800);
       } else {
@@ -493,10 +490,13 @@ const AuthPage = () => {
           }
         />
 
-        <ModeToggle 
-          isLogin={isLogin} 
-          onToggle={setIsLogin} 
-        />
+        {/* Barbeiro não tem cadastro pelo site */}
+        {isClientRoute && (
+          <ModeToggle
+            isLogin={isLogin}
+            onToggle={setIsLogin}
+          />
+        )}
 
         <form onSubmit={handleSubmit} noValidate>
           {!isLogin && (
@@ -684,13 +684,17 @@ const AuthPage = () => {
           />
         </form>
 
-        <ToggleText
-          question={isLogin ? 'Ainda não tem conta?' : 'Já possui uma conta?'}
-          linkText={isLogin ? 'Criar conta' : 'Fazer login'}
-          onClick={() => setIsLogin(!isLogin)}
-        />
+        {isClientRoute ? (
+          <ToggleText
+            question={isLogin ? 'Ainda não tem conta?' : 'Já possui uma conta?'}
+            linkText={isLogin ? 'Criar conta' : 'Fazer login'}
+            onClick={() => setIsLogin(!isLogin)}
+          />
+        ) : (
+          <p className="toggle-text">O acesso ao painel é liberado pelo administrador da barbearia.</p>
+        )}
 
-        <SecurityBadge text="Seus dados estão protegidos com criptografia de ponta a ponta" />
+        <SecurityBadge text="Conexão segura e senha armazenada com criptografia" />
       </div>
     </div>
   );
