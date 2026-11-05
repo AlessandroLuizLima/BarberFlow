@@ -273,6 +273,10 @@ const migracoes = [
     up: (sequelize) => sequelize.transaction(async (transaction) => {
       const q = (sql, opcoes = {}) => sequelize.query(sql, { transaction, ...opcoes });
 
+      // O sync() cria as datas sem valor padrão; o padrão NOW() vale também para INSERTs feitos em SQL
+      await q('ALTER TABLE barbearias ALTER COLUMN criado_em SET DEFAULT NOW()');
+      await q('ALTER TABLE barbearias ALTER COLUMN atualizado_em SET DEFAULT NOW()');
+
       // Em banco já existente o sync() criou "barbearias" vazia: copia a configuração antiga para ela
       if (await tabelaExiste(sequelize, 'configuracoes_barbearia', transaction)) {
         await q(`INSERT INTO barbearias (id, nome, telefone, email, endereco, endereco_detalhado, dias_atendimento,
@@ -280,7 +284,7 @@ const migracoes = [
                    plano, status, criado_em, atualizado_em)
                  SELECT id, nome, telefone, email, endereco, endereco_detalhado, dias_atendimento,
                    horario_inicio, horario_fim, logo_id, latitude, longitude, email_notificacoes, notificacoes,
-                   'enterprise', 'ativa', NOW(), atualizado_em
+                   'enterprise', 'ativa', NOW(), COALESCE(atualizado_em, NOW())
                    FROM configuracoes_barbearia
                  ON CONFLICT (id) DO NOTHING`);
         await q('DROP TABLE configuracoes_barbearia');
@@ -295,7 +299,9 @@ const migracoes = [
       }
       const [[{ barbearias }]] = await q('SELECT COUNT(*)::int AS barbearias FROM barbearias');
       if (temDadosAntigos && barbearias === 0) {
-        await q(`INSERT INTO barbearias (id, nome, plano, status) VALUES (1, 'Barbearia', 'enterprise', 'ativa')`);
+        // Ex.: banco zerado com "npm run reset-db" que só recebeu a conta do painel
+        await q(`INSERT INTO barbearias (id, nome, plano, status, criado_em, atualizado_em)
+                 VALUES (1, 'Barbearia', 'enterprise', 'ativa', NOW(), NOW())`);
       }
 
       for (const t of tabelas) {
