@@ -18,9 +18,18 @@ import {
   FiX,
   FiCheck,
   FiAlertTriangle,
-  FiInfo
+  FiInfo,
+  FiSend,
+  FiFileText
 } from "react-icons/fi";
-import { obterConfiguracao, salvarConfiguracao } from "../../../services/configuracaoService";
+import {
+  obterConfiguracao,
+  salvarConfiguracao,
+  obterStatusNotificacoes,
+  testarNotificacoes,
+  listarNotificacoesBarbearia
+} from "../../../services/configuracaoService";
+import { buscarCep, formatarCep, cepCompleto } from "../../../utils/cep";
 import { prepararLogo } from "../../../utils/imagem";
 import { formatarTelefone, telefoneValido } from "../../../utils/telefone";
 import "./Settings.css";
@@ -42,6 +51,7 @@ export default function Settings() {
     email: "",
     endereco: "",
     enderecoDetalhado: {
+      cep: "",
       rua: "",
       numero: "",
       bairro: "",
@@ -78,6 +88,66 @@ export default function Settings() {
   });
 
   const [currentError, setCurrentError] = useState(null);
+
+  // CEP do modal de endereço
+  const [buscandoCep, setBuscandoCep] = useState(false);
+  const [statusCep, setStatusCep] = useState({ tipo: "", texto: "" });
+
+  // Aba Notificações: situação do e-mail, teste e histórico
+  const [statusEmail, setStatusEmail] = useState(null);
+  const [historico, setHistorico] = useState([]);
+  const [testando, setTestando] = useState(false);
+  const [resultadoTeste, setResultadoTeste] = useState(null);
+
+  const carregarNotificacoes = () => {
+    obterStatusNotificacoes().then(setStatusEmail).catch(() => setStatusEmail(null));
+    listarNotificacoesBarbearia().then(setHistorico).catch(() => setHistorico([]));
+  };
+
+  useEffect(() => {
+    if (activeTab === "notificacoes") carregarNotificacoes();
+  }, [activeTab]);
+
+  const enviarTeste = async () => {
+    setTestando(true);
+    setResultadoTeste(null);
+    try {
+      const resposta = await testarNotificacoes();
+      setResultadoTeste({ tipo: resposta.status === "enviado" ? "ok" : "aviso", texto: resposta.message });
+    } catch (error) {
+      setResultadoTeste({ tipo: "erro", texto: error.response?.data?.error || "Não foi possível enviar o e-mail de teste." });
+    } finally {
+      setTestando(false);
+      carregarNotificacoes();
+    }
+  };
+
+  // Ao completar o CEP, preenche rua, bairro, cidade e estado pelo ViaCEP
+  const preencherEnderecoPorCep = async (cep) => {
+    setBuscandoCep(true);
+    setStatusCep({ tipo: "", texto: "Buscando endereço..." });
+    try {
+      const e = await buscarCep(cep);
+      setFormData(prev => ({
+        ...prev,
+        enderecoDetalhado: {
+          ...prev.enderecoDetalhado,
+          cep: e.cep,
+          rua: e.logradouro || prev.enderecoDetalhado.rua,
+          bairro: e.bairro || prev.enderecoDetalhado.bairro,
+          cidade: e.cidade,
+          estado: e.uf
+        }
+      }));
+      setStatusCep(e.geral
+        ? { tipo: "", texto: `CEP de ${e.cidade}/${e.uf}: informe a rua e o bairro.` }
+        : { tipo: "", texto: `${e.cidade}/${e.uf} encontrado.` });
+    } catch (error) {
+      setStatusCep({ tipo: "erro", texto: error.message || "CEP não encontrado." });
+    } finally {
+      setBuscandoCep(false);
+    }
+  };
   const [carregando, setCarregando] = useState(true);
 
   // Carrega as configurações salvas no banco
@@ -222,6 +292,15 @@ export default function Settings() {
     if (name.startsWith("endereco_")) {
       const fieldName = name.replace("endereco_", "");
       let newValue = value;
+
+      if (fieldName === "cep") {
+        newValue = formatarCep(value);
+        if (cepCompleto(newValue) && newValue !== formData.enderecoDetalhado.cep) {
+          preencherEnderecoPorCep(newValue);
+        } else if (!cepCompleto(newValue)) {
+          setStatusCep({ tipo: "", texto: "" });
+        }
+      }
       
       if (["rua", "bairro", "cidade", "pontoReferencia"].includes(fieldName)) {
         if (value.length > 100) return;
@@ -286,8 +365,12 @@ export default function Settings() {
   };
 
   const handleAddressSubmit = () => {
-    const { rua, numero, bairro, cidade, estado, pontoReferencia } = formData.enderecoDetalhado;
-    
+    const { cep, rua, numero, bairro, cidade, estado, pontoReferencia } = formData.enderecoDetalhado;
+
+    if (!cepCompleto(cep)) {
+      setCurrentError({ field: "endereco", message: "Informe o CEP (8 dígitos)." });
+      return;
+    }
     if (!rua || !numero || !bairro || !cidade || !estado) {
       setCurrentError({ field: "endereco", message: "Preencha todos os campos obrigatórios." });
       return;
@@ -738,9 +821,33 @@ export default function Settings() {
                       onChange={handleInputChange}
                     />
                     <small className="helper-text">
-                      Este email receberá todas as notificações automáticas
+                      Este email receberá todas as notificações automáticas. Se ficar vazio, usamos o email principal.
                     </small>
                   </div>
+                </div>
+
+                <div className="notif-status">
+                  <div className="notif-status-text">
+                    <span className={`notif-dot ${statusEmail?.smtp_configurado ? "notif-dot--ok" : ""}`} />
+                    <div>
+                      <strong>
+                        {statusEmail?.smtp_configurado ? "Envio de e-mails ativo" : "Envio de e-mails não configurado"}
+                      </strong>
+                      <p>
+                        {statusEmail?.smtp_configurado
+                          ? `As notificações vão para ${statusEmail.email_destino || "o email cadastrado"}. Salve as preferências e envie um teste.`
+                          : "As notificações estão sendo registradas, mas nenhum e-mail sai até o servidor SMTP ser configurado no .env do backend (veja o README)."}
+                      </p>
+                    </div>
+                  </div>
+                  <button type="button" className="notif-test-button" onClick={enviarTeste} disabled={testando}>
+                    <FiSend size={16} /> {testando ? "Enviando..." : "Enviar e-mail de teste"}
+                  </button>
+                  {resultadoTeste && (
+                    <p className={`notif-feedback ${resultadoTeste.tipo === "aviso" ? "notif-feedback--aviso" : ""} ${resultadoTeste.tipo === "erro" ? "notif-feedback--erro" : ""}`} role="status">
+                      {resultadoTeste.texto}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -830,10 +937,58 @@ export default function Settings() {
                           <label htmlFor="lembretes" className="toggle-label"></label>
                         </div>
                       </div>
-                      <p>Receba lembretes sobre agendamentos próximos e tarefas pendentes</p>
+                      <p>Receba um aviso 2 horas antes de cada atendimento</p>
+                    </div>
+                  </div>
+
+                  <div className="notification-item">
+                    <div className="notification-content">
+                      <div className="notification-header">
+                        <h4>Resumo do Dia</h4>
+                        <div className="notification-toggle">
+                          <input
+                            type="checkbox"
+                            id="relatorios"
+                            name="notificacao_relatorios"
+                            className="toggle-input"
+                            checked={formData.notificacoes.relatorios}
+                            onChange={handleInputChange}
+                          />
+                          <label htmlFor="relatorios" className="toggle-label"></label>
+                        </div>
+                      </div>
+                      <p>Receba às 7h a agenda do dia com o faturamento previsto</p>
                     </div>
                   </div>
                 </div>
+              </div>
+
+              <div className="form-section">
+                <h3 className="form-section-title">
+                  <FiFileText size={20} />
+                  Últimas Notificações
+                </h3>
+                {historico.length === 0 ? (
+                  <p className="section-description">Nenhuma notificação enviada ainda.</p>
+                ) : (
+                  <ul className="notif-history">
+                    {historico.map((n) => (
+                      <li key={n.id} className="notif-history-item">
+                        <div>
+                          <strong>{n.titulo}</strong>
+                          <p>
+                            {new Date(n.criado_em).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                            {n.email_destino ? ` · ${n.email_destino}` : ""}
+                            {n.erro_envio ? ` · ${n.erro_envio}` : ""}
+                          </p>
+                        </div>
+                        <span className={`notif-badge notif-badge--${n.status_envio}`}>
+                          {{ enviado: "Enviado", simulado: "Simulado", falhou: "Falhou" }[n.status_envio]}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
               <div className="form-actions">
@@ -895,6 +1050,34 @@ export default function Settings() {
             </div>
 
             <div className="modal-body">
+              <div className="form-group">
+                <label className="form-label" htmlFor="endereco_cep">
+                  CEP *
+                </label>
+                <div className="cep-input-row">
+                  <input
+                    type="text"
+                    id="endereco_cep"
+                    name="endereco_cep"
+                    className="form-input"
+                    placeholder="00000-000"
+                    value={formData.enderecoDetalhado.cep || ""}
+                    onChange={handleInputChange}
+                    inputMode="numeric"
+                    autoComplete="postal-code"
+                    maxLength={9}
+                    autoFocus
+                    required
+                  />
+                  {(buscandoCep || statusCep.texto) && (
+                    <span className={`cep-status ${statusCep.tipo === "erro" ? "cep-status--erro" : ""}`}>
+                      {buscandoCep ? "Buscando endereço..." : statusCep.texto}
+                    </span>
+                  )}
+                </div>
+                <small className="helper-text">Digite o CEP para preencher rua, bairro, cidade e estado automaticamente.</small>
+              </div>
+
               <div className="form-grid two-columns">
                 <div className="form-group">
                   <label className="form-label" htmlFor="endereco_rua">

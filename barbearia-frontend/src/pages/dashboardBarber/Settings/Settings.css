@@ -120,6 +120,7 @@ body:not(.light-mode) .tab-button {
 body:not(.light-mode) .tab-button.active {
   border-color: var(--dark-blue);
   background-color: var(--dark-blue);
+  color: #ffffff;
 }
 
 .tab-button:hover:not(.active) {
@@ -1118,4 +1119,187 @@ body:not(.light-mode) .day-button.selected:hover {
 /* Dia não selecionado: texto claro e legível no modo escuro */
 body:not(.light-mode) .day-button:not(.selected) {
   color: #e5e7eb;
+}
+
+/* ---------- CEP no modal de endereço ---------- */
+.cep-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.cep-input-row .form-input {
+  max-width: 12rem;
+}
+
+.cep-status {
+  font-size: 0.8125rem;
+  color: #6b7280;
+}
+
+body:not(.light-mode) .cep-status {
+  color: #9ca3af;
+}
+
+.cep-status--erro {
+  color: #ef4444;
+}
+
+/* ---------- Notificações: situação do envio, teste e histórico ---------- */
+.notif-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+body:not(.light-mode) .notif-status {
+  border-color: #374151;
+  background: #111827;
+}
+
+.notif-status-text {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-width: 0;
+  flex: 1 1 20rem;
+}
+
+.notif-status-text strong {
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+.notif-status-text p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: #6b7280;
+}
+
+body:not(.light-mode) .notif-status-text p {
+  color: #9ca3af;
+}
+
+.notif-dot {
+  flex-shrink: 0;
+  width: 0.65rem;
+  height: 0.65rem;
+  margin-top: 0.35rem;
+  border-radius: 50%;
+  background: #f59e0b;
+}
+
+.notif-dot--ok {
+  background: #10b981;
+}
+
+.notif-test-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #3b82f6;
+  background: transparent;
+  color: #3b82f6;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.notif-test-button:hover:not(:disabled) {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.notif-test-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.notif-feedback {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #10b981;
+}
+
+.notif-feedback--aviso {
+  color: #f59e0b;
+}
+
+.notif-feedback--erro {
+  color: #ef4444;
+}
+
+.notif-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.notif-history-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+body:not(.light-mode) .notif-history-item {
+  border-color: #374151;
+}
+
+.notif-history-item strong {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.notif-history-item p {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+body:not(.light-mode) .notif-history-item p {
+  color: #9ca3af;
+}
+
+.notif-badge {
+  flex-shrink: 0;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.notif-badge--enviado {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.notif-badge--simulado {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.notif-badge--falhou {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
 }

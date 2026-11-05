@@ -10,7 +10,7 @@ const PADRAO = {
   telefone: '',
   email: '',
   endereco: '',
-  enderecoDetalhado: { rua: '', numero: '', bairro: '', cidade: '', estado: '', pontoReferencia: '' },
+  enderecoDetalhado: { cep: '', rua: '', numero: '', bairro: '', cidade: '', estado: '', pontoReferencia: '' },
   diasAtendimento: ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'],
   horarioInicio: '08:00',
   horarioFim: '18:00',
@@ -91,3 +91,12 @@ export const salvarConfiguracao = (formulario) =>
     window.dispatchEvent(new CustomEvent(EVENTO_CONFIGURACAO, { detail: config }));
     return { ...config, localizacaoEncontrada: Boolean(r.data.localizacao_encontrada) };
   });
+
+// ---- Notificações da barbearia (e-mail) ----
+// { smtp_configurado, email_destino }
+export const obterStatusNotificacoes = () => api.get('/configuracoes/notificacoes/status').then((r) => r.data);
+// Envia um e-mail de teste. Resposta: { status: 'enviado' | 'simulado', message }
+export const testarNotificacoes = () => api.post('/configuracoes/notificacoes/teste').then((r) => r.data);
+// Últimas notificações enviadas para a barbearia
+export const listarNotificacoesBarbearia = (limite = 15) =>
+  api.get('/notificacoes-barbearia', { params: { limite } }).then((r) => r.data);
