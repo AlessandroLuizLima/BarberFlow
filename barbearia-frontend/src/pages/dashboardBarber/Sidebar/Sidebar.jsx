@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  LuHouse, LuCalendarDays, LuUser, LuScissors, LuBox,
+  LuHouse, LuCalendarDays, LuUser, LuUsers, LuScissors, LuBox,
   LuWallet, LuChartBarDecreasing, LuLogOut, LuSun, LuMoon
 } from "react-icons/lu";
 import { GoGear } from "react-icons/go";
@@ -52,6 +52,7 @@ const Sidebar = () => {
           <li><Link to="/dashboard/agenda"><LuCalendarDays className="icon" /> Agenda</Link></li>
           <li><Link to="/dashboard/clientes"><LuUser className="icon" /> Clientes</Link></li>
           <li><Link to="/dashboard/servicos"><LuScissors className="icon" /> Serviços</Link></li>
+          <li><Link to="/dashboard/barbeiros"><LuUsers className="icon" /> Barbeiros</Link></li>
           <li><Link to="/dashboard/produtos"><LuBox className="icon" /> Produtos</Link></li>
           <li><Link to="/dashboard/financeiro"><LuWallet className="icon" /> Financeiro</Link></li>
           <li><Link to="/dashboard/relatorio"><LuChartBarDecreasing className="icon" /> Relatórios</Link></li>
