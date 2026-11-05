@@ -20,6 +20,9 @@ const routerListaEspera = require('./src/routes/routesListaEspera');
 const routerMensagens = require('./src/routes/routesMensagens');
 const routerConfiguracoes = require('./src/routes/routesConfiguracoes');
 const routerImagens = require('./src/routes/routesImagens');
+const routerBarbearias = require('./src/routes/routesBarbearias');
+const routerAssinaturas = require('./src/routes/routesAssinaturas');
+const routerContato = require('./src/routes/routesContato');
 
 // Atrás de proxy (Azure App Service), o IP real do cliente vem no X-Forwarded-For.
 // Só confia nesse cabeçalho quando há proxy; senão qualquer um forjaria o IP e furaria o limite de tentativas.
@@ -65,6 +68,9 @@ app.use(routerListaEspera);
 app.use(routerMensagens);
 app.use(routerConfiguracoes);
 app.use(routerImagens);
+app.use(routerBarbearias);
+app.use(routerAssinaturas);
+app.use(routerContato);
 
 // Tratamento de rota não encontrada
 app.use((req, res) => {

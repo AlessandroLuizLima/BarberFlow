@@ -2,6 +2,7 @@ const cron = require('node-cron');
 const { Op } = require('sequelize');
 const { Agendamento } = require('../models');
 const notificacaoService = require('../services/notificacaoService');
+const { expirarPedidosAntigos } = require('../services/assinaturaService');
 
 const JANELA_LEMBRETE_MS = 2 * 60 * 60 * 1000; // 2 horas
 
@@ -50,6 +51,7 @@ function iniciarJobDeLembretes() {
     notificacaoService.enviarResumoDiario().catch((error) => {
       console.error('[lembreteJob] erro no resumo diário:', error.message);
     });
+    expirarPedidosAntigos().catch((error) => console.error('[lembreteJob] erro ao expirar pedidos:', error.message));
   }, { timezone: 'America/Sao_Paulo' });
 
   console.log(`Job de lembretes (2h antes) e resumo diário (${HORA_RESUMO}) iniciados.`);

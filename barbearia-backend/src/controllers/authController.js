@@ -8,7 +8,13 @@ const { validarSenha } = require('../utils/senha');
 // (evita descobrir quais emails têm conta medindo o tempo da resposta)
 const HASH_FALSO = '$2b$12$e5teNY9/JA4SmK60ELNJWu2GRqOBXDVloHgHt/BjcQ63KRw2cWoyi';
 
-const publico = (admin) => ({ id: admin.id, nome: admin.nome, email: admin.email });
+const publico = (admin) => ({
+  id: admin.id,
+  nome: admin.nome,
+  email: admin.email,
+  barbearia_id: admin.barbearia_id,
+  senha_temporaria: admin.senha_temporaria
+});
 
 // POST /auth/barbeiro/login - login do painel do barbeiro
 exports.loginBarbeiro = async (req, res) => {
@@ -53,9 +59,13 @@ exports.trocarSenhaBarbeiro = async (req, res) => {
     if (!admin || !(await admin.verificarSenha(senha_atual))) {
       return res.status(400).json({ error: 'Senha atual incorreta.' });
     }
+    if (await admin.verificarSenha(nova_senha)) {
+      return res.status(400).json({ error: 'A nova senha precisa ser diferente da atual.' });
+    }
     admin.senha = nova_senha;
+    admin.senha_temporaria = false;
     await admin.save();
-    res.status(200).json({ message: 'Senha alterada com sucesso!', token: gerarToken(admin, 'barbeiro') });
+    res.status(200).json({ message: 'Senha alterada com sucesso!', token: gerarToken(admin, 'barbeiro'), barbeiro: publico(admin) });
   } catch (error) {
     responderErroInterno(res, error);
   }
