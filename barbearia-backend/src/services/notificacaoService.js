@@ -335,9 +335,11 @@ const enviarResumoDiario = seguro('resumo_diario', async (dia = dataLocalISO(new
   });
 });
 
-// E-mail de teste da aba Notificações (ignora as preferências)
-async function enviarTeste() {
+// E-mail de teste da aba Notificações (ignora as preferências).
+// emailDestino: o e-mail que está na tela (mesmo antes de salvar); sem ele, usa o salvo.
+async function enviarTeste(emailDestino) {
   const barbearia = await carregarBarbearia();
+  if (emailDestino) barbearia.emailNotificacoes = emailDestino;
   return notificarBarbearia({
     tipo: 'teste',
     barbearia,

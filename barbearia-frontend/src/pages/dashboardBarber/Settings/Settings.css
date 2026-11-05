@@ -1303,3 +1303,10 @@ body:not(.light-mode) .notif-history-item p {
   background: rgba(239, 68, 68, 0.15);
   color: #ef4444;
 }
+
+.notif-status-text .notif-unsaved {
+  display: inline;
+  margin: 0;
+  color: #f59e0b;
+  font-weight: 600;
+}

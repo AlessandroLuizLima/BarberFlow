@@ -95,8 +95,9 @@ export const salvarConfiguracao = (formulario) =>
 // ---- Notificações da barbearia (e-mail) ----
 // { smtp_configurado, email_destino }
 export const obterStatusNotificacoes = () => api.get('/configuracoes/notificacoes/status').then((r) => r.data);
-// Envia um e-mail de teste. Resposta: { status: 'enviado' | 'simulado', message }
-export const testarNotificacoes = () => api.post('/configuracoes/notificacoes/teste').then((r) => r.data);
+// Envia um e-mail de teste para "email" (o que está na tela). Resposta: { status: 'enviado' | 'simulado', message }
+export const testarNotificacoes = (email) =>
+  api.post('/configuracoes/notificacoes/teste', { email: email || undefined }).then((r) => r.data);
 // Últimas notificações enviadas para a barbearia
 export const listarNotificacoesBarbearia = (limite = 15) =>
   api.get('/notificacoes-barbearia', { params: { limite } }).then((r) => r.data);

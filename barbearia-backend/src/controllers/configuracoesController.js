@@ -213,15 +213,20 @@ exports.statusNotificacoes = async (req, res) => {
 };
 
 // POST - Envia um e-mail de teste para o e-mail de notificações da barbearia
+// Corpo opcional: { email } com o e-mail digitado na tela (vale mesmo antes de salvar)
 exports.testarNotificacoes = async (req, res) => {
   try {
+    const emailDigitado = String(req.body?.email ?? '').trim();
+    if (emailDigitado && !REGEX_EMAIL.test(emailDigitado)) {
+      return res.status(400).json({ error: 'Email de notificações inválido.' });
+    }
     if (smtpConfigurado()) {
       const conexao = await verificarConexao();
       if (!conexao.ok) {
         return res.status(502).json({ error: `O servidor de e-mail recusou a conexão: ${conexao.motivo}` });
       }
     }
-    const notificacao = await notificacaoService.enviarTeste();
+    const notificacao = await notificacaoService.enviarTeste(emailDigitado || null);
     if (!notificacao) return res.status(500).json({ error: 'Não foi possível registrar o teste.' });
 
     const mensagens = {

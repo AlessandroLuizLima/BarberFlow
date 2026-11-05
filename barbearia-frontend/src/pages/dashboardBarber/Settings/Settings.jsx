@@ -108,11 +108,22 @@ export default function Settings() {
     if (activeTab === "notificacoes") carregarNotificacoes();
   }, [activeTab]);
 
+  // Para onde os avisos vão, considerando o que está digitado agora (o campo vazio usa o email principal)
+  const emailNotificacoesDigitado = (formData.emailNotificacoes || "").trim();
+  const emailPrincipalDigitado = (formData.email || "").trim();
+  const destinoNotificacoes = emailNotificacoesDigitado || emailPrincipalDigitado;
+  const destinoSalvo = statusEmail?.email_destino || "";
+  const destinoNaoSalvo = Boolean(statusEmail) && destinoNotificacoes !== destinoSalvo;
+
   const enviarTeste = async () => {
+    if (!destinoNotificacoes) {
+      setResultadoTeste({ tipo: "erro", texto: "Informe um email para notificações (ou o email principal no Perfil da Empresa)." });
+      return;
+    }
     setTestando(true);
     setResultadoTeste(null);
     try {
-      const resposta = await testarNotificacoes();
+      const resposta = await testarNotificacoes(destinoNotificacoes);
       setResultadoTeste({ tipo: resposta.status === "enviado" ? "ok" : "aviso", texto: resposta.message });
     } catch (error) {
       setResultadoTeste({ tipo: "erro", texto: error.response?.data?.error || "Não foi possível enviar o e-mail de teste." });
@@ -834,9 +845,14 @@ export default function Settings() {
                         {statusEmail?.smtp_configurado ? "Envio de e-mails ativo" : "Envio de e-mails não configurado"}
                       </strong>
                       <p>
-                        {statusEmail?.smtp_configurado
-                          ? `As notificações vão para ${statusEmail.email_destino || "o email cadastrado"}. Salve as preferências e envie um teste.`
-                          : "As notificações estão sendo registradas, mas nenhum e-mail sai até o servidor SMTP ser configurado no .env do backend (veja o README)."}
+                        {!statusEmail?.smtp_configurado
+                          ? "As notificações estão sendo registradas, mas nenhum e-mail sai até o servidor SMTP ser configurado no .env do backend (veja o README)."
+                          : !destinoNotificacoes
+                            ? "Nenhum email cadastrado: preencha o campo acima ou o email principal no Perfil da Empresa."
+                            : `As notificações vão para ${destinoNotificacoes}${emailNotificacoesDigitado ? "" : " (email principal, porque o campo acima está vazio)"}.`}
+                        {statusEmail?.smtp_configurado && destinoNaoSalvo && (
+                          <> <strong className="notif-unsaved">Clique em Salvar Preferências para valer nos avisos automáticos.</strong></>
+                        )}
                       </p>
                     </div>
                   </div>
