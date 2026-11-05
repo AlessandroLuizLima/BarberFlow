@@ -17,10 +17,10 @@ import {
 import {
   buscarCliente,
   atualizarCliente,
-  consultarCep,
   enviarFotoCliente,
   removerFotoCliente
 } from '../../../services/clienteService';
+import { buscarCep, formatarCep, cepCompleto } from '../../../utils/cep';
 import { obterClienteLogado, salvarSessaoCliente } from '../../../services/authStorage';
 import { urlImagem } from '../../../services/api';
 import { prepararImagem } from '../../../utils/imagem';
@@ -68,6 +68,9 @@ function ClientProfile() {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [buscandoCep, setBuscandoCep] = useState(false);
+  // CEP geral da cidade (sem rua): o cliente digita rua e bairro
+  const [cepGeral, setCepGeral] = useState(false);
+  const ultimoCepBuscado = useRef('');
   const [mensagemSucesso, setMensagemSucesso] = useState('');
   const [enviandoFoto, setEnviandoFoto] = useState(false);
   const [erroFoto, setErroFoto] = useState('');
@@ -81,6 +84,8 @@ function ClientProfile() {
     buscarCliente(clienteLogado.id)
       .then((cliente) => {
         setProfile((prev) => ({ ...prev, ...cliente, senha: '' }));
+        ultimoCepBuscado.current = String(cliente.cep || '').replace(/\D/g, '');
+        setCepGeral(Boolean(cliente.cep) && (!cliente.logradouro || /000$/.test(String(cliente.cep).replace(/\D/g, ''))));
       })
       .catch((error) => {
         console.error('Erro ao carregar perfil:', error);
@@ -90,23 +95,15 @@ function ClientProfile() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleChange = (e) => {
-    const { name } = e.target;
-    const value = name === 'telefone' ? formatarTelefone(e.target.value) : e.target.value;
-    setProfile({ ...profile, [name]: value });
-    if (errors[name]) {
-      setErrors({ ...errors, [name]: '' });
-    }
-  };
-
-  // Ao terminar de digitar o CEP (8 dígitos), consulta o ViaCEP e preenche o endereço automaticamente
-  const handleCepBlur = async () => {
-    const cepLimpo = (profile.cep || '').replace(/\D/g, '');
-    if (cepLimpo.length !== 8) return;
+  // Consulta o CEP e preenche o endereço (rua, bairro, cidade, UF)
+  const preencherPorCep = async (valor) => {
+    const cepLimpo = String(valor || '').replace(/\D/g, '');
+    if (cepLimpo.length !== 8 || cepLimpo === ultimoCepBuscado.current) return;
+    ultimoCepBuscado.current = cepLimpo;
 
     setBuscandoCep(true);
     try {
-      const endereco = await consultarCep(cepLimpo);
+      const endereco = await buscarCep(cepLimpo);
       setProfile((prev) => ({
         ...prev,
         cep: endereco.cep,
@@ -115,13 +112,30 @@ function ClientProfile() {
         cidade: endereco.cidade,
         uf: endereco.uf
       }));
+      setCepGeral(endereco.geral);
       setErrors((prev) => ({ ...prev, cep: '' }));
-    } catch {
-      setErrors((prev) => ({ ...prev, cep: 'CEP não encontrado' }));
+    } catch (error) {
+      ultimoCepBuscado.current = '';
+      setErrors((prev) => ({ ...prev, cep: error.message || 'CEP não encontrado' }));
     } finally {
       setBuscandoCep(false);
     }
   };
+
+  const handleChange = (e) => {
+    const { name } = e.target;
+    let value = e.target.value;
+    if (name === 'telefone') value = formatarTelefone(value);
+    if (name === 'cep') value = formatarCep(value);
+    setProfile({ ...profile, [name]: value });
+    if (errors[name]) {
+      setErrors({ ...errors, [name]: '' });
+    }
+    // Busca assim que o CEP tem 8 dígitos (não precisa sair do campo)
+    if (name === 'cep' && cepCompleto(value)) preencherPorCep(value);
+  };
+
+  const handleCepBlur = () => preencherPorCep(profile.cep);
 
   const validateForm = () => {
     const newErrors = {};
@@ -216,8 +230,10 @@ function ClientProfile() {
     salvarTema(novo);
   };
 
-  const enderecoCompleto = profile.logradouro
-    ? `${profile.logradouro}${profile.numero ? `, ${profile.numero}` : ''} - ${profile.bairro}, ${profile.cidade}/${profile.uf}`
+  const ruaENumero = [profile.logradouro, profile.numero].filter(Boolean).join(', ');
+  const cidadeUf = [profile.cidade, profile.uf].filter(Boolean).join('/');
+  const enderecoCompleto = cidadeUf
+    ? [[ruaENumero, profile.bairro].filter(Boolean).join(' - '), cidadeUf].filter(Boolean).join(', ')
     : '';
 
   if (!clienteLogado) {
@@ -362,21 +378,35 @@ function ClientProfile() {
                     className={`cs-input ${errors.cep ? 'cs-input--error' : ''}`}
                     placeholder="00000-000"
                     maxLength={9}
+                    inputMode="numeric"
+                    autoComplete="postal-code"
                   />
                   {buscandoCep && <span className="cs-muted">Buscando endereço...</span>}
                   {errors.cep && <span className="cs-error-text">{errors.cep}</span>}
                 </div>
 
-                <div className="cs-field cs-field--wide">
-                  <label className="cs-label">Endereço</label>
-                  <input
-                    type="text"
-                    className="cs-input"
-                    value={profile.logradouro ? `${profile.logradouro}, ${profile.bairro} - ${profile.cidade}/${profile.uf}` : ''}
-                    placeholder="Preenchido automaticamente pelo CEP"
-                    disabled
-                  />
-                </div>
+                {cepGeral ? (
+                  <>
+                    <div className="cs-field cs-field--wide">
+                      <label className="cs-label">Cidade</label>
+                      <input type="text" className="cs-input" value={cidadeUf} disabled />
+                      <span className="cs-muted">Este CEP é da cidade toda: informe a rua e o bairro.</span>
+                    </div>
+                    {campo('logradouro', 'Rua', { type: 'text', placeholder: 'Ex.: Rua 14 de Dezembro', maxLength: 150 })}
+                    {campo('bairro', 'Bairro', { type: 'text', placeholder: 'Ex.: Centro', maxLength: 100 })}
+                  </>
+                ) : (
+                  <div className="cs-field cs-field--wide">
+                    <label className="cs-label">Endereço</label>
+                    <input
+                      type="text"
+                      className="cs-input"
+                      value={enderecoCompleto && profile.logradouro ? [[profile.logradouro, profile.bairro].filter(Boolean).join(', '), cidadeUf].join(' - ') : ''}
+                      placeholder="Preenchido automaticamente pelo CEP"
+                      disabled
+                    />
+                  </div>
+                )}
 
                 {campo('numero', 'Número', { type: 'text', placeholder: 'Número', maxLength: 20 })}
                 {campo('complemento', 'Complemento', { type: 'text', placeholder: 'Apto, bloco, referência...', maxLength: 100 })}

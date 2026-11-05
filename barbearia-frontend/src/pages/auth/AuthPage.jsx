@@ -12,7 +12,8 @@ import {
   AiOutlineExclamationCircle
 } from 'react-icons/ai';
 import { MdSecurity } from 'react-icons/md';
-import { cadastrarCliente, loginCliente, consultarCep } from '../../services/clienteService';
+import { cadastrarCliente, loginCliente } from '../../services/clienteService';
+import { buscarCep } from '../../utils/cep';
 import { salvarSessaoCliente } from '../../services/authStorage';
 import './AuthPage.css';
 
@@ -205,6 +206,8 @@ const AuthPage = () => {
     confirmarSenha: '',
     telefone: '',
     cep: '',
+    logradouro: '',
+    bairro: '',
     numero: '',
     complemento: ''
   });
@@ -220,6 +223,8 @@ const AuthPage = () => {
       confirmarSenha: '',
       telefone: '',
       cep: '',
+      logradouro: '',
+      bairro: '',
       numero: '',
       complemento: ''
     });
@@ -296,8 +301,9 @@ const AuthPage = () => {
         break;
       case 'cep':
         formattedValue = formatCep(value);
-        // Se o CEP for alterado, o endereço antigo deixa de valer
+        // Se o CEP for alterado, o endereço antigo deixa de valer; com 8 dígitos já busca
         if (formattedValue.replace(/\D/g, '').length !== 8) setEndereco(null);
+        else if (formattedValue !== form.cep) handleCepBlur(formattedValue);
         break;
       case 'numero':
         formattedValue = value.replace(/\D/g, '').slice(0, 10);
@@ -327,19 +333,19 @@ const AuthPage = () => {
   };
 
   // Ao terminar de digitar o CEP (8 dígitos), consulta o ViaCEP e preenche o endereço automaticamente
-  const handleCepBlur = async () => {
-    const cepLimpo = form.cep.replace(/\D/g, '');
-    if (cepLimpo.length !== 8) return;
+  const handleCepBlur = async (valor) => {
+    const cepLimpo = String(typeof valor === 'string' ? valor : form.cep).replace(/\D/g, '');
+    if (cepLimpo.length !== 8 || (endereco && endereco.cep?.replace(/\D/g, '') === cepLimpo)) return;
 
     setBuscandoCep(true);
     try {
-      const resultado = await consultarCep(cepLimpo);
+      const resultado = await buscarCep(cepLimpo);
       setEndereco(resultado);
-      setForm(prev => ({ ...prev, cep: resultado.cep || prev.cep }));
+      setForm(prev => ({ ...prev, cep: resultado.cep || prev.cep, logradouro: '', bairro: '' }));
       setErrors(prev => ({ ...prev, cep: '' }));
-    } catch {
+    } catch (error) {
       setEndereco(null);
-      setErrors(prev => ({ ...prev, cep: 'CEP não encontrado' }));
+      setErrors(prev => ({ ...prev, cep: error.message || 'CEP não encontrado' }));
     } finally {
       setBuscandoCep(false);
     }
@@ -436,6 +442,9 @@ const AuthPage = () => {
           telefone: form.telefone,
           senha: form.senha,
           cep: form.cep.replace(/\D/g, '') || undefined,
+          // CEP geral da cidade (sem rua): vai o que o cliente digitou
+          logradouro: endereco?.geral ? form.logradouro || undefined : undefined,
+          bairro: endereco?.geral ? form.bairro || undefined : undefined,
           numero: form.numero || undefined,
           complemento: form.complemento || undefined
         });
@@ -453,6 +462,8 @@ const AuthPage = () => {
         confirmarSenha: '',
         telefone: '',
         cep: '',
+        logradouro: '',
+        bairro: '',
         numero: '',
         complemento: ''
       });
@@ -556,8 +567,38 @@ const AuthPage = () => {
               {endereco && (
                 <p className="endereco-preview" style={{ margin: '-4px 0 12px', fontSize: '0.85rem', opacity: 0.85 }}>
                   {[endereco.logradouro, endereco.bairro].filter(Boolean).join(' - ')}
-                  {endereco.cidade ? `, ${endereco.cidade}/${endereco.uf}` : ''}
+                  {endereco.cidade ? `${endereco.logradouro || endereco.bairro ? ', ' : ''}${endereco.cidade}/${endereco.uf}` : ''}
+                  {endereco.geral && ' · CEP da cidade: informe a rua e o bairro abaixo'}
                 </p>
+              )}
+
+              {endereco?.geral && (
+                <>
+                  <FormInput
+                    label="Rua"
+                    icon={AiOutlineHome}
+                    type="text"
+                    name="logradouro"
+                    value={form.logradouro}
+                    onChange={handleChange}
+                    placeholder="Ex.: Rua 14 de Dezembro"
+                    maxLength={150}
+                    required={false}
+                    showToggle={false}
+                  />
+                  <FormInput
+                    label="Bairro"
+                    icon={AiOutlineHome}
+                    type="text"
+                    name="bairro"
+                    value={form.bairro}
+                    onChange={handleChange}
+                    placeholder="Ex.: Centro"
+                    maxLength={100}
+                    required={false}
+                    showToggle={false}
+                  />
+                </>
               )}
 
               <FormInput
