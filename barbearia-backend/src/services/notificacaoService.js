@@ -11,7 +11,7 @@
  * cliente de agendar ou cancelar. O resultado do envio fica gravado no histórico.
  */
 const { Op } = require('sequelize');
-const { Mensagem, Agendamento, Cliente, Profissional, Servico, ConfiguracaoBarbearia, NotificacaoBarbearia } = require('../models');
+const { Mensagem, Agendamento, Cliente, Profissional, Servico, Barbearia, NotificacaoBarbearia } = require('../models');
 const { enviarEmail } = require('./emailService');
 const { formatarDataHora, formatarHora, formatarDiaPorExtenso, dataLocalISO, dataHoraLocal } = require('../utils/datas');
 
@@ -33,9 +33,10 @@ async function carregarAgendamento(agendamentoOuId) {
   });
 }
 
-async function carregarBarbearia() {
-  const config = await ConfiguracaoBarbearia.findByPk(1);
+async function carregarBarbearia(barbeariaId) {
+  const config = barbeariaId ? await Barbearia.findByPk(barbeariaId) : null;
   return {
+    id: config?.id || null,
     nome: config?.nome || 'Barbearia',
     endereco: config?.endereco || '',
     // Sem e-mail específico de notificações, usa o e-mail principal da barbearia
@@ -58,12 +59,13 @@ function detalhesDoAgendamento(agendamento, barbearia) {
 
 // ---------- Cliente ----------
 
-async function registrarParaCliente({ cliente, agendamento_id = null, tipo, conteudo, email, nomeBarbearia }) {
+async function registrarParaCliente({ cliente, agendamento_id = null, barbearia_id = null, tipo, conteudo, email, nomeBarbearia }) {
   const resultado = cliente?.email
     ? await enviarEmail({ para: cliente.email, assunto: email.assunto, conteudo: email, nomeRemetente: nomeBarbearia })
     : { status: 'falhou', erro: 'Cliente sem e-mail' };
 
   const mensagem = await Mensagem.create({
+    barbearia_id,
     cliente_id: cliente.id,
     agendamento_id,
     tipo,
@@ -89,7 +91,8 @@ const PREFERENCIA = {
 };
 
 async function notificarBarbearia({ tipo, agendamento_id = null, titulo, conteudo, email, barbearia, ignorarPreferencia = false }) {
-  const dados = barbearia || await carregarBarbearia();
+  const dados = barbearia;
+  if (!dados?.id) return null;
   const chave = PREFERENCIA[tipo];
   if (!ignorarPreferencia && chave && !dados.preferencias[chave]) return null; // desligado pelo barbeiro
 
@@ -98,6 +101,7 @@ async function notificarBarbearia({ tipo, agendamento_id = null, titulo, conteud
     : { status: 'falhou', erro: 'Nenhum e-mail cadastrado nas Configurações da barbearia' };
 
   const notificacao = await NotificacaoBarbearia.create({
+    barbearia_id: dados.id,
     tipo,
     agendamento_id,
     titulo,
@@ -125,12 +129,13 @@ const seguro = (nome, fn) => async (...args) => {
 const enviarConfirmacao = seguro('confirmacao', async (agendamentoOuId) => {
   const ag = await carregarAgendamento(agendamentoOuId);
   if (!ag) return;
-  const barbearia = await carregarBarbearia();
+  const barbearia = await carregarBarbearia(ag.barbearia_id);
   const quando = formatarDataHora(ag.data_hora);
 
   await registrarParaCliente({
     cliente: ag.cliente,
     agendamento_id: ag.id,
+    barbearia_id: ag.barbearia_id,
     tipo: 'confirmacao',
     conteudo: `Seu agendamento foi confirmado para ${quando}.`,
     nomeBarbearia: barbearia.nome,
@@ -161,13 +166,14 @@ const enviarConfirmacao = seguro('confirmacao', async (agendamentoOuId) => {
 const enviarRemarcacao = seguro('remarcacao', async (agendamentoOuId, { dataAnterior } = {}) => {
   const ag = await carregarAgendamento(agendamentoOuId);
   if (!ag) return;
-  const barbearia = await carregarBarbearia();
+  const barbearia = await carregarBarbearia(ag.barbearia_id);
   const quando = formatarDataHora(ag.data_hora);
   const antes = dataAnterior ? formatarDataHora(dataAnterior) : null;
 
   await registrarParaCliente({
     cliente: ag.cliente,
     agendamento_id: ag.id,
+    barbearia_id: ag.barbearia_id,
     tipo: 'remarcacao',
     conteudo: `Seu agendamento foi remarcado para ${quando}.`,
     nomeBarbearia: barbearia.nome,
@@ -197,12 +203,13 @@ const enviarRemarcacao = seguro('remarcacao', async (agendamentoOuId, { dataAnte
 const enviarCancelamento = seguro('cancelamento', async (agendamentoOuId) => {
   const ag = await carregarAgendamento(agendamentoOuId);
   if (!ag) return;
-  const barbearia = await carregarBarbearia();
+  const barbearia = await carregarBarbearia(ag.barbearia_id);
   const quando = formatarDataHora(ag.data_hora);
 
   await registrarParaCliente({
     cliente: ag.cliente,
     agendamento_id: ag.id,
+    barbearia_id: ag.barbearia_id,
     tipo: 'cancelamento',
     conteudo: `Seu agendamento de ${quando} foi cancelado.`,
     nomeBarbearia: barbearia.nome,
@@ -235,12 +242,13 @@ const enviarCancelamento = seguro('cancelamento', async (agendamentoOuId) => {
 const enviarLembrete = seguro('lembrete', async (agendamentoOuId) => {
   const ag = await carregarAgendamento(agendamentoOuId);
   if (!ag) return;
-  const barbearia = await carregarBarbearia();
+  const barbearia = await carregarBarbearia(ag.barbearia_id);
   const hora = formatarHora(ag.data_hora);
 
   await registrarParaCliente({
     cliente: ag.cliente,
     agendamento_id: ag.id,
+    barbearia_id: ag.barbearia_id,
     tipo: 'lembrete',
     conteudo: `Lembrete: você tem um horário marcado hoje às ${hora}. Não se atrase!`,
     nomeBarbearia: barbearia.nome,
@@ -271,11 +279,12 @@ const enviarLembrete = seguro('lembrete', async (agendamentoOuId) => {
 const avisarListaEspera = seguro('lista_espera', async (entradaListaEspera, horarioDisponivel) => {
   const cliente = await Cliente.findByPk(entradaListaEspera.cliente_id, { attributes: { exclude: ['senha'] } });
   if (!cliente) return;
-  const barbearia = await carregarBarbearia();
+  const barbearia = await carregarBarbearia(entradaListaEspera.barbearia_id);
   const quando = formatarDataHora(horarioDisponivel);
 
   await registrarParaCliente({
     cliente,
+    barbearia_id: barbearia.id,
     tipo: 'lista_espera',
     conteudo: `Boas notícias! Um horário vagou em ${quando}. Acesse o app para confirmar seu agendamento.`,
     nomeBarbearia: barbearia.nome,
@@ -291,14 +300,15 @@ const avisarListaEspera = seguro('lista_espera', async (entradaListaEspera, hora
   });
 });
 
-// Resumo da agenda do dia para a barbearia (job das 7h)
-const enviarResumoDiario = seguro('resumo_diario', async (dia = dataLocalISO(new Date())) => {
-  const barbearia = await carregarBarbearia();
+// Resumo da agenda do dia de UMA barbearia
+const enviarResumoDaBarbearia = seguro('resumo_diario', async (barbeariaId, dia = dataLocalISO(new Date())) => {
+  const barbearia = await carregarBarbearia(barbeariaId);
   if (!barbearia.preferencias.relatorios) return null;
 
   const inicio = dataHoraLocal(dia, '00:00');
   const agendamentos = await Agendamento.findAll({
     where: {
+      barbearia_id: barbeariaId,
       status: { [Op.in]: STATUS_ATIVOS },
       data_hora: { [Op.gte]: inicio, [Op.lt]: new Date(inicio.getTime() + 24 * 60 * 60 * 1000) }
     },
@@ -335,10 +345,18 @@ const enviarResumoDiario = seguro('resumo_diario', async (dia = dataLocalISO(new
   });
 });
 
+// Resumo do dia de todas as barbearias ativas (job das 7h)
+async function enviarResumoDiario(dia) {
+  const barbearias = await Barbearia.findAll({ where: { status: 'ativa' }, attributes: ['id'] });
+  const resultados = [];
+  for (const { id } of barbearias) resultados.push(await enviarResumoDaBarbearia(id, dia));
+  return resultados;
+}
+
 // E-mail de teste da aba Notificações (ignora as preferências).
 // emailDestino: o e-mail que está na tela (mesmo antes de salvar); sem ele, usa o salvo.
-async function enviarTeste(emailDestino) {
-  const barbearia = await carregarBarbearia();
+async function enviarTeste(barbeariaId, emailDestino) {
+  const barbearia = await carregarBarbearia(barbeariaId);
   if (emailDestino) barbearia.emailNotificacoes = emailDestino;
   return notificarBarbearia({
     tipo: 'teste',
@@ -364,5 +382,7 @@ module.exports = {
   enviarLembrete,
   avisarListaEspera,
   enviarResumoDiario,
-  enviarTeste
+  enviarResumoDaBarbearia,
+  enviarTeste,
+  carregarBarbearia
 };

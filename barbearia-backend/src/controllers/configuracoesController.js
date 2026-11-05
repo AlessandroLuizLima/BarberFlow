@@ -1,7 +1,7 @@
-const { sequelize, ConfiguracaoBarbearia, NotificacaoBarbearia } = require('../models');
+const { sequelize, Barbearia, NotificacaoBarbearia } = require('../models');
+const { obterPlano } = require('../utils/planos');
 const notificacaoService = require('../services/notificacaoService');
 const { smtpConfigurado, verificarConexao } = require('../services/emailService');
-const { ehBarbeiro } = require('../middlewares/auth');
 const { responderErroInterno } = require('../middlewares/seguranca');
 
 const responderErro = (res, error) =>
@@ -10,7 +10,7 @@ const responderErro = (res, error) =>
 // O que clientes e visitantes podem ver (sem email de notificações e preferências internas)
 const CAMPOS_PUBLICOS = [
   'id', 'nome', 'telefone', 'email', 'endereco', 'endereco_detalhado', 'dias_atendimento',
-  'horario_inicio', 'horario_fim', 'logo_url', 'logo', 'latitude', 'longitude', 'configurado'
+  'horario_inicio', 'horario_fim', 'logo_url', 'logo', 'latitude', 'longitude'
 ];
 const somentePublico = (dados) => Object.fromEntries(CAMPOS_PUBLICOS.map((c) => [c, dados[c]]));
 const imagemService = require('../services/imagemService');
@@ -48,14 +48,17 @@ const paraNumero = (valor) => (valor === null || valor === undefined ? null : Nu
 const paraResposta = (registro) => {
   const dados = registro ? registro.toJSON() : { ...PADRAO };
   const logoUrl = imagemService.urlDaImagem(dados.logo_id);
+  const plano = obterPlano(dados.plano);
   return {
+    ...PADRAO,
     ...dados,
-    id: 1,
-    configurado: Boolean(registro),
     logo_url: logoUrl,
     logo: logoUrl, // compatibilidade com versões antigas do frontend
     latitude: paraNumero(dados.latitude),
-    longitude: paraNumero(dados.longitude)
+    longitude: paraNumero(dados.longitude),
+    plano_nome: plano?.nome || null,
+    plano_limites: plano ? { profissionais: plano.maxProfissionais, agendamentos_mes: plano.maxAgendamentosMes } : null,
+    ativa: registro ? registro.estaAtiva() : false
   };
 };
 
@@ -74,13 +77,13 @@ const mesmoEndereco = (a = {}, b = {}) =>
 
 // Se a barbearia tem endereço mas ficou sem coordenadas (ex.: o mapa estava fora do ar quando salvou),
 // tenta de novo em segundo plano, no máximo a cada 10 minutos.
-let ultimaTentativaGeocoding = 0;
+const ultimaTentativaGeocoding = new Map();
 function completarCoordenadasEmSegundoPlano(registro) {
   if (!registro || registro.latitude !== null || !registro.endereco_detalhado?.cidade) return;
-  if (Date.now() - ultimaTentativaGeocoding < 10 * 60 * 1000) return;
-  ultimaTentativaGeocoding = Date.now();
+  if (Date.now() - (ultimaTentativaGeocoding.get(registro.id) || 0) < 10 * 60 * 1000) return;
+  ultimaTentativaGeocoding.set(registro.id, Date.now());
   geocodificarEndereco(enderecoParaGeocodificar(registro.endereco_detalhado))
-    .then((c) => c && ConfiguracaoBarbearia.update({ latitude: c.latitude, longitude: c.longitude }, { where: { id: 1 } }))
+    .then((c) => c && Barbearia.update({ latitude: c.latitude, longitude: c.longitude }, { where: { id: registro.id } }))
     .catch((error) => console.warn(`[geocoding] barbearia: ${error.message}`));
 }
 
@@ -157,13 +160,18 @@ const validar = (corpo) => {
   };
 };
 
-// READ - Configurações da barbearia (usadas pelo painel do barbeiro e pelo app do cliente)
+// Usados pela listagem pública de barbearias (barbeariasController)
+exports.paraResposta = paraResposta;
+exports.somentePublico = somentePublico;
+exports.completarCoordenadasEmSegundoPlano = completarCoordenadasEmSegundoPlano;
+
+// READ - Configurações da barbearia do barbeiro logado (painel)
 exports.obterConfiguracao = async (req, res) => {
   try {
-    const registro = await ConfiguracaoBarbearia.findByPk(1);
+    const registro = await Barbearia.findByPk(req.usuario.barbearia_id);
+    if (!registro) return res.status(404).json({ error: 'Barbearia não encontrada' });
     completarCoordenadasEmSegundoPlano(registro);
-    const dados = paraResposta(registro);
-    res.status(200).json(ehBarbeiro(req) ? dados : somentePublico(dados));
+    res.status(200).json(paraResposta(registro));
   } catch (error) {
     responderErro(res, error);
   }
@@ -176,7 +184,8 @@ exports.salvarConfiguracao = async (req, res) => {
     const { dados, logo, erro } = validar(req.body || {});
     if (erro) return res.status(400).json({ error: erro });
 
-    const atual = await ConfiguracaoBarbearia.findByPk(1);
+    const atual = await Barbearia.findByPk(req.usuario.barbearia_id);
+    if (!atual) return res.status(404).json({ error: 'Barbearia não encontrada' });
 
     // Geocodifica fora da transação (é uma chamada externa e pode demorar alguns segundos)
     let coordenadas = { latitude: atual?.latitude ?? null, longitude: atual?.longitude ?? null };
@@ -192,16 +201,14 @@ exports.salvarConfiguracao = async (req, res) => {
       if (logo.acao === 'trocar') logoId = await imagemService.salvarImagem(logo.dataUrl, { transaction });
       if (logo.acao === 'remover') logoId = null;
 
-      await ConfiguracaoBarbearia.upsert(
-        { ...dados, ...coordenadas, logo_id: logoId, id: 1, atualizado_em: new Date() },
-        { transaction }
-      );
+      // Só os campos de configuração: plano, status e validade da assinatura não mudam por aqui
+      await atual.update({ ...dados, ...coordenadas, logo_id: logoId, atualizado_em: new Date() }, { transaction });
       if (logoAntiga && logoAntiga !== logoId) {
         await imagemService.removerImagem(logoAntiga, { transaction });
       }
     });
 
-    const registro = await ConfiguracaoBarbearia.findByPk(1);
+    const registro = await Barbearia.findByPk(atual.id);
     res.status(200).json({
       message: 'Configurações salvas com sucesso!',
       configuracao: paraResposta(registro),
@@ -215,7 +222,7 @@ exports.salvarConfiguracao = async (req, res) => {
 // GET - Situação do envio de e-mails (para a aba Notificações mostrar se está tudo certo)
 exports.statusNotificacoes = async (req, res) => {
   try {
-    const registro = await ConfiguracaoBarbearia.findByPk(1);
+    const registro = await Barbearia.findByPk(req.usuario.barbearia_id);
     res.status(200).json({
       smtp_configurado: smtpConfigurado(),
       email_destino: registro?.email_notificacoes || registro?.email || null
@@ -240,7 +247,7 @@ exports.testarNotificacoes = async (req, res) => {
         return res.status(502).json({ error: 'O servidor de e-mail recusou a conexão. Confira SMTP_USER e SMTP_PASS no .env do backend.' });
       }
     }
-    const notificacao = await notificacaoService.enviarTeste(emailDigitado || null);
+    const notificacao = await notificacaoService.enviarTeste(req.usuario.barbearia_id, emailDigitado || null);
     if (!notificacao) return res.status(500).json({ error: 'Não foi possível registrar o teste.' });
 
     const mensagens = {
@@ -262,7 +269,11 @@ exports.testarNotificacoes = async (req, res) => {
 exports.listarNotificacoesBarbearia = async (req, res) => {
   try {
     const limite = Math.min(Number(req.query.limite) || 20, 100);
-    const notificacoes = await NotificacaoBarbearia.findAll({ order: [['criado_em', 'DESC']], limit: limite });
+    const notificacoes = await NotificacaoBarbearia.findAll({
+      where: { barbearia_id: req.usuario.barbearia_id },
+      order: [['criado_em', 'DESC']],
+      limit: limite
+    });
     res.status(200).json(notificacoes);
   } catch (error) {
     responderErro(res, error);

@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
-const { sequelize, Agendamento, Cliente, Profissional, Servico, ListaEspera, ConfiguracaoBarbearia } = require('../models');
+const { sequelize, Agendamento, Cliente, Profissional, Servico, ListaEspera, Barbearia } = require('../models');
+const { obterPlano } = require('../utils/planos');
 const notificacaoService = require('../services/notificacaoService');
 const { ehBarbeiro } = require('../middlewares/auth');
 const { responderErroInterno } = require('../middlewares/seguranca');
@@ -8,9 +9,8 @@ const { dataLocalISO, dataHoraLocal, diaDaSemana, minutosDoDia, paraMinutos, par
 const INTERVALO_MINUTOS = 30; // de quanto em quanto tempo a agenda oferece horários
 const DIAS_PADRAO = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
 
-// Horário de funcionamento salvo nas Configurações (com valores padrão se ainda não salvou)
-async function horarioDeFuncionamento() {
-  const config = await ConfiguracaoBarbearia.findByPk(1);
+// Horário de funcionamento salvo nas Configurações da barbearia (com valores padrão se ainda não salvou)
+function horarioDeFuncionamento(config) {
   return {
     dias: Array.isArray(config?.dias_atendimento) && config.dias_atendimento.length ? config.dias_atendimento : DIAS_PADRAO,
     inicio: config?.horario_inicio || '08:00',
@@ -36,6 +36,7 @@ const STATUS_ATIVOS = ['agendado', 'confirmado', 'remarcado'];
 const DURACAO_MAXIMA_MS = 12 * 60 * 60 * 1000; // nenhum serviço dura mais que isso
 
 const includePadrao = [
+  { model: Barbearia, as: 'barbearia', attributes: ['id', 'nome', 'endereco', 'telefone', 'logo_id'] },
   { model: Cliente, as: 'cliente', attributes: ['id', 'nome_completo', 'email', 'telefone', 'foto_id'] },
   { model: Profissional, as: 'profissional', attributes: ['id', 'nome_completo', 'especialidade', 'foto_id', 'ativo'] },
   { model: Servico, as: 'servico' }
@@ -55,14 +56,34 @@ function responderErro(res, error) {
   return responderErroInterno(res, error);
 }
 
-// Cliente só mexe nos próprios agendamentos; o barbeiro mexe em todos.
-// Para não revelar quais IDs existem, agendamento de outra pessoa responde 404.
+// Cliente só mexe nos próprios agendamentos; o barbeiro, nos da barbearia dele.
+// Para não revelar quais IDs existem, agendamento de outra pessoa/barbearia responde 404.
 function garantirAcesso(req, agendamento) {
   if (!agendamento) throw new ErroNegocio(404, 'Agendamento não encontrado');
-  if (!ehBarbeiro(req) && agendamento.cliente_id !== req.usuario.id) {
-    throw new ErroNegocio(404, 'Agendamento não encontrado');
-  }
+  const permitido = ehBarbeiro(req)
+    ? agendamento.barbearia_id === req.usuario.barbearia_id
+    : agendamento.cliente_id === req.usuario.id;
+  if (!permitido) throw new ErroNegocio(404, 'Agendamento não encontrado');
 }
+
+// Agendamentos ainda não cancelados no mês corrente (para o limite do plano)
+async function agendamentosNoMes(barbeariaId) {
+  const agora = new Date();
+  const inicioMes = dataHoraLocal(`${dataLocalISO(agora).slice(0, 7)}-01`, '00:00');
+  return Agendamento.count({
+    where: { barbearia_id: barbeariaId, status: { [Op.ne]: 'cancelado' }, criado_em: { [Op.gte]: inicioMes } }
+  });
+}
+
+// Resposta com a barbearia formatada (logo como URL)
+const comLogo = (agendamento) => {
+  const dados = agendamento.toJSON();
+  if (dados.barbearia) {
+    dados.barbearia.logo_url = dados.barbearia.logo_id ? `/imagens/${dados.barbearia.logo_id}` : null;
+    delete dados.barbearia.logo_id;
+  }
+  return dados;
+};
 
 const idValido = (valor) => Number.isInteger(Number(valor)) && Number(valor) > 0;
 
@@ -107,9 +128,10 @@ async function existeConflitoDeHorario({ profissional_id, data_hora, duracao_min
 }
 
 // Quando um horário vaga (cancelamento ou remarcação), avisa o primeiro da lista de espera.
-async function avisarListaDeEspera({ profissional_id, servico_id, data_hora }) {
+async function avisarListaDeEspera({ barbearia_id, profissional_id, servico_id, data_hora }) {
   const proximoDaFila = await ListaEspera.findOne({
     where: {
+      barbearia_id,
       profissional_id,
       servico_id,
       data_desejada: dataLocalISO(data_hora),
@@ -154,11 +176,22 @@ exports.criarAgendamento = async (req, res) => {
     if (!profissional.ativo) throw new ErroNegocio(400, 'Este profissional não está disponível para agendamentos');
     if (!servico.ativo) throw new ErroNegocio(400, 'Este serviço não está disponível');
 
+    // Serviço e profissional precisam ser da mesma barbearia (e o barbeiro só agenda na dele)
+    if (profissional.barbearia_id !== servico.barbearia_id) throw new ErroNegocio(400, 'Profissional não atende este serviço');
+    if (ehBarbeiro(req) && servico.barbearia_id !== req.usuario.barbearia_id) throw new ErroNegocio(404, 'Serviço não encontrado');
+    const barbearia = await Barbearia.findByPk(servico.barbearia_id);
+    if (!barbearia || !barbearia.estaAtiva()) throw new ErroNegocio(400, 'Esta barbearia não está aceitando agendamentos no momento.');
+
+    const plano = obterPlano(barbearia.plano);
+    if (plano?.maxAgendamentosMes && (await agendamentosNoMes(barbearia.id)) >= plano.maxAgendamentosMes) {
+      throw new ErroNegocio(409, 'Esta barbearia atingiu o limite de agendamentos do mês. Tente outra data ou entre em contato com ela.');
+    }
+
     const dataAgendamento = lerData(data_hora);
     if (dataAgendamento < new Date()) {
       throw new ErroNegocio(400, 'Não é possível agendar em uma data no passado');
     }
-    validarExpediente(dataAgendamento, servico.duracao_minutos, await horarioDeFuncionamento());
+    validarExpediente(dataAgendamento, servico.duracao_minutos, horarioDeFuncionamento(barbearia));
 
     const agendamento = await comTravaDoProfissional(profissional_id, async (transaction) => {
       const conflito = await existeConflitoDeHorario({
@@ -173,6 +206,7 @@ exports.criarAgendamento = async (req, res) => {
       }
 
       return Agendamento.create({
+        barbearia_id: barbearia.id,
         cliente_id,
         profissional_id,
         servico_id,
@@ -189,7 +223,7 @@ exports.criarAgendamento = async (req, res) => {
 
     res.status(201).json({
       message: 'Agendamento criado e confirmado com sucesso!',
-      agendamento: agendamentoCompleto
+      agendamento: comLogo(agendamentoCompleto)
     });
   } catch (error) {
     responderErro(res, error);
@@ -203,7 +237,10 @@ exports.listarAgendamentos = async (req, res) => {
     const where = {};
     // Cliente vê só os próprios agendamentos, seja qual for o filtro enviado
     if (!ehBarbeiro(req)) where.cliente_id = req.usuario.id;
-    else if (idValido(cliente_id)) where.cliente_id = Number(cliente_id);
+    else {
+      where.barbearia_id = req.usuario.barbearia_id;
+      if (idValido(cliente_id)) where.cliente_id = Number(cliente_id);
+    }
     if (idValido(profissional_id)) where.profissional_id = Number(profissional_id);
     if (status && [...STATUS_ATIVOS, 'cancelado', 'concluido'].includes(status)) where.status = status;
 
@@ -212,7 +249,7 @@ exports.listarAgendamentos = async (req, res) => {
       include: includePadrao,
       order: [['data_hora', 'ASC']]
     });
-    res.status(200).json(agendamentos);
+    res.status(200).json(agendamentos.map(comLogo));
   } catch (error) {
     responderErro(res, error);
   }
@@ -223,7 +260,7 @@ exports.buscarAgendamentoPorId = async (req, res) => {
   try {
     const agendamento = await Agendamento.findByPk(req.params.id, { include: includePadrao });
     garantirAcesso(req, agendamento);
-    res.status(200).json(agendamento);
+    res.status(200).json(comLogo(agendamento));
   } catch (error) {
     responderErro(res, error);
   }
@@ -251,12 +288,14 @@ exports.atualizarAgendamento = async (req, res) => {
     if (novaData < new Date()) {
       throw new ErroNegocio(400, 'Não é possível remarcar para uma data no passado');
     }
-    validarExpediente(novaData, agendamento.servico.duracao_minutos, await horarioDeFuncionamento());
+    validarExpediente(novaData, agendamento.servico.duracao_minutos, horarioDeFuncionamento(await Barbearia.findByPk(agendamento.barbearia_id)));
 
     const novoProfissionalId = profissional_id ? Number(profissional_id) : agendamento.profissional_id;
     if (novoProfissionalId !== agendamento.profissional_id) {
       const novoProfissional = await Profissional.findByPk(novoProfissionalId);
-      if (!novoProfissional) throw new ErroNegocio(404, 'Profissional não encontrado');
+      if (!novoProfissional || novoProfissional.barbearia_id !== agendamento.barbearia_id) {
+        throw new ErroNegocio(404, 'Profissional não encontrado');
+      }
       if (!novoProfissional.ativo) throw new ErroNegocio(400, 'Este profissional não está disponível para agendamentos');
     }
 
@@ -268,6 +307,7 @@ exports.atualizarAgendamento = async (req, res) => {
     }
 
     const horarioAnterior = {
+      barbearia_id: agendamento.barbearia_id,
       profissional_id: agendamento.profissional_id,
       servico_id: agendamento.servico_id,
       data_hora: agendamento.data_hora
@@ -301,7 +341,7 @@ exports.atualizarAgendamento = async (req, res) => {
     res.status(200).json({
       message: 'Agendamento remarcado com sucesso!',
       avisouListaEspera,
-      agendamento: agendamentoAtualizado
+      agendamento: comLogo(agendamentoAtualizado)
     });
   } catch (error) {
     responderErro(res, error);
@@ -313,7 +353,7 @@ exports.atualizarAgendamento = async (req, res) => {
 exports.concluirAgendamento = async (req, res) => {
   try {
     const agendamento = await Agendamento.findByPk(req.params.id);
-    if (!agendamento) throw new ErroNegocio(404, 'Agendamento não encontrado');
+    garantirAcesso(req, agendamento);
 
     if (!STATUS_ATIVOS.includes(agendamento.status)) {
       throw new ErroNegocio(409, `Um agendamento ${agendamento.status} não pode ser concluído`);
@@ -321,7 +361,7 @@ exports.concluirAgendamento = async (req, res) => {
     await agendamento.update({ status: 'concluido' });
 
     const agendamentoAtualizado = await Agendamento.findByPk(agendamento.id, { include: includePadrao });
-    res.status(200).json({ message: 'Atendimento concluído!', agendamento: agendamentoAtualizado });
+    res.status(200).json({ message: 'Atendimento concluído!', agendamento: comLogo(agendamentoAtualizado) });
   } catch (error) {
     responderErro(res, error);
   }
@@ -362,10 +402,14 @@ exports.disponibilidade = async (req, res) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(data || ''))) throw new ErroNegocio(400, 'Informe data no formato AAAA-MM-DD');
     if (!servico_id) throw new ErroNegocio(400, 'Informe servico_id');
 
+    if (!idValido(servico_id)) throw new ErroNegocio(400, 'servico_id inválido');
     const servico = await Servico.findByPk(servico_id);
     if (!servico || !servico.ativo) throw new ErroNegocio(404, 'Serviço não encontrado');
+    // A barbearia vem do serviço: horários e profissionais são sempre dela
+    const barbearia = await Barbearia.findByPk(servico.barbearia_id);
+    if (!barbearia || !barbearia.estaAtiva()) throw new ErroNegocio(404, 'Barbearia indisponível');
 
-    const funcionamento = await horarioDeFuncionamento();
+    const funcionamento = horarioDeFuncionamento(barbearia);
     const meioDia = dataHoraLocal(data, '12:00');
     if (isNaN(meioDia.getTime())) throw new ErroNegocio(400, 'Data inválida');
     const dia = diaDaSemana(meioDia);
@@ -382,7 +426,7 @@ exports.disponibilidade = async (req, res) => {
     if (!resposta.aberto) return res.status(200).json(resposta);
 
     const profissionais = await Profissional.findAll({
-      where: { ativo: true, ...(profissional_id ? { id: profissional_id } : {}) },
+      where: { barbearia_id: barbearia.id, ativo: true, ...(idValido(profissional_id) ? { id: Number(profissional_id) } : {}) },
       attributes: ['id'],
       order: [['id', 'ASC']]
     });

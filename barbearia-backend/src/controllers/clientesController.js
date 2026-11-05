@@ -1,5 +1,5 @@
 const bcrypt = require('bcryptjs');
-const { sequelize, Cliente } = require('../models');
+const { sequelize, Cliente, Agendamento } = require('../models');
 const { buscarEnderecoPorCep } = require('../services/viaCepService');
 const { geocodificarEndereco } = require('../services/geocodingService');
 const imagemService = require('../services/imagemService');
@@ -123,22 +123,35 @@ exports.criarCliente = async (req, res) => {
   }
 };
 
-// READ - Listar todos os clientes
+// Clientes que já agendaram na barbearia do barbeiro (os outros clientes da plataforma não aparecem)
+async function idsDeClientesDaBarbearia(barbeariaId) {
+  const linhas = await Agendamento.findAll({
+    where: { barbearia_id: barbeariaId },
+    attributes: [[sequelize.fn('DISTINCT', sequelize.col('cliente_id')), 'cliente_id']],
+    raw: true
+  });
+  return linhas.map((l) => l.cliente_id);
+}
+
+// READ - Listar os clientes da barbearia (barbeiro)
 exports.listarClientes = async (req, res) => {
   try {
-    const clientes = await Cliente.findAll({ order: [['nome_completo', 'ASC']] });
+    const ids = await idsDeClientesDaBarbearia(req.usuario.barbearia_id);
+    const clientes = ids.length ? await Cliente.findAll({ where: { id: ids }, order: [['nome_completo', 'ASC']] }) : [];
     res.status(200).json(clientes.map(serializarCliente));
   } catch (error) {
     responderErro(res, error);
   }
 };
 
-// READ - Buscar cliente por ID
+// READ - Buscar cliente por ID (o próprio cliente, ou o barbeiro se o cliente já agendou na barbearia dele)
 exports.buscarClientePorId = async (req, res) => {
   try {
     const cliente = await Cliente.findByPk(req.params.id);
+    const semVinculo = cliente && ehBarbeiro(req) &&
+      !(await Agendamento.count({ where: { cliente_id: cliente.id, barbearia_id: req.usuario.barbearia_id } }));
 
-    if (!cliente) {
+    if (!cliente || semVinculo) {
       return res.status(404).json({ message: 'Cliente não encontrado' });
     }
 

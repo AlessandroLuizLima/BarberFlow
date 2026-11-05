@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const clientesController = require('../controllers/clientesController');
-const { exigirBarbeiro, exigirProprioClienteOuBarbeiro } = require('../middlewares/auth');
+const { exigirBarbeiro, exigirProprioClienteOuBarbeiro, exigirProprioCliente } = require('../middlewares/auth');
 const { limiteLogin, limiteCadastro, limiteSensivel } = require('../middlewares/seguranca');
 const validarIdNumerico = require('./_id');
 
@@ -11,15 +11,16 @@ router.param('id', validarIdNumerico);
 router.post('/clientes', limiteCadastro, clientesController.criarCliente);
 router.post('/clientes/login', limiteLogin, clientesController.loginCliente);
 
-// Lista de clientes: só o barbeiro
+// Lista de clientes: o barbeiro vê quem já agendou na barbearia dele
 router.get('/clientes', exigirBarbeiro, clientesController.listarClientes);
 
-// Cadastro e foto: o próprio cliente ou o barbeiro
+// Ver o cadastro: o próprio cliente, ou o barbeiro de uma barbearia onde ele agendou
 router.get('/clientes/:id', exigirProprioClienteOuBarbeiro, clientesController.buscarClientePorId);
-router.put('/clientes/:id', exigirProprioClienteOuBarbeiro, clientesController.atualizarCliente);
-router.delete('/clientes/:id', exigirProprioClienteOuBarbeiro, clientesController.deletarCliente);
-router.put('/clientes/:id/foto', exigirProprioClienteOuBarbeiro, clientesController.atualizarFoto);
-router.delete('/clientes/:id/foto', exigirProprioClienteOuBarbeiro, clientesController.removerFoto);
+// Alterar, excluir e foto: só o próprio cliente (a conta é dele, não de uma barbearia)
+router.put('/clientes/:id', exigirProprioCliente, clientesController.atualizarCliente);
+router.delete('/clientes/:id', exigirProprioCliente, clientesController.deletarCliente);
+router.put('/clientes/:id/foto', exigirProprioCliente, clientesController.atualizarFoto);
+router.delete('/clientes/:id/foto', exigirProprioCliente, clientesController.removerFoto);
 
 // Consulta de endereço por CEP (usada no cadastro, antes de ter conta)
 router.get('/cep/:cep', limiteSensivel, clientesController.consultarCep);

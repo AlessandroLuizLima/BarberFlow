@@ -6,7 +6,7 @@
  * - A cada requisição o usuário é buscado no banco: conta apagada, desativada
  *   ou com senha trocada depois do login (token_versao) invalida o token na hora.
  *
- * req.usuario = { id, papel: 'cliente' | 'barbeiro', nome, email }
+ * req.usuario = { id, papel: 'cliente' | 'barbeiro', nome, email, barbearia_id (só barbeiro) }
  */
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
@@ -59,7 +59,15 @@ async function carregarUsuario(token) {
   if (dados.papel === 'barbeiro') {
     const admin = await Administrador.findByPk(id);
     if (!admin || !admin.ativo || admin.token_versao !== dados.v) return null;
-    return { id: admin.id, papel: 'barbeiro', nome: admin.nome, email: admin.email };
+    return {
+      id: admin.id,
+      papel: 'barbeiro',
+      nome: admin.nome,
+      email: admin.email,
+      // Toda ação do barbeiro fica restrita à barbearia dele
+      barbearia_id: admin.barbearia_id,
+      senha_temporaria: admin.senha_temporaria
+    };
   }
   return null;
 }
@@ -107,6 +115,15 @@ const exigirProprioClienteOuBarbeiro = [
   }
 ];
 
+// Só o próprio cliente (:id)
+const exigirProprioCliente = [
+  exigirCliente,
+  (req, res, next) => {
+    if (String(req.usuario.id) === String(req.params.id)) return next();
+    return res.status(403).json({ error: 'Você não tem permissão para alterar este cadastro.' });
+  }
+];
+
 const ehBarbeiro = (req) => req.usuario?.papel === 'barbeiro';
 
 module.exports = {
@@ -116,6 +133,7 @@ module.exports = {
   exigirBarbeiro,
   exigirCliente,
   exigirProprioClienteOuBarbeiro,
+  exigirProprioCliente,
   ehBarbeiro,
   SEGREDO_CONFIGURADO,
   EM_PRODUCAO

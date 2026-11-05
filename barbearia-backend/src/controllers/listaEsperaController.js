@@ -1,4 +1,4 @@
-const { ListaEspera, Cliente, Profissional, Servico } = require('../models');
+const { ListaEspera, Cliente, Profissional, Servico, Barbearia } = require('../models');
 const { ehBarbeiro } = require('../middlewares/auth');
 const { responderErroInterno } = require('../middlewares/seguranca');
 
@@ -42,8 +42,12 @@ exports.entrarNaListaDeEspera = async (req, res) => {
     if (!cliente) return res.status(404).json({ error: 'Cliente não encontrado' });
     if (!profissional) return res.status(404).json({ error: 'Profissional não encontrado' });
     if (!servico) return res.status(404).json({ error: 'Serviço não encontrado' });
+    if (profissional.barbearia_id !== servico.barbearia_id) return res.status(400).json({ error: 'Profissional não atende este serviço' });
+    if (ehBarbeiro(req) && servico.barbearia_id !== req.usuario.barbearia_id) return res.status(404).json({ error: 'Serviço não encontrado' });
+    const barbearia = await Barbearia.findByPk(servico.barbearia_id);
+    if (!barbearia || !barbearia.estaAtiva()) return res.status(400).json({ error: 'Esta barbearia não está disponível.' });
 
-    const entrada = await ListaEspera.create({ cliente_id, profissional_id, servico_id, data_desejada });
+    const entrada = await ListaEspera.create({ barbearia_id: servico.barbearia_id, cliente_id, profissional_id, servico_id, data_desejada });
 
     res.status(201).json({ message: 'Você entrou na lista de espera!', listaEspera: entrada });
   } catch (error) {
@@ -57,7 +61,10 @@ exports.listarListaDeEspera = async (req, res) => {
     const { cliente_id, profissional_id, status } = req.query;
     const where = {};
     if (!ehBarbeiro(req)) where.cliente_id = req.usuario.id;
-    else if (idValido(cliente_id)) where.cliente_id = Number(cliente_id);
+    else {
+      where.barbearia_id = req.usuario.barbearia_id;
+      if (idValido(cliente_id)) where.cliente_id = Number(cliente_id);
+    }
     if (idValido(profissional_id)) where.profissional_id = Number(profissional_id);
     if (['aguardando', 'notificado', 'expirado'].includes(status)) where.status = status;
 
@@ -72,7 +79,10 @@ exports.listarListaDeEspera = async (req, res) => {
 exports.sairDaListaDeEspera = async (req, res) => {
   try {
     const entrada = await ListaEspera.findByPk(req.params.id);
-    if (!entrada || (!ehBarbeiro(req) && entrada.cliente_id !== req.usuario.id)) {
+    const permitido = entrada && (ehBarbeiro(req)
+      ? entrada.barbearia_id === req.usuario.barbearia_id
+      : entrada.cliente_id === req.usuario.id);
+    if (!permitido) {
       return res.status(404).json({ message: 'Registro não encontrado na lista de espera' });
     }
     await entrada.destroy();

@@ -1,4 +1,5 @@
 const { Servico } = require('../models');
+const { ehBarbeiro } = require('../middlewares/auth');
 const { responderErroInterno, respostaDeValidacao } = require('../middlewares/seguranca');
 
 const responderErro = (res, error) => {
@@ -6,6 +7,16 @@ const responderErro = (res, error) => {
   if (validacao) return res.status(400).json({ error: validacao });
   return responderErroInterno(res, error);
 };
+
+const idValido = (valor) => /^[1-9]\d{0,9}$/.test(String(valor ?? ''));
+
+// Barbeiro só mexe nos serviços da barbearia dele (outro responde 404)
+async function buscarDaBarbearia(req, id) {
+  const servico = await Servico.findByPk(id);
+  if (!servico) return null;
+  if (ehBarbeiro(req) && servico.barbearia_id !== req.usuario.barbearia_id) return null;
+  return servico;
+}
 
 // Só os campos editáveis, com tipos conferidos (impede enviar id, datas etc.)
 function lerServico(corpo = {}, parcial = false) {
@@ -38,7 +49,7 @@ exports.criarServico = async (req, res) => {
   try {
     const { dados, erro } = lerServico(req.body);
     if (erro) return res.status(400).json({ error: erro });
-    const servico = await Servico.create(dados);
+    const servico = await Servico.create({ ...dados, barbearia_id: req.usuario.barbearia_id });
     res.status(201).json({ message: `Serviço ${servico.nome} cadastrado com sucesso!`, servico });
   } catch (error) {
     responderErro(res, error);
@@ -47,7 +58,15 @@ exports.criarServico = async (req, res) => {
 
 exports.listarServicos = async (req, res) => {
   try {
-    const servicos = await Servico.findAll({ order: [['nome', 'ASC']] });
+    // Barbeiro vê os da barbearia dele (inclusive inativos); clientes informam a barbearia
+    let where;
+    if (ehBarbeiro(req)) where = { barbearia_id: req.usuario.barbearia_id };
+    else {
+      const barbeariaId = req.params.barbeariaId ?? req.query.barbearia_id;
+      if (!idValido(barbeariaId)) return res.status(400).json({ error: 'Informe a barbearia (barbearia_id).' });
+      where = { barbearia_id: Number(barbeariaId), ativo: true };
+    }
+    const servicos = await Servico.findAll({ where, order: [['nome', 'ASC']] });
     res.status(200).json(servicos);
   } catch (error) {
     responderErro(res, error);
@@ -56,7 +75,7 @@ exports.listarServicos = async (req, res) => {
 
 exports.buscarServicoPorId = async (req, res) => {
   try {
-    const servico = await Servico.findByPk(req.params.id);
+    const servico = await buscarDaBarbearia(req, req.params.id);
     if (!servico) {
       return res.status(404).json({ message: 'Serviço não encontrado' });
     }
@@ -68,7 +87,7 @@ exports.buscarServicoPorId = async (req, res) => {
 
 exports.atualizarServico = async (req, res) => {
   try {
-    const servico = await Servico.findByPk(req.params.id);
+    const servico = await buscarDaBarbearia(req, req.params.id);
     if (!servico) {
       return res.status(404).json({ message: 'Serviço não encontrado' });
     }
@@ -83,7 +102,7 @@ exports.atualizarServico = async (req, res) => {
 
 exports.deletarServico = async (req, res) => {
   try {
-    const servico = await Servico.findByPk(req.params.id);
+    const servico = await buscarDaBarbearia(req, req.params.id);
     if (!servico) {
       return res.status(404).json({ message: 'Serviço não encontrado' });
     }

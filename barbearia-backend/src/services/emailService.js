@@ -67,7 +67,7 @@ function montarTexto({ titulo, paragrafos = [], linhas = [], rodape = '' }) {
  * Envia um e-mail. Nunca lança erro: devolve o resultado para quem chamou registrar.
  * @returns {Promise<{status: 'enviado'|'simulado'|'falhou', erro?: string}>}
  */
-async function enviarEmail({ para, assunto, conteudo, nomeRemetente = 'BarberFlow' }) {
+async function enviarEmail({ para, assunto, conteudo, nomeRemetente = 'BarberFlow', responderPara }) {
   if (!para) return { status: 'falhou', erro: 'Sem e-mail de destino' };
 
   const transporte = obterTransportador();
@@ -81,7 +81,9 @@ async function enviarEmail({ para, assunto, conteudo, nomeRemetente = 'BarberFlo
     await transporte.sendMail({
       from: `"${nomeRemetente.replace(/"/g, '')}" <${remetente}>`,
       to: para,
-      subject: assunto,
+      ...(responderPara ? { replyTo: responderPara } : {}),
+      // Sem quebras de linha no assunto (impede injeção de cabeçalhos)
+      subject: String(assunto).replace(/[\r\n]+/g, ' ').slice(0, 200),
       text: montarTexto(conteudo),
       html: montarHtml(conteudo)
     });

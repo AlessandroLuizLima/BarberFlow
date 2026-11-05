@@ -61,6 +61,20 @@ const limiteCadastro = limitador({
   message: mensagem('Muitos cadastros feitos a partir desta rede. Tente novamente mais tarde.')
 });
 
+// Abertura de checkout: 10 por hora por IP
+const limiteCheckout = limitador({
+  windowMs: 60 * 60 * 1000,
+  limit: 10,
+  message: mensagem('Muitas tentativas de compra a partir desta rede. Tente novamente mais tarde.')
+});
+
+// Formulário de contato: 5 mensagens por hora por IP (evita spam para o suporte)
+const limiteContato = limitador({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  message: mensagem('Você já enviou várias mensagens. Aguarde um pouco antes de enviar outra.')
+});
+
 // Ações que disparam e-mail ou serviços externos (teste de e-mail, CEP)
 const limiteSensivel = limitador({
   windowMs: 10 * 60 * 1000,
@@ -102,6 +116,8 @@ module.exports = {
   limiteLogin,
   limiteCadastro,
   limiteSensivel,
+  limiteCheckout,
+  limiteContato,
   limiteGeral,
   responderErroInterno,
   respostaDeValidacao,

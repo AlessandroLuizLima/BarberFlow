@@ -1,14 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const servicosController = require('../controllers/servicosController');
-const { exigirBarbeiro } = require('../middlewares/auth');
+const { autenticacaoOpcional, exigirBarbeiro } = require('../middlewares/auth');
 const validarIdNumerico = require('./_id');
 
 router.param('id', validarIdNumerico);
 
-// Leitura pública (o cliente escolhe o serviço)
-router.get('/servicos', servicosController.listarServicos);
-router.get('/servicos/:id', servicosController.buscarServicoPorId);
+// Leitura pública com ?barbearia_id= (o cliente escolhe o serviço). Barbeiro logado vê os dele.
+router.get('/servicos', autenticacaoOpcional, servicosController.listarServicos);
+router.get('/servicos/:id', autenticacaoOpcional, servicosController.buscarServicoPorId);
 
 // Cadastro, edição e exclusão: só o barbeiro
 router.post('/servicos', exigirBarbeiro, servicosController.criarServico);

@@ -11,7 +11,11 @@ exports.listarMensagens = async (req, res) => {
     const where = {};
     // Cliente vê só as próprias mensagens
     if (!ehBarbeiro(req)) where.cliente_id = req.usuario.id;
-    else if (Number.isInteger(Number(cliente_id)) && Number(cliente_id) > 0) where.cliente_id = Number(cliente_id);
+    else {
+      // Barbeiro: só as mensagens que a barbearia dele enviou
+      where.barbearia_id = req.usuario.barbearia_id;
+      if (Number.isInteger(Number(cliente_id)) && Number(cliente_id) > 0) where.cliente_id = Number(cliente_id);
+    }
     if (TIPOS.includes(tipo)) where.tipo = tipo;
 
     const mensagens = await Mensagem.findAll({

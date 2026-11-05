@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const configuracoesController = require('../controllers/configuracoesController');
-const { autenticacaoOpcional, exigirBarbeiro } = require('../middlewares/auth');
+const { exigirBarbeiro } = require('../middlewares/auth');
 const { limiteSensivel } = require('../middlewares/seguranca');
 
-// Leitura pública (sem email de notificações e preferências para quem não é o barbeiro)
-router.get('/configuracoes', autenticacaoOpcional, configuracoesController.obterConfiguracao);
+// Só o painel: clientes e visitantes usam GET /barbearias e /barbearias/:id
+router.get('/configuracoes', exigirBarbeiro, configuracoesController.obterConfiguracao);
 
 // Alterações e notificações: só o barbeiro
 router.put('/configuracoes', exigirBarbeiro, configuracoesController.salvarConfiguracao);
