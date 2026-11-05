@@ -6,12 +6,16 @@ profissional, data e horário pelo site, recebe a confirmação na hora, é lemb
 O barbeiro acompanha tudo por um painel com agenda, faturamento do dia e
 configurações da barbearia.
 
+É uma plataforma com **várias barbearias**: o dono compra um plano na Home,
+paga pelo **Mercado Pago** e recebe por e-mail o login do painel da barbearia
+dele. Os clientes veem todas as barbearias com assinatura ativa.
+
 | | |
 |---|---|
 | **Frontend** | React 19 + Vite 7, React Router 7, Axios |
 | **Backend** | Node.js + Express 5, Sequelize 6, node-cron |
 | **Banco** | PostgreSQL |
-| **APIs externas** | [ViaCEP](https://viacep.com.br) (endereço pelo CEP), [Nominatim/OpenStreetMap](https://nominatim.org) (endereço → coordenadas) e SMTP via [Nodemailer](https://nodemailer.com) (e-mails) |
+| **APIs externas** | [Mercado Pago Checkout Pro](https://www.mercadopago.com.br/developers/pt/docs/checkout-pro/landing) (venda dos planos), [ViaCEP](https://viacep.com.br) (endereço pelo CEP), [Nominatim/OpenStreetMap](https://nominatim.org) (endereço → coordenadas) e SMTP via [Nodemailer](https://nodemailer.com) (e-mails) |
 | **Deploy** | Azure App Service (backend e frontend) via GitHub Actions |
 
 ---
@@ -26,6 +30,8 @@ configurações da barbearia.
 - [Imagens (logo e fotos de perfil)](#imagens-logo-e-fotos-de-perfil)
 - [Barbearia mais próxima](#barbearia-mais-próxima)
 - [Notificações por e-mail](#notificações-por-e-mail)
+- [Planos e pagamento (Mercado Pago)](#planos-e-pagamento-mercado-pago)
+- [Contato com o suporte](#contato-com-o-suporte)
 - [Segurança](#segurança)
 - [Zerar o banco de dados](#zerar-o-banco-de-dados)
 - [Rotas da API](#rotas-da-api)
@@ -37,12 +43,24 @@ configurações da barbearia.
 
 ## Funcionalidades
 
+### Home (`/`)
+- **Planos**: o botão **Adquirir** de cada plano abre o checkout (`/assinar/:plano`).
+  O dono informa nome, e-mail, nome da barbearia e telefone e vai para o
+  **Mercado Pago** (Pix, cartão ou boleto). Pagamento aprovado = barbearia
+  criada e **e-mail com login e senha temporária** do painel.
+- **Entre em contato**: nome, e-mail, perfil (cliente ou barbeiro), assunto e
+  mensagem vão por e-mail para o suporte (`SUPORTE_EMAIL`), que responde direto
+  para quem escreveu.
+
 ### Área do cliente (`/cliente`)
 - **Cadastro e login** com senha criptografada (bcrypt). O endereço é preenchido
   automaticamente pelo CEP (ViaCEP).
 - **Barbearia mais próxima**: a Home pede a localização do navegador, calcula a
   distância até cada barbearia e destaca a mais perto, com botão de rota no
   Google Maps. Sem permissão de localização, usa o endereço cadastrado do cliente.
+- **Várias barbearias**: todas as que têm assinatura ativa aparecem para o
+  cliente, cada uma com os próprios serviços, barbeiros e horários (as marcadas
+  como *Demonstração* são fictícias e não gravam nada).
 - **Agendamento**: o cliente escolhe a barbearia, abre a página dela (serviços,
   produtos, detalhes, avaliação) e agenda pelo modal: data → horário → barbeiro.
   Só aparecem dias de atendimento e horários realmente livres (expediente,
@@ -61,14 +79,22 @@ configurações da barbearia.
 - **Notificações**: e-mail para novo agendamento, cancelamento, reagendamento,
   lembrete 2h antes e resumo do dia, cada um com liga/desliga, botão de
   e-mail de teste e histórico de envios.
-- Clientes, serviços, produtos, financeiro e relatórios ainda usam dados de
-  exemplo no frontend (ver [limitações](#limitações-conhecidas-e-próximos-passos)).
+- **Conta e plano**: troca de senha (obrigatória no primeiro acesso, com a senha
+  temporária do e-mail), plano atual, vencimento, renovar ou mudar de plano e
+  histórico de pagamentos.
+- Cada barbeiro só enxerga e altera os dados da **própria** barbearia.
+- **Serviços** e **Barbeiros**: cadastro, edição, foto, ativar/desativar e
+  exclusão, gravados no banco (o que o cliente vê na página da barbearia). O
+  número de barbeiros ativos respeita o limite do plano.
+- Clientes, produtos e financeiro ainda usam dados de exemplo no frontend
+  (ver [limitações](#limitações-conhecidas-e-próximos-passos)).
 
 ### Automações do backend
 - **Confirmação imediata** por e-mail ao criar o agendamento.
 - **Lembrete 2h antes**: job (`node-cron`) que roda a cada minuto e envia o
   lembrete uma única vez por agendamento (para o cliente e, se ligado, para a barbearia).
-- **Resumo do dia** às 7h para a barbearia.
+- **Resumo do dia** às 7h para cada barbearia.
+- **Pedidos de plano** não pagos em 3 dias viram `cancelado`.
 - **Aviso à lista de espera** quando um horário é cancelado ou remarcado.
 - Tudo fica registrado (`mensagens` para clientes, `notificacoes_barbearia`
   para o barbeiro) com o resultado do envio: `enviado`, `simulado` (sem SMTP
@@ -95,15 +121,15 @@ BarberFlow/
 │   │   ├── middlewares/        Autenticação (JWT), permissões, limites e cabeçalhos de segurança
 │   │   ├── models/             Modelos Sequelize e relacionamentos (index.js)
 │   │   ├── routes/             Rotas Express
-│   │   ├── services/           ViaCEP, geocodificação, imagens, notificações
-│   │   └── utils/
+│   │   ├── services/           ViaCEP, geocodificação, imagens, notificações, Mercado Pago, assinaturas
+│   │   └── utils/              planos.js (preços e limites dos planos), senha...
 │   └── server.js
 └── barbearia-frontend/
     ├── server.cjs              Servidor Express que entrega o build no Azure
     └── src/
-        ├── data/barbearias.js  Catálogo exibido ao cliente (real + demonstração)
+        ├── data/               barbearias.js (reais da API + demonstração), planos.js
         ├── hooks/              useBarbearias, useConfiguracaoBarbearia, useLocalizacao
-        ├── pages/              landingPage, auth, client/*, dashboardBarber/*
+        ├── pages/              landingPage, checkout, auth, client/*, dashboardBarber/*
         ├── routes/             Rotas públicas, do cliente e do barbeiro
         ├── services/           Chamadas à API (axios)
         └── utils/              geo (distâncias), imagem (redimensionamento), telefone, tema
@@ -132,7 +158,7 @@ Não é preciso rodar nenhum SQL: ao subir, o backend cria as tabelas
 cd barbearia-backend
 npm install
 cp .env.example .env      # ajuste usuário/senha do Postgres e preencha JWT_SECRET
-npm run criar-admin       # cria a conta de acesso ao painel do barbeiro
+npm run criar-admin       # cria uma barbearia + conta do painel (sem passar pelo pagamento)
 npm run seed              # opcional: cria serviços e profissionais de exemplo
 npm run dev
 ```
@@ -158,17 +184,23 @@ npm run dev
 Acesse `http://localhost:5173`.
 
 ### 4. Roteiro de teste
-1. Em `/auth/barbeiro`, entre com a conta criada no `npm run criar-admin` e abra o painel e abra **Configurações**: defina nome,
-   logo e o endereço (comece pelo CEP) e salve. Em **Notificações**, envie um
-   e-mail de teste.
-2. Em `/auth/cliente`, crie uma conta (informe o CEP) e faça login.
-3. Na Home, permita o acesso à localização: a barbearia mais próxima aparece em
+1. Na Home, clique em **Adquirir** em um plano, preencha os dados e pague
+   (com credenciais de teste do Mercado Pago, ou com `PAGAMENTO_SIMULADO=true`
+   para um pagamento de mentira). Chega o e-mail com login e senha temporária
+   (sem SMTP, a senha aparece no terminal do backend).
+2. Em **Área do Barbeiro**, entre com esses dados: o painel abre em
+   **Configurações → Conta e plano** para criar a senha definitiva. Depois, em
+   **Perfil da Empresa**, defina nome, logo e endereço (comece pelo CEP) e, em
+   **Serviços** e **Barbeiros**, cadastre o que a barbearia oferece.
+3. Em `/auth/cliente`, crie uma conta (informe o CEP) e faça login.
+4. Na Home do cliente, permita o acesso à localização: a barbearia mais próxima aparece em
    destaque e a lista fica ordenada por distância.
-4. Clique na barbearia, escolha um serviço e clique em **Agendar**: data,
+5. Clique na barbearia, escolha um serviço e clique em **Agendar**: data,
    horário e barbeiro. Chega o e-mail de confirmação (ou, sem SMTP, aparece
    `[email:simulado]` no terminal).
-5. Em **Configurações**, adicione uma foto de perfil.
-6. Cancele o agendamento: se houver alguém na lista de espera daquele dia, ele é
+6. Em **Configurações**, adicione uma foto de perfil.
+7. Na Home, envie uma mensagem em **Entre em contato**: ela chega no `SUPORTE_EMAIL`.
+8. Cancele o agendamento: se houver alguém na lista de espera daquele dia, ele é
    avisado (`[MENSAGEM:lista_espera]`). O barbeiro recebe o aviso de cancelamento.
 
 ---
@@ -193,6 +225,12 @@ Acesse `http://localhost:5173`.
 | `JWT_SECRET` | — | **Obrigatório em produção.** Segredo dos tokens de login (mín. 32 caracteres) |
 | `CORS_ORIGINS` | localhost + Azure + GitHub Pages | Sites que podem chamar a API pelo navegador (separados por vírgula) |
 | `TRUST_PROXY` | `1` no Azure, `0` fora | Quantos proxies existem na frente da API (para o limite de tentativas usar o IP real) |
+| `SUPORTE_EMAIL` | `SMTP_USER` | Caixa que recebe o formulário "Entre em contato" (ex.: `barberflow@gmail.com`) |
+| `MP_ACCESS_TOKEN` | — | Access Token do Mercado Pago (de teste ou de produção). Sem ele a compra de planos fica indisponível |
+| `MP_WEBHOOK_SECRET` | — | Assinatura secreta dos webhooks do Mercado Pago (confere que o aviso veio mesmo deles) |
+| `FRONTEND_URL` | `http://localhost:5173` | Endereço do site: volta do pagamento e link do e-mail com o login |
+| `BACKEND_URL` | `WEBSITE_HOSTNAME` no Azure | Endereço público da API, para o Mercado Pago avisar do pagamento (só https) |
+| `PAGAMENTO_SIMULADO` | `false` | `true` = demonstração sem Mercado Pago (ignorado em produção) |
 
 ### Frontend (`barbearia-frontend/.env`)
 
@@ -208,6 +246,12 @@ Modelo completo e comentado em [`barbearia-backend/database/schema.sql`](barbear
 
 ```mermaid
 erDiagram
+    barbearias ||--o{ administradores : "conta do painel"
+    barbearias ||--o{ profissionais : tem
+    barbearias ||--o{ servicos : oferece
+    barbearias ||--o{ agendamentos : recebe
+    barbearias ||--o{ notificacoes_barbearia : recebe
+    barbearias |o--o{ pedidos : "paga com"
     clientes ||--o{ agendamentos : marca
     profissionais ||--o{ agendamentos : atende
     servicos ||--o{ agendamentos : "e feito em"
@@ -218,11 +262,15 @@ erDiagram
     agendamentos |o--o{ mensagens : gera
     imagens |o--o| clientes : "foto_id"
     imagens |o--o| profissionais : "foto_id"
-    imagens |o--o| configuracoes_barbearia : "logo_id"
+    imagens |o--o| barbearias : "logo_id"
 ```
 
 | Tabela | Para que serve |
 |---|---|
+| `barbearias` | Uma por compra: dados, logo, coordenadas, horários, notificações e **assinatura** (`plano`, `status`, `assinatura_expira_em`) |
+| `administradores` | Contas do painel; cada uma é de uma barbearia. `senha_temporaria` = ainda não trocou a senha do e-mail |
+| `pedidos` | Compras de plano no Mercado Pago (pendente → aprovado/recusado/cancelado) |
+| `contatos` | Cópia das mensagens do "Entre em contato" |
 | `clientes` | Conta do cliente, endereço (ViaCEP), coordenadas do endereço, foto |
 | `profissionais` | Barbeiros (podem ser desativados sem perder o histórico), foto |
 | `servicos` | Nome, duração e preço |
@@ -230,11 +278,13 @@ erDiagram
 | `lista_espera` | Fila por profissional + serviço + dia |
 | `mensagens` | Histórico de toda notificação enviada ao cliente, com o status do e-mail |
 | `notificacoes_barbearia` | Histórico dos avisos enviados ao barbeiro (aparece na aba Notificações) |
-| `configuracoes_barbearia` | Linha única (`id = 1`) com os dados da barbearia, logo e coordenadas |
 | `imagens` | Arquivos de imagem (logo e fotos) em binário |
 | `schema_migrations` | Controle das migrações já aplicadas |
 
 Decisões importantes:
+- **Multi-barbearia**: profissionais, serviços, agendamentos, lista de espera e
+  notificações têm `barbearia_id`; toda consulta do painel é filtrada pela
+  barbearia do barbeiro logado. Clientes são da plataforma (agendam em qualquer uma).
 - **Histórico protegido**: apagar cliente, profissional ou serviço com
   agendamentos é bloqueado (`ON DELETE RESTRICT`). Profissionais e serviços têm o
   campo `ativo` para serem desativados.
@@ -264,6 +314,8 @@ alterar o banco, acrescente uma nova migração no fim da lista. Elas usam
 | 009 | Normaliza e-mails para minúsculo |
 | 010 | Status do envio nas mensagens e tabela `notificacoes_barbearia` |
 | 011 | Mensagem do tipo `cancelamento` |
+| 012 | Contas do painel (`administradores`) e `token_versao` dos clientes |
+| 013 | Várias barbearias: `configuracoes_barbearia` vira `barbearias` (a barbearia que já existia vira a nº 1, plano Enterprise), `barbearia_id` em todas as tabelas, `senha_temporaria` |
 
 ---
 
@@ -363,6 +415,77 @@ registradas como **simuladas** e aparecem no console (`[email:simulado]`).
 
 ---
 
+## Planos e pagamento (Mercado Pago)
+
+Fluxo de compra:
+
+```
+Home "Adquirir" → /assinar/:plano (dados) → POST /assinaturas/checkout
+   → Mercado Pago (Pix, cartão, boleto) → volta para /assinar/retorno
+   → backend confere o pagamento NO Mercado Pago → cria barbearia + conta
+   → e-mail com login e senha temporária → login em "Área do Barbeiro"
+   → painel obriga a criar a senha definitiva
+```
+
+| Plano | Preço / 30 dias | Profissionais | Agendamentos/mês |
+|---|---|---|---|
+| Starter | R$ 29,90 | 1 | 100 |
+| Profissional | R$ 59,90 | 3 | 1000 |
+| Enterprise | R$ 99,90 | ilimitados | ilimitados |
+
+Preços e limites ficam em `barbearia-backend/src/utils/planos.js` (o frontend
+só exibe). Cada pagamento soma 30 dias; vencida há mais de 3 dias, a barbearia
+some da lista dos clientes até o dono renovar em **Configurações → Conta e plano**.
+
+Segurança do pagamento:
+- O **preço é sempre o do backend**; o navegador só escolhe o plano.
+- O aviso do Mercado Pago (webhook) só diz "olhe o pagamento X": o status e o
+  valor pago são **consultados na API do Mercado Pago**. Assinatura `x-signature`
+  conferida com `MP_WEBHOOK_SECRET`. Valor pago menor que o do plano = recusado.
+- A aprovação roda numa transação com trava: aviso repetido não cria conta duplicada.
+- Um e-mail = uma conta: comprar de novo com um e-mail que já tem conta é
+  bloqueado (quem é dono renova pelo painel, logado).
+- O backend nunca recebe dados de cartão (o pagamento acontece no site do Mercado Pago).
+
+### Passo a passo para ligar o Mercado Pago
+1. Entre em <https://www.mercadopago.com.br/developers/panel/app> com a conta
+   que vai **receber** o dinheiro e clique em **Criar aplicação**
+   (produto: *Pagamentos online* → *Checkout Pro*).
+2. Na aplicação, abra **Credenciais de teste** e copie o **Access Token**.
+   Coloque no `.env` do backend:
+   ```
+   MP_ACCESS_TOKEN=TEST-...
+   FRONTEND_URL=http://localhost:5173
+   ```
+3. Para testar, crie em **Contas de teste** um *comprador* e pague com ele
+   (ou use os [cartões de teste](https://www.mercadopago.com.br/developers/pt/docs/checkout-pro/additional-content/your-integrations/test/cards):
+   nome do titular `APRO` = aprovado, `OTHE` = recusado).
+4. **Webhook** (avisa o backend mesmo se a pessoa fechar a página antes de voltar):
+   em **Webhooks → Configurar notificações**, URL de produção
+   `https://<seu-backend>/webhooks/mercadopago`, evento **Pagamentos**. Copie a
+   **assinatura secreta** para `MP_WEBHOOK_SECRET`. Em `localhost` o Mercado Pago
+   não consegue avisar; a página de retorno confere o pagamento sozinha.
+5. Para cobrar de verdade: ative as **Credenciais de produção** (o Mercado Pago
+   pede os dados do negócio), troque o `MP_ACCESS_TOKEN` pelo de produção
+   (`APP_USR-...`) e configure no Azure (ver [Deploy](#deploy)).
+
+Sem conta no Mercado Pago (apresentação, testes locais): `PAGAMENTO_SIMULADO=true`
+troca o Mercado Pago por uma página que aprova o pedido. Não funciona em produção.
+
+---
+
+## Contato com o suporte
+
+O formulário **Entre em contato** da Home envia `POST /contato`. A mensagem vai
+para o `SUPORTE_EMAIL` (ex.: `barberflow@gmail.com`) pelo mesmo SMTP das
+notificações, com **Responder para = e-mail de quem escreveu**: no Gmail do
+suporte é só clicar em *Responder* e a resposta chega na caixa da pessoa.
+Assunto, nome, e-mail e perfil (cliente ou barbeiro) vão no e-mail, e uma cópia
+fica na tabela `contatos`. Proteções: 5 mensagens por hora por IP e um campo
+escondido que pega robôs de spam.
+
+---
+
 ## Segurança
 
 O sistema passou por um pentest que conseguiu cadastrar um barbeiro sem
@@ -383,24 +506,29 @@ pedia login em nenhuma rota. Isso foi corrigido assim:
 | Sem cabeçalhos de segurança e CORS aberto | `helmet` (HSTS, nosniff, frame-ancestors...) e CORS só para os sites do projeto |
 | Senhas fracas aceitas | Mínimo de 8 caracteres com letras e números |
 | Dependências com vulnerabilidades conhecidas (`npm audit`) | Atualizadas; `xlsx` (sem correção disponível) removido. `npm audit` zerado nos dois projetos |
+| Com várias barbearias, um barbeiro poderia mexer nos dados de outra | Toda rota do painel filtra por `barbearia_id` do token; IDs de outra barbearia respondem 404 |
 
 ### Quem pode fazer o quê
 
 | Ação | Visitante | Cliente | Barbeiro |
 |---|:-:|:-:|:-:|
-| Ver barbearia, serviços, profissionais e horários livres | ✓ | ✓ | ✓ |
+| Ver barbearias ativas, serviços, profissionais e horários livres | ✓ | ✓ | ✓ |
+| Comprar um plano / enviar mensagem ao suporte | ✓ | ✓ | ✓ (renovar a própria) |
 | Criar conta de cliente / fazer login | ✓ | — | — |
-| Ver e editar o **próprio** cadastro e foto | — | ✓ | ✓ (qualquer um, sem trocar email/senha) |
-| Agendar, remarcar e cancelar **os próprios** agendamentos | — | ✓ | ✓ (todos) |
-| Lista de espera e mensagens **próprias** | — | ✓ | ✓ (todas) |
-| Listar clientes, concluir atendimentos | — | — | ✓ |
-| Cadastrar/editar profissionais e serviços | — | — | ✓ |
-| Alterar configurações e notificações da barbearia | — | — | ✓ |
+| Ver e editar o **próprio** cadastro e foto | — | ✓ | — |
+| Agendar, remarcar e cancelar **os próprios** agendamentos | — | ✓ | ✓ (os da sua barbearia) |
+| Lista de espera e mensagens **próprias** | — | ✓ | ✓ (as da sua barbearia) |
+| Ver clientes que agendaram, concluir atendimentos | — | — | ✓ (da sua barbearia) |
+| Cadastrar/editar profissionais e serviços (respeitando o limite do plano) | — | — | ✓ (da sua barbearia) |
+| Alterar configurações, notificações e plano | — | — | ✓ (da sua barbearia) |
 
 ### Contas do painel do barbeiro
+O caminho normal é a **compra do plano**: a conta nasce com uma senha temporária
+aleatória, enviada por e-mail, e o painel obriga a trocá-la no primeiro acesso.
+Para criar uma conta sem pagamento (sua própria barbearia, testes):
 ```bash
 cd barbearia-backend
-npm run criar-admin     # pede email, nome e senha (a senha não aparece na tela)
+npm run criar-admin     # pede email, nome, senha e o nome da barbearia (a senha não aparece na tela)
 ```
 Rodar de novo com um email que já existe **redefine a senha** e encerra as
 sessões abertas dessa conta. Para usar no Azure, rode com o `.env` apontando para
@@ -410,8 +538,8 @@ o banco de produção (ou pelo console SSH do App Service).
 
 ## Zerar o banco de dados
 
-Apaga **todos os dados** (clientes, contas do painel, profissionais, serviços,
-agendamentos, fila, mensagens, notificações, imagens e configurações) do banco
+Apaga **todos os dados** (barbearias, contas do painel, pedidos, clientes,
+profissionais, serviços, agendamentos, fila, mensagens, notificações, contatos e imagens) do banco
 configurado no `.env`. As tabelas continuam, e os IDs voltam a começar do 1.
 **Não tem como desfazer.**
 
@@ -434,7 +562,7 @@ quem pode chamar: 🌐 público · 👤 cliente (só o que é dele) · ✂️ ba
 | Método | Rota | Acesso | Descrição |
 |---|---|---|---|
 | POST | `/auth/barbeiro/login` | 🌐 | Login do painel: devolve `token` e `barbeiro` |
-| PUT | `/auth/barbeiro/senha` | ✂️ | Troca a senha (`senha_atual`, `nova_senha`) |
+| PUT | `/auth/barbeiro/senha` | ✂️ | Troca a senha (`senha_atual`, `nova_senha`); devolve `token` novo e libera a conta que estava com senha temporária |
 | GET | `/auth/eu` | 👤 ✂️ | Quem está logado |
 
 ### Clientes
@@ -442,28 +570,28 @@ quem pode chamar: 🌐 público · 👤 cliente (só o que é dele) · ✂️ ba
 |---|---|---|---|
 | POST | `/clientes` | 🌐 | Cadastra (senha com 8+ caracteres, letras e números) |
 | POST | `/clientes/login` | 🌐 | Login: devolve `token` e `cliente` |
-| GET | `/clientes` | ✂️ | Lista todos os clientes |
-| GET | `/clientes/:id` | 👤 ✂️ | Busca (nunca devolve a senha) |
-| PUT | `/clientes/:id` | 👤 ✂️ | Atualiza. Trocar `email` ou `senha` exige `senha_atual` (só o próprio cliente) |
-| DELETE | `/clientes/:id` | 👤 ✂️ | Exclui (cliente informa `senha_atual`; bloqueado se houver agendamentos) |
-| PUT · DELETE | `/clientes/:id/foto` | 👤 ✂️ | Envia/remove a foto — corpo `{ "imagem": "data:image/png;base64,..." }` |
+| GET | `/clientes` | ✂️ | Clientes que já agendaram na barbearia do barbeiro |
+| GET | `/clientes/:id` | 👤 ✂️ | Busca (nunca devolve a senha; barbeiro só vê clientes da sua barbearia) |
+| PUT | `/clientes/:id` | 👤 | Atualiza. Trocar `email` ou `senha` exige `senha_atual` |
+| DELETE | `/clientes/:id` | 👤 | Exclui (informa `senha_atual`; bloqueado se houver agendamentos) |
+| PUT · DELETE | `/clientes/:id/foto` | 👤 | Envia/remove a foto — corpo `{ "imagem": "data:image/png;base64,..." }` |
 | GET | `/cep/:cep` | 🌐 | Consulta de endereço por CEP |
 
 ### Profissionais e serviços
 | Método | Rota | Acesso | Descrição |
 |---|---|---|---|
-| GET | `/profissionais[/:id]` | 🌐 | Lista/busca (email e telefone só para o barbeiro) |
-| POST · PUT · DELETE | `/profissionais[/:id]` | ✂️ | Cadastra, edita, exclui |
+| GET | `/barbearias/:id/profissionais` · `/barbearias/:id/servicos` | 🌐 | Barbeiros e serviços de uma barbearia (sem email/telefone) |
+| GET | `/profissionais` · `/servicos` | ✂️ | Os da barbearia do barbeiro logado (visitante precisa de `?barbearia_id=`) |
+| POST · PUT · DELETE | `/profissionais[/:id]` | ✂️ | Cadastra (até o limite do plano), edita, exclui |
 | PUT · DELETE | `/profissionais/:id/foto` | ✂️ | Foto do profissional |
-| GET | `/servicos[/:id]` | 🌐 | Lista/busca |
 | POST · PUT · DELETE | `/servicos[/:id]` | ✂️ | Cadastra, edita, exclui |
 
 ### Agendamentos, lista de espera e mensagens
 | Método | Rota | Acesso | Descrição |
 |---|---|---|---|
-| GET | `/disponibilidade?data=AAAA-MM-DD&servico_id=` | 🌐 | Horários livres do dia, com os barbeiros livres em cada um |
-| POST | `/agendamentos` | 👤 ✂️ | Cria (cliente agenda para si; barbeiro informa `cliente_id`) |
-| GET | `/agendamentos?profissional_id=&status=` | 👤 ✂️ | Lista (cliente: só os dele; barbeiro: todos, com `cliente_id` opcional) |
+| GET | `/disponibilidade?data=AAAA-MM-DD&servico_id=` | 🌐 | Horários livres do dia na barbearia do serviço, com os barbeiros livres em cada um |
+| POST | `/agendamentos` | 👤 ✂️ | Cria (serviço e barbeiro da mesma barbearia, ativa e dentro do limite do plano) |
+| GET | `/agendamentos?profissional_id=&status=` | 👤 ✂️ | Lista (cliente: os dele, com a barbearia; barbeiro: os da sua barbearia) |
 | GET | `/agendamentos/:id` | 👤 ✂️ | Detalhe |
 | PUT | `/agendamentos/:id` | 👤 ✂️ | Remarca |
 | DELETE | `/agendamentos/:id` | 👤 ✂️ | Cancela e avisa a lista de espera |
@@ -474,12 +602,25 @@ quem pode chamar: 🌐 público · 👤 cliente (só o que é dele) · ✂️ ba
 ### Barbearia e imagens
 | Método | Rota | Acesso | Descrição |
 |---|---|---|---|
-| GET | `/configuracoes` | 🌐 | Dados públicos da barbearia (o barbeiro recebe também notificações e preferências) |
+| GET | `/barbearias` | 🌐 | Barbearias com assinatura ativa (dados públicos) |
+| GET | `/barbearias/:id` | 🌐 | Dados públicos de uma barbearia |
+| GET | `/configuracoes` | ✂️ | Tudo da barbearia do barbeiro (inclui notificações, plano e limites) |
 | PUT | `/configuracoes` | ✂️ | Salva. Campo `logo`: data URL = nova logo · URL atual = manter · `null` = remover |
 | GET | `/imagens/:id` | 🌐 | Arquivo da imagem |
 | GET | `/configuracoes/notificacoes/status` | ✂️ | Se o SMTP está configurado e para qual e-mail vão os avisos |
 | POST | `/configuracoes/notificacoes/teste` | ✂️ | Envia um e-mail de teste para a barbearia |
 | GET | `/notificacoes-barbearia?limite=` | ✂️ | Últimas notificações enviadas para a barbearia |
+
+### Planos, pagamento e contato
+| Método | Rota | Acesso | Descrição |
+|---|---|---|---|
+| GET | `/planos` | 🌐 | Planos, preços e limites |
+| POST | `/assinaturas/checkout` | 🌐 ✂️ | Cria o pedido e devolve `url` do Mercado Pago. Visitante: `plano`, `nome_responsavel`, `email`, `nome_barbearia`, `telefone`. Barbeiro logado: só `plano` (renovação) |
+| GET | `/assinaturas/pedidos/:id?payment_id=` | 🌐 | Situação do pedido (página de retorno; e-mail mascarado) |
+| POST | `/assinaturas/pedidos/:id/simular-pagamento` | 🌐 | Só com `PAGAMENTO_SIMULADO=true` |
+| POST | `/webhooks/mercadopago` | Mercado Pago | Aviso de pagamento (assinatura `x-signature` conferida) |
+| GET | `/assinatura` | ✂️ | Plano, vencimento e pagamentos da barbearia |
+| POST | `/contato` | 🌐 | Formulário "Entre em contato" → e-mail para o suporte (5 por hora) |
 
 ---
 
@@ -492,28 +633,31 @@ Cada push na `main` dispara os workflows de `.github/workflows/`:
 - `deploy.yaml` publica o build do frontend no GitHub Pages.
 
 No Azure, configure as variáveis do backend em *Configuration → Application
-settings*: `DB_*`, **`JWT_SECRET`** (sem ele a API responde 503), `SMTP_*` e, se
-quiser, `GEOCODING_USER_AGENT`. As migrações rodam sozinhas na primeira
+settings*: `DB_*`, **`JWT_SECRET`** (sem ele a API responde 503), `SMTP_*`,
+`SUPORTE_EMAIL`, `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET`,
+`FRONTEND_URL=https://barberflow-frontend.azurewebsites.net` e, se quiser,
+`GEOCODING_USER_AGENT`. O `BACKEND_URL` vem sozinho do Azure. **Não** defina
+`PAGAMENTO_SIMULADO` em produção. As migrações rodam sozinhas na primeira
 inicialização depois do deploy.
 
 ---
 
 ## Limitações conhecidas e próximos passos
 
-- **Uma barbearia real por instalação**: os dados da barbearia ficam em
-  `configuracoes_barbearia` (linha única). As outras barbearias que o cliente vê
-  são de **demonstração** (`src/data/barbearias.js`, com coordenadas fixas) e não
-  gravam agendamentos. Para virar uma plataforma com várias barbearias, o passo é
-  criar a tabela `barbearias` e ligar profissionais, serviços e agendamentos a ela
-  (`barbearia_id`). Aí a busca por proximidade pode ir para o backend
-  (`GET /barbearias/proximas?lat=&lng=`).
+- **Renovação manual**: cada pagamento vale 30 dias e o dono renova pelo painel.
+  Cobrança recorrente automática seria a API de *Assinaturas* (preapproval) do
+  Mercado Pago. Também não há reembolso/cancelamento pelo painel (é feito no
+  Mercado Pago).
+- **Barbearia mais próxima no navegador**: a distância é calculada no frontend
+  com a lista completa. Com muitas barbearias, o ideal é uma rota
+  `GET /barbearias/proximas?lat=&lng=` no backend.
 - **Token no navegador**: o token fica no `localStorage`. Com o React escapando
   todo texto, o risco de XSS é baixo, mas um passo além seria usar cookie
   `httpOnly` (exige frontend e API no mesmo domínio ou `SameSite=None`).
 - **Recuperação de senha por e-mail** ainda não existe: o barbeiro redefine com
-  `npm run criar-admin`; o cliente troca a senha logado.
-- **Telas do painel com dados de exemplo**: clientes, serviços, produtos,
-  financeiro e relatórios.
+  `npm run criar-admin` (ou pede ao suporte); o cliente troca a senha logado.
+- **Telas do painel com dados de exemplo**: clientes, produtos e financeiro
+  (Serviços, Barbeiros, Agenda, Relatórios e Configurações já usam o banco).
 - **WhatsApp/SMS**: as notificações saem por e-mail. Para WhatsApp seria
   preciso a API oficial (Meta WhatsApp Cloud API ou Twilio), com conta
   comercial verificada; o ponto de troca é o `notificacaoService`.
