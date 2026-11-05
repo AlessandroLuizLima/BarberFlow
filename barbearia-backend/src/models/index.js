@@ -6,6 +6,7 @@ const Agendamento = require('./Agendamento');
 const ListaEspera = require('./ListaEspera');
 const Mensagem = require('./Mensagem');
 const ConfiguracaoBarbearia = require('./ConfiguracaoBarbearia');
+const Imagem = require('./Imagem');
 
 // Agendamento pertence a Cliente, Profissional e Servico
 // RESTRICT: não deixa apagar quem tem histórico (profissionais/serviços devem ser desativados)
@@ -28,6 +29,12 @@ Mensagem.belongsTo(Cliente, { foreignKey: 'cliente_id', as: 'cliente' });
 Mensagem.belongsTo(Agendamento, { foreignKey: 'agendamento_id', as: 'agendamento' });
 Cliente.hasMany(Mensagem, { foreignKey: 'cliente_id', as: 'mensagens' });
 
+// Fotos e logo apontam para a tabela imagens. Se a imagem for apagada, a referência vira NULL.
+const imagemFk = { onDelete: 'SET NULL', onUpdate: 'CASCADE', constraints: true };
+Cliente.belongsTo(Imagem, { foreignKey: 'foto_id', as: 'foto', ...imagemFk });
+Profissional.belongsTo(Imagem, { foreignKey: 'foto_id', as: 'foto', ...imagemFk });
+ConfiguracaoBarbearia.belongsTo(Imagem, { foreignKey: 'logo_id', as: 'imagemLogo', ...imagemFk });
+
 module.exports = {
   sequelize,
   Cliente,
@@ -36,5 +43,6 @@ module.exports = {
   Agendamento,
   ListaEspera,
   Mensagem,
-  ConfiguracaoBarbearia
+  ConfiguracaoBarbearia,
+  Imagem
 };

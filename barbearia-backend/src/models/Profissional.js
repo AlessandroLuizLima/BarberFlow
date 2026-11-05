@@ -31,10 +31,24 @@ const Profissional = sequelize.define('Profissional', {
     type: DataTypes.BOOLEAN,
     allowNull: false,
     defaultValue: true
+  },
+  // Foto de perfil (tabela imagens)
+  foto_id: {
+    type: DataTypes.UUID,
+    allowNull: true
   }
 }, {
   tableName: 'profissionais',
-  timestamps: false,
+  timestamps: true,
+  createdAt: 'criado_em',
+  updatedAt: 'atualizado_em',
+  hooks: {
+    beforeValidate: (profissional) => {
+      if (typeof profissional.email === 'string') {
+        profissional.email = profissional.email.trim().toLowerCase();
+      }
+    }
+  },
   freezeTableName: true
 });
 

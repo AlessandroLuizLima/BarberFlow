@@ -45,9 +45,20 @@ const ConfiguracaoBarbearia = sequelize.define('ConfiguracaoBarbearia', {
     allowNull: false,
     defaultValue: '18:00'
   },
-  // Imagem em data URL (já reduzida pelo frontend)
-  logo: {
-    type: DataTypes.TEXT,
+  // Logo (tabela imagens). Antes era um data URL em base64 numa coluna TEXT;
+  // a migração 007 move as logos antigas para a tabela imagens.
+  logo_id: {
+    type: DataTypes.UUID,
+    allowNull: true
+  },
+  // Coordenadas do endereço, calculadas ao salvar (geocodificação via OpenStreetMap).
+  // Usadas para mostrar ao cliente a barbearia mais próxima.
+  latitude: {
+    type: DataTypes.DECIMAL(9, 6),
+    allowNull: true
+  },
+  longitude: {
+    type: DataTypes.DECIMAL(9, 6),
     allowNull: true
   },
   email_notificacoes: {

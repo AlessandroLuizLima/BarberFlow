@@ -31,7 +31,10 @@ const ListaEspera = sequelize.define('ListaEspera', {
   }
 }, {
   tableName: 'lista_espera',
-  timestamps: false,
+  // criado_em: quando o cliente entrou na fila (a ordem da fila segue essa data)
+  timestamps: true,
+  createdAt: 'criado_em',
+  updatedAt: false,
   freezeTableName: true
 });
 

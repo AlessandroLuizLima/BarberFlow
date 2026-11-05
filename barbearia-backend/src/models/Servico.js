@@ -32,7 +32,9 @@ const Servico = sequelize.define('Servico', {
   }
 }, {
   tableName: 'servicos',
-  timestamps: false,
+  timestamps: true,
+  createdAt: 'criado_em',
+  updatedAt: 'atualizado_em',
   freezeTableName: true
 });
 

@@ -42,7 +42,10 @@ const Agendamento = sequelize.define('Agendamento', {
   }
 }, {
   tableName: 'agendamentos',
-  timestamps: false,
+  // criado_em: quando o cliente marcou; atualizado_em: última mudança (remarcação, cancelamento...)
+  timestamps: true,
+  createdAt: 'criado_em',
+  updatedAt: 'atualizado_em',
   freezeTableName: true
 });
 

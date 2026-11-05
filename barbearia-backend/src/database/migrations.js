@@ -5,6 +5,8 @@
  * Para mudar o banco no futuro, basta acrescentar uma migração no fim da lista.
  */
 
+const { randomUUID } = require('crypto');
+
 // Descobre o nome real do tipo ENUM de uma coluna (o Sequelize cria "enum_<tabela>_<coluna>").
 async function nomeDoTipo(sequelize, tabela, coluna) {
   const [rows] = await sequelize.query(
@@ -95,6 +97,97 @@ const migracoes = [
       await sequelize.query('CREATE INDEX IF NOT EXISTS idx_agendamentos_cliente ON agendamentos (cliente_id)');
       await sequelize.query('CREATE INDEX IF NOT EXISTS idx_lista_espera_busca ON lista_espera (profissional_id, servico_id, data_desejada, status)');
       await sequelize.query('CREATE INDEX IF NOT EXISTS idx_mensagens_cliente ON mensagens (cliente_id)');
+    }
+  },
+  {
+    // Imagens saem do base64 em TEXT e vão para a tabela "imagens" (BYTEA), referenciada por
+    // foto_id (clientes, profissionais) e logo_id (barbearia). Também guarda as coordenadas
+    // da barbearia e do cliente, usadas para calcular a barbearia mais próxima.
+    nome: '007_imagens_e_localizacao',
+    up: (sequelize) => sequelize.transaction(async (transaction) => {
+      const q = (sql, opcoes = {}) => sequelize.query(sql, { transaction, ...opcoes });
+
+      // Em banco novo o sync() já criou tudo; os IF NOT EXISTS deixam a migração segura nos dois casos
+      await q(`CREATE TABLE IF NOT EXISTS imagens (
+                 id             UUID PRIMARY KEY,
+                 mime_type      VARCHAR(30) NOT NULL,
+                 dados          BYTEA NOT NULL,
+                 tamanho_bytes  INTEGER NOT NULL,
+                 criado_em      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+               )`);
+
+      const fkImagem = 'UUID REFERENCES imagens(id) ON UPDATE CASCADE ON DELETE SET NULL';
+      await q(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS foto_id ${fkImagem}`);
+      await q('ALTER TABLE clientes ADD COLUMN IF NOT EXISTS latitude DECIMAL(9,6)');
+      await q('ALTER TABLE clientes ADD COLUMN IF NOT EXISTS longitude DECIMAL(9,6)');
+      await q(`ALTER TABLE profissionais ADD COLUMN IF NOT EXISTS foto_id ${fkImagem}`);
+      await q(`ALTER TABLE configuracoes_barbearia ADD COLUMN IF NOT EXISTS logo_id ${fkImagem}`);
+      await q('ALTER TABLE configuracoes_barbearia ADD COLUMN IF NOT EXISTS latitude DECIMAL(9,6)');
+      await q('ALTER TABLE configuracoes_barbearia ADD COLUMN IF NOT EXISTS longitude DECIMAL(9,6)');
+
+      // Move a logo antiga (data URL em base64) para a tabela imagens e apaga a coluna
+      const [colunaLogo] = await q(
+        `SELECT 1 FROM information_schema.columns
+          WHERE table_schema = current_schema() AND table_name = 'configuracoes_barbearia' AND column_name = 'logo'`
+      );
+      if (colunaLogo.length > 0) {
+        const [linhas] = await q('SELECT id, logo FROM configuracoes_barbearia WHERE logo IS NOT NULL');
+        for (const { id, logo } of linhas) {
+          const partes = /^data:(image\/[a-z+]+);base64,(.+)$/.exec(logo);
+          if (!partes) continue;
+          const dados = Buffer.from(partes[2], 'base64');
+          const imagemId = randomUUID();
+          await q(
+            `INSERT INTO imagens (id, mime_type, dados, tamanho_bytes, criado_em) VALUES (:imagemId, :mime, :dados, :tamanho, NOW())`,
+            { replacements: { imagemId, mime: partes[1], dados, tamanho: dados.length } }
+          );
+          await q('UPDATE configuracoes_barbearia SET logo_id = :imagemId WHERE id = :id', { replacements: { imagemId, id } });
+        }
+        await q('ALTER TABLE configuracoes_barbearia DROP COLUMN logo');
+      }
+    })
+  },
+  {
+    // Datas de criação/atualização: quando o cliente se cadastrou, quando o agendamento
+    // foi marcado/alterado, quando entrou na lista de espera. Registros antigos ficam com a data da migração.
+    nome: '008_datas_de_registro',
+    up: (sequelize) => sequelize.transaction(async (transaction) => {
+      const tabelas = [
+        ['clientes', true],
+        ['profissionais', true],
+        ['servicos', true],
+        ['agendamentos', true],
+        ['lista_espera', false]
+      ];
+      for (const [tabela, temAtualizacao] of tabelas) {
+        await sequelize.query(
+          `ALTER TABLE ${tabela} ADD COLUMN IF NOT EXISTS criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
+          { transaction }
+        );
+        if (temAtualizacao) {
+          await sequelize.query(
+            `ALTER TABLE ${tabela} ADD COLUMN IF NOT EXISTS atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
+            { transaction }
+          );
+        }
+      }
+      // Usado pelo job de lembretes (procura agendamentos nas próximas 2h)
+      await sequelize.query('CREATE INDEX IF NOT EXISTS idx_agendamentos_data_hora ON agendamentos (data_hora)', { transaction });
+      await sequelize.query('CREATE INDEX IF NOT EXISTS idx_lista_espera_cliente ON lista_espera (cliente_id)', { transaction });
+    })
+  },
+  {
+    // Emails passam a ser gravados em minúsculo; normaliza os que já existiam
+    // (se houver duplicata só por maiúscula/minúscula, mantém como está para não quebrar o UNIQUE)
+    nome: '009_emails_minusculos',
+    up: async (sequelize) => {
+      for (const tabela of ['clientes', 'profissionais']) {
+        await sequelize.query(
+          `UPDATE ${tabela} t SET email = LOWER(TRIM(t.email))
+            WHERE t.email <> LOWER(TRIM(t.email))
+              AND NOT EXISTS (SELECT 1 FROM ${tabela} o WHERE o.id <> t.id AND o.email = LOWER(TRIM(t.email)))`
+        );
+      }
     }
   }
 ];

@@ -56,12 +56,35 @@ const Cliente = sequelize.define('Cliente', {
   complemento: {
     type: DataTypes.STRING(100),
     allowNull: true
+  },
+  // Coordenadas do endereço (geocodificadas a partir do CEP). Usadas como plano B
+  // para achar a barbearia mais próxima quando o navegador não libera a localização.
+  latitude: {
+    type: DataTypes.DECIMAL(9, 6),
+    allowNull: true
+  },
+  longitude: {
+    type: DataTypes.DECIMAL(9, 6),
+    allowNull: true
+  },
+  // Foto de perfil (tabela imagens)
+  foto_id: {
+    type: DataTypes.UUID,
+    allowNull: true
   }
 }, {
   tableName: 'clientes',
-  timestamps: false,
   freezeTableName: true,
+  timestamps: true,
+  createdAt: 'criado_em',
+  updatedAt: 'atualizado_em',
   hooks: {
+    // Email sempre minúsculo e sem espaços: evita "Joao@x.com" e "joao@x.com" como contas diferentes
+    beforeValidate: (cliente) => {
+      if (typeof cliente.email === 'string') {
+        cliente.email = cliente.email.trim().toLowerCase();
+      }
+    },
     beforeCreate: async (cliente) => {
       if (cliente.senha) {
         cliente.senha = await bcrypt.hash(cliente.senha, 10);

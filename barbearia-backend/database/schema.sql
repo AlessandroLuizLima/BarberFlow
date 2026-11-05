@@ -16,6 +16,20 @@
 -- que o Sequelize cria, então o backend continua compatível.)
 -- ============================================================
 
+-- ============================================================
+-- Tabela: imagens
+-- Logo da barbearia e fotos de perfil (clientes e profissionais),
+-- em binário. As outras tabelas guardam só o id (foto_id/logo_id)
+-- e a imagem é servida pela rota GET /imagens/:id.
+-- ============================================================
+CREATE TABLE imagens (
+    id              UUID PRIMARY KEY,
+    mime_type       VARCHAR(30) NOT NULL,  -- image/png, image/jpeg, image/webp, image/gif
+    dados           BYTEA NOT NULL,
+    tamanho_bytes   INTEGER NOT NULL,
+    criado_em       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Tipos ENUM usados pelas tabelas
 -- agendado/confirmado/remarcado = ativos (ocupam o horário); concluido/cancelado = finais
 CREATE TYPE enum_agendamentos_status AS ENUM ('agendado', 'confirmado', 'remarcado', 'cancelado', 'concluido');
@@ -39,7 +53,16 @@ CREATE TABLE clientes (
     cidade          VARCHAR(100),
     uf              VARCHAR(2),
     numero          VARCHAR(20),
-    complemento     VARCHAR(100)
+    complemento     VARCHAR(100),
+
+    -- Coordenadas do endereço (geocodificadas via OpenStreetMap). Plano B para
+    -- achar a barbearia mais próxima quando o navegador não libera a localização.
+    latitude        DECIMAL(9, 6),
+    longitude       DECIMAL(9, 6),
+
+    foto_id         UUID REFERENCES imagens(id) ON UPDATE CASCADE ON DELETE SET NULL,
+    criado_em       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    atualizado_em   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ============================================================
@@ -51,7 +74,10 @@ CREATE TABLE profissionais (
     email           VARCHAR(100) NOT NULL UNIQUE,
     telefone        VARCHAR(20),
     especialidade   VARCHAR(100),
-    ativo           BOOLEAN NOT NULL DEFAULT TRUE
+    ativo           BOOLEAN NOT NULL DEFAULT TRUE,
+    foto_id         UUID REFERENCES imagens(id) ON UPDATE CASCADE ON DELETE SET NULL,
+    criado_em       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    atualizado_em   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ============================================================
@@ -64,6 +90,8 @@ CREATE TABLE servicos (
     duracao_minutos   INTEGER NOT NULL,
     preco             DECIMAL(10, 2) NOT NULL CHECK (preco >= 0),
     ativo             BOOLEAN NOT NULL DEFAULT TRUE,
+    criado_em         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    atualizado_em     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CHECK (duracao_minutos > 0)
 );
 
@@ -80,11 +108,14 @@ CREATE TABLE agendamentos (
     status             enum_agendamentos_status NOT NULL DEFAULT 'agendado',
     -- valor cobrado no momento do agendamento (não muda se o preço do serviço mudar depois)
     preco_cobrado      DECIMAL(10, 2) NOT NULL CHECK (preco_cobrado >= 0),
-    lembrete_enviado   BOOLEAN NOT NULL DEFAULT FALSE
+    lembrete_enviado   BOOLEAN NOT NULL DEFAULT FALSE,
+    criado_em          TIMESTAMPTZ NOT NULL DEFAULT NOW(),  -- quando o cliente marcou
+    atualizado_em      TIMESTAMPTZ NOT NULL DEFAULT NOW()   -- última remarcação/cancelamento
 );
 
 CREATE INDEX idx_agendamentos_profissional_data ON agendamentos (profissional_id, data_hora);
 CREATE INDEX idx_agendamentos_cliente ON agendamentos (cliente_id);
+CREATE INDEX idx_agendamentos_data_hora ON agendamentos (data_hora);  -- job de lembretes
 
 -- ============================================================
 -- Tabela: lista_espera
@@ -95,10 +126,12 @@ CREATE TABLE lista_espera (
     profissional_id    INTEGER NOT NULL REFERENCES profissionais(id) ON DELETE CASCADE,
     servico_id         INTEGER NOT NULL REFERENCES servicos(id) ON DELETE CASCADE,
     data_desejada      DATE NOT NULL,
-    status             enum_lista_espera_status NOT NULL DEFAULT 'aguardando'
+    status             enum_lista_espera_status NOT NULL DEFAULT 'aguardando',
+    criado_em          TIMESTAMPTZ NOT NULL DEFAULT NOW()   -- ordem de chegada na fila
 );
 
 CREATE INDEX idx_lista_espera_busca ON lista_espera (profissional_id, servico_id, data_desejada, status);
+CREATE INDEX idx_lista_espera_cliente ON lista_espera (cliente_id);
 
 -- ============================================================
 -- Tabela: mensagens
@@ -128,9 +161,19 @@ CREATE TABLE configuracoes_barbearia (
     dias_atendimento    JSONB NOT NULL DEFAULT '[]',
     horario_inicio      VARCHAR(5) NOT NULL DEFAULT '08:00',
     horario_fim         VARCHAR(5) NOT NULL DEFAULT '18:00',
-    logo                TEXT,
+    logo_id             UUID REFERENCES imagens(id) ON UPDATE CASCADE ON DELETE SET NULL,
+    latitude            DECIMAL(9, 6),   -- calculadas a partir do endereço ao salvar
+    longitude           DECIMAL(9, 6),
     email_notificacoes  VARCHAR(150),
     notificacoes        JSONB NOT NULL DEFAULT '{}',
     atualizado_em       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT ck_configuracao_unica CHECK (id = 1)
+);
+
+-- ============================================================
+-- Controle de migrações (preenchida pelo backend)
+-- ============================================================
+CREATE TABLE schema_migrations (
+    nome          VARCHAR(100) PRIMARY KEY,
+    executada_em  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
