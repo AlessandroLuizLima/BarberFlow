@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { 
   FiSettings, 
   FiUser, 
@@ -32,10 +33,16 @@ import {
 import { buscarCep, formatarCep, cepCompleto } from "../../../utils/cep";
 import { prepararLogo } from "../../../utils/imagem";
 import { formatarTelefone, telefoneValido } from "../../../utils/telefone";
+import ContaAssinatura from "./ContaAssinatura";
+import { obterBarbeiroLogado } from "../../../services/authStorage";
 import "./Settings.css";
 
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState("perfil");
+  // ?aba=conta abre direto em "Conta e plano" (primeiro acesso, volta do pagamento)
+  const [searchParams] = useSearchParams();
+  // Com senha temporária, as outras abas ficam travadas até a senha definitiva ser criada
+  const [senhaTemporaria, setSenhaTemporaria] = useState(Boolean(obterBarbeiroLogado()?.senha_temporaria));
+  const [activeTab, setActiveTab] = useState(senhaTemporaria || searchParams.get("aba") === "conta" ? "conta" : "perfil");
   const [showSuccess, setShowSuccess] = useState(false);
   // Aviso quando o endereço salvo não foi encontrado no mapa (a barbearia não entra no "mais próxima")
   const [avisoLocalizacao, setAvisoLocalizacao] = useState(false);
@@ -190,7 +197,8 @@ export default function Settings() {
 
   const tabs = [
     { key: "perfil", label: "Perfil da Empresa", icon: FiUser },
-    { key: "notificacoes", label: "Notificações", icon: FiBell }
+    { key: "notificacoes", label: "Notificações", icon: FiBell },
+    { key: "conta", label: "Conta e plano", icon: FiShield }
   ];
 
   // Primeira letra maiúscula em cada palavra, mantendo "de/da/do/e" em minúsculo e números romanos
@@ -582,6 +590,8 @@ export default function Settings() {
                   aria-selected={activeTab === tab.key}
                   className={`tab-button ${activeTab === tab.key ? "active" : ""}`}
                   onClick={() => setActiveTab(tab.key)}
+                  disabled={senhaTemporaria && tab.key !== "conta"}
+                  title={senhaTemporaria && tab.key !== "conta" ? "Crie sua senha primeiro" : undefined}
                 >
                   <IconComponent size={18} />
                   {tab.label}
@@ -809,6 +819,13 @@ export default function Settings() {
               </div>
             </form>
           )}
+
+          {activeTab === "conta" && <ContaAssinatura onSenhaDefinida={() => {
+            if (senhaTemporaria) {
+              setSenhaTemporaria(false);
+              setTimeout(() => setActiveTab("perfil"), 1800);
+            }
+          }} />}
 
           {activeTab === "notificacoes" && (
             <form onSubmit={handleSubmit} noValidate>

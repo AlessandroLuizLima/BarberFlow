@@ -1310,3 +1310,106 @@ body:not(.light-mode) .notif-history-item p {
   color: #f59e0b;
   font-weight: 600;
 }
+
+/* ---- Aba "Conta e plano" ---- */
+.tab-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.conta-alerta {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  background: rgba(245, 158, 11, 0.1);
+  color: #92400e;
+}
+
+body:not(.light-mode) .conta-alerta {
+  color: #fde68a;
+}
+
+.conta-alerta svg {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  color: #f59e0b;
+}
+
+.conta-alerta p {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.conta-aviso {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.conta-aviso--ok { color: #10b981; }
+.conta-aviso--erro { color: #ef4444; }
+
+@media (max-width: 767px) {
+  .conta-vazio { display: none; }
+}
+
+.conta-status--atencao {
+  border-color: rgba(245, 158, 11, 0.55) !important;
+}
+
+.conta-planos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 1rem;
+}
+
+.conta-plano {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+body:not(.light-mode) .conta-plano {
+  border-color: #374151;
+  background: #111827;
+}
+
+.conta-plano--atual {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.conta-plano-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.conta-plano-preco {
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.conta-plano-botao {
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+.conta-subtitulo {
+  margin: 1.5rem 0 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}

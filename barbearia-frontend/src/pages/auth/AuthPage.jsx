@@ -426,7 +426,8 @@ const AuthPage = () => {
         const resposta = await loginBarbeiro(form.email, form.senha);
         salvarSessaoBarbeiro(resposta.barbeiro, resposta.token);
         setSuccessMessage('Login realizado!');
-        setTimeout(() => navigate('/dashboard'), 600);
+        // Primeiro acesso (senha temporária do e-mail): vai direto criar a senha definitiva
+        setTimeout(() => navigate(resposta.barbeiro?.senha_temporaria ? '/dashboard/configuracoes?aba=conta' : '/dashboard'), 600);
       } else if (isLogin) {
         const resposta = await loginCliente(form.email, form.senha);
         salvarSessaoCliente(resposta.cliente, resposta.token);

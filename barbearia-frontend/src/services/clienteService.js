@@ -13,3 +13,7 @@ export const removerFotoCliente = (id) => api.delete(`/clientes/${id}/foto`).the
 
 // Login do painel do barbeiro (não existe cadastro de barbeiro pelo site)
 export const loginBarbeiro = (email, senha) => api.post('/auth/barbeiro/login', { email, senha }).then(r => r.data);
+
+// Troca a senha do barbeiro logado. Devolve { token, barbeiro } novos (a sessão antiga deixa de valer).
+export const trocarSenhaBarbeiro = (senhaAtual, novaSenha) =>
+  api.put('/auth/barbeiro/senha', { senha_atual: senhaAtual, nova_senha: novaSenha }).then((r) => r.data);

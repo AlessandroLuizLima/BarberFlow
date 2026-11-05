@@ -1,6 +1,6 @@
 import React from 'react';
-import { Route, Navigate } from 'react-router-dom';
-import { obterTokenBarbeiro, tokenValido } from '../services/authStorage';
+import { Route, Navigate, useLocation } from 'react-router-dom';
+import { obterTokenBarbeiro, obterBarbeiroLogado, tokenValido } from '../services/authStorage';
 
 // Importações do dashboard barbeiro
 import Dashboard from '../pages/dashboardBarber/Dashboard/Dashboard';
@@ -14,9 +14,15 @@ import Barbers from '../pages/dashboardBarber/Barbers/Barbers';
 import Settings from '../pages/dashboardBarber/Settings/Settings';
 
 // Só entra quem tem sessão de barbeiro válida (o backend confere o token em toda requisição)
+// Primeiro acesso (senha temporária enviada por e-mail): só libera o painel depois de criar a senha
 const PrivateRoute = ({ children }) => {
+  const location = useLocation();
   const token = obterTokenBarbeiro();
-  return token && tokenValido(token, 'barbeiro') ? children : <Navigate to="/auth/barbeiro" replace />;
+  if (!token || !tokenValido(token, 'barbeiro')) return <Navigate to="/auth/barbeiro" replace />;
+  if (obterBarbeiroLogado()?.senha_temporaria && location.pathname !== '/dashboard/configuracoes') {
+    return <Navigate to="/dashboard/configuracoes?aba=conta" replace />;
+  }
+  return children;
 };
 
 const BarberRoutes = () => {
