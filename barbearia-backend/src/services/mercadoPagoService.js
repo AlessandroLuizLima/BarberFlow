@@ -16,7 +16,8 @@ const TIMEOUT_MS = 15000;
 
 const configurado = () => Boolean(process.env.MP_ACCESS_TOKEN);
 // Credenciais de teste começam com "TEST-": o pagamento é de mentira (cartões de teste)
-const modoTeste = () => String(process.env.MP_ACCESS_TOKEN || '').startsWith('TEST-');
+// Conta de teste do vendedor (APP_USR-... de usuário de teste) não começa com TEST-: use MP_MODO_TESTE=true
+const modoTeste = () => String(process.env.MP_ACCESS_TOKEN || '').startsWith('TEST-') || process.env.MP_MODO_TESTE === 'true';
 
 async function chamar(caminho, { method = 'GET', corpo, idempotencia } = {}) {
   const resposta = await fetch(`${API}${caminho}`, {
@@ -61,12 +62,15 @@ async function criarPreferencia({ pedido, plano, urlFrontend, urlBackend }) {
       currency_id: 'BRL',
       unit_price: Number(plano.preco)
     }],
-    payer: { name: pedido.nome_responsavel, email: pedido.email },
     external_reference: pedido.id,
     back_urls: { success: retorno, pending: retorno, failure: retorno },
     statement_descriptor: 'BARBERFLOW',
     metadata: { pedido_id: pedido.id, plano: plano.chave }
   };
+  // Em teste NÃO manda o e-mail do comprador: o e-mail digitado é de uma pessoa real, e o Mercado Pago
+  // recusa misturar conta real com credencial de teste ("Uma das partes ... é de teste").
+  // Em produção ele só preenche o e-mail na tela de pagamento.
+  if (!modoTeste()) corpo.payer = { name: pedido.nome_responsavel, email: pedido.email };
   // O Mercado Pago só volta sozinho para endereços https públicos
   if (urlPublica(retorno)) corpo.auto_return = 'approved';
   // E só consegue avisar (webhook) um backend acessível pela internet
