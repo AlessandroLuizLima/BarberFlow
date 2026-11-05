@@ -1,13 +1,13 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../../config/sequelize');
 
-// Configurações da barbearia (nome, logo, endereço, horários, notificações).
-// Existe uma única linha (id = 1): o sistema atende uma barbearia.
-const ConfiguracaoBarbearia = sequelize.define('ConfiguracaoBarbearia', {
+// Cada barbearia que assina um plano (dados, logo, endereço, horários, notificações e assinatura).
+// Profissionais, serviços, agendamentos e contas do painel pertencem a uma barbearia (barbearia_id).
+const Barbearia = sequelize.define('Barbearia', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
-    defaultValue: 1
+    autoIncrement: true
   },
   nome: {
     type: DataTypes.STRING(100),
@@ -70,15 +70,45 @@ const ConfiguracaoBarbearia = sequelize.define('ConfiguracaoBarbearia', {
     allowNull: false,
     defaultValue: {}
   },
+  // Assinatura: plano comprado, situação e validade (pagamento mensal pelo Mercado Pago)
+  plano: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    defaultValue: 'profissional'
+  },
+  status: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    defaultValue: 'ativa'
+  },
+  assinatura_expira_em: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  criado_em: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    defaultValue: DataTypes.NOW
+  },
   atualizado_em: {
     type: DataTypes.DATE,
     allowNull: false,
     defaultValue: DataTypes.NOW
   }
 }, {
-  tableName: 'configuracoes_barbearia',
+  tableName: 'barbearias',
   timestamps: false,
   freezeTableName: true
 });
 
-module.exports = ConfiguracaoBarbearia;
+// Dias de tolerância depois do vencimento antes de a barbearia sair do ar para os clientes
+const TOLERANCIA_DIAS = 3;
+
+// A barbearia aparece para os clientes e aceita agendamentos?
+Barbearia.prototype.estaAtiva = function () {
+  if (this.status !== 'ativa') return false;
+  if (!this.assinatura_expira_em) return true;
+  return new Date(this.assinatura_expira_em).getTime() + TOLERANCIA_DIAS * 86400000 > Date.now();
+};
+
+module.exports = Barbearia;

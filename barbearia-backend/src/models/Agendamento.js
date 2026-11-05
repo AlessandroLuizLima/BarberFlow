@@ -7,6 +7,11 @@ const Agendamento = sequelize.define('Agendamento', {
     primaryKey: true,
     autoIncrement: true
   },
+  // Barbearia dona do registro
+  barbearia_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
   cliente_id: {
     type: DataTypes.INTEGER,
     allowNull: false

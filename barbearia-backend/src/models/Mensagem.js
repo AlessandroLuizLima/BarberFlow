@@ -7,6 +7,11 @@ const Mensagem = sequelize.define('Mensagem', {
     primaryKey: true,
     autoIncrement: true
   },
+  // Barbearia que enviou (vazio em mensagens antigas)
+  barbearia_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
   cliente_id: {
     type: DataTypes.INTEGER,
     allowNull: false

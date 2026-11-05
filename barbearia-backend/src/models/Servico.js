@@ -7,6 +7,11 @@ const Servico = sequelize.define('Servico', {
     primaryKey: true,
     autoIncrement: true
   },
+  // Barbearia dona do registro
+  barbearia_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
   nome: {
     type: DataTypes.STRING(100),
     allowNull: false

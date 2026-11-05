@@ -1,12 +1,14 @@
 require('dotenv').config();
-const { sequelize, Administrador } = require('../src/models');
+const { sequelize, Administrador, Barbearia } = require('../src/models');
 const { executarMigracoes } = require('../src/database/migrations');
 const { validarSenha } = require('../src/utils/senha');
 const { perguntar, fecharTerminal } = require('./_terminal');
 
 /**
  * Cria (ou redefine a senha de) uma conta de acesso ao painel do barbeiro.
- * Não existe cadastro de barbeiro pelo site: esta é a única forma de criar uma conta.
+ * Normalmente a conta nasce sozinha quando o pagamento do plano é aprovado.
+ * Este comando serve para criar uma barbearia manualmente (sem pagamento, plano Enterprise)
+ * ou para redefinir a senha de uma conta que já existe.
  *
  * Uso: npm run criar-admin
  */
@@ -34,11 +36,26 @@ async function main() {
   if (existente) {
     existente.senha = senha; // o hook faz o hash e derruba as sessões abertas
     existente.ativo = true;
+    existente.senha_temporaria = false;
     await existente.save();
     console.log(`\nSenha de ${email} redefinida. Sessões antigas foram encerradas.`);
   } else {
-    await Administrador.create({ nome, email, senha });
-    console.log(`\nConta criada! Entre em /auth/barbeiro com ${email}.`);
+    const nomeBarbearia = await perguntar('Nome da barbearia: ');
+    if (!nomeBarbearia || nomeBarbearia.length < 2) throw new Error('Informe o nome da barbearia.');
+    await sequelize.transaction(async (transaction) => {
+      const barbearia = await Barbearia.create({
+        nome: nomeBarbearia,
+        email,
+        email_notificacoes: email,
+        plano: 'enterprise',
+        status: 'ativa',
+        endereco_detalhado: {},
+        dias_atendimento: ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'],
+        notificacoes: { novosAgendamentos: true, cancelamentos: true, reagendamentos: true, lembretes: true, relatorios: true }
+      }, { transaction });
+      await Administrador.create({ nome, email, senha, barbearia_id: barbearia.id }, { transaction });
+    });
+    console.log(`\nBarbearia "${nomeBarbearia}" e conta criadas! Entre em /auth/barbeiro com ${email}.`);
   }
 }
 

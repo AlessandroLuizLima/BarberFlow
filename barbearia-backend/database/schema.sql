@@ -40,6 +40,36 @@ CREATE TYPE enum_notificacoes_barbearia_tipo AS ENUM ('novo_agendamento', 'cance
 CREATE TYPE enum_notificacoes_barbearia_status_envio AS ENUM ('enviado', 'simulado', 'falhou');
 
 -- ============================================================
+-- Tabela: barbearias
+-- Cada compra de plano cria uma barbearia (com a conta do painel).
+-- Nome, logo, endereço, horários, notificações e assinatura.
+-- Tudo da barbearia (barbeiros, serviços, agenda...) aponta para cá.
+-- Os clientes são da plataforma: agendam em qualquer barbearia.
+-- ============================================================
+CREATE TABLE barbearias (
+    id                    SERIAL PRIMARY KEY,
+    nome                  VARCHAR(100) NOT NULL,
+    telefone              VARCHAR(20),
+    email                 VARCHAR(150),
+    endereco              VARCHAR(255),
+    endereco_detalhado    JSONB NOT NULL DEFAULT '{}',  -- cep, rua, numero, bairro, cidade, estado, pontoReferencia
+    dias_atendimento      JSONB NOT NULL DEFAULT '[]',
+    horario_inicio        VARCHAR(5) NOT NULL DEFAULT '08:00',
+    horario_fim           VARCHAR(5) NOT NULL DEFAULT '18:00',
+    logo_id               UUID REFERENCES imagens(id) ON UPDATE CASCADE ON DELETE SET NULL,
+    latitude              DECIMAL(9, 6),   -- calculadas a partir do endereço ao salvar
+    longitude             DECIMAL(9, 6),
+    email_notificacoes    VARCHAR(150),
+    notificacoes          JSONB NOT NULL DEFAULT '{}',
+    -- Assinatura: starter | profissional | enterprise. Vencida há mais de 3 dias = some para os clientes
+    plano                 VARCHAR(20) NOT NULL DEFAULT 'profissional',
+    status                VARCHAR(20) NOT NULL DEFAULT 'ativa',      -- ativa | suspensa
+    assinatura_expira_em  TIMESTAMPTZ,
+    criado_em             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    atualizado_em         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
 -- Tabela: clientes
 -- ============================================================
 CREATE TABLE clientes (
@@ -71,16 +101,19 @@ CREATE TABLE clientes (
 
 -- ============================================================
 -- Tabela: administradores
--- Contas de acesso ao painel do barbeiro. Não há cadastro pelo
--- site: são criadas com "npm run criar-admin".
+-- Contas de acesso ao painel do barbeiro. Não há cadastro livre:
+-- a conta nasce quando o pagamento do plano é aprovado (login e
+-- senha temporária chegam por e-mail) ou com "npm run criar-admin".
 -- ============================================================
 CREATE TABLE administradores (
     id               SERIAL PRIMARY KEY,
+    barbearia_id     INTEGER NOT NULL REFERENCES barbearias(id) ON UPDATE CASCADE ON DELETE CASCADE,
     nome             VARCHAR(100) NOT NULL,
     email            VARCHAR(150) NOT NULL UNIQUE,
     senha            VARCHAR(100) NOT NULL,          -- hash bcrypt
     ativo            BOOLEAN NOT NULL DEFAULT TRUE,
     token_versao     INTEGER NOT NULL DEFAULT 0,
+    senha_temporaria BOOLEAN NOT NULL DEFAULT FALSE, -- TRUE até trocar a senha recebida por e-mail
     ultimo_login_em  TIMESTAMPTZ,
     criado_em        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     atualizado_em    TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -91,8 +124,9 @@ CREATE TABLE administradores (
 -- ============================================================
 CREATE TABLE profissionais (
     id              SERIAL PRIMARY KEY,
+    barbearia_id    INTEGER NOT NULL REFERENCES barbearias(id) ON UPDATE CASCADE ON DELETE CASCADE,
     nome_completo   VARCHAR(100) NOT NULL,
-    email           VARCHAR(100) NOT NULL UNIQUE,
+    email           VARCHAR(100) NOT NULL,
     telefone        VARCHAR(20),
     especialidade   VARCHAR(100),
     ativo           BOOLEAN NOT NULL DEFAULT TRUE,
@@ -101,11 +135,15 @@ CREATE TABLE profissionais (
     atualizado_em   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- O mesmo e-mail pode trabalhar em barbearias diferentes, mas não repetir na mesma
+CREATE UNIQUE INDEX profissionais_barbearia_email_unico ON profissionais (barbearia_id, email);
+
 -- ============================================================
 -- Tabela: servicos
 -- ============================================================
 CREATE TABLE servicos (
     id                SERIAL PRIMARY KEY,
+    barbearia_id      INTEGER NOT NULL REFERENCES barbearias(id) ON UPDATE CASCADE ON DELETE CASCADE,
     nome              VARCHAR(100) NOT NULL,
     descricao         VARCHAR(255),
     duracao_minutos   INTEGER NOT NULL,
@@ -121,6 +159,7 @@ CREATE TABLE servicos (
 -- ============================================================
 CREATE TABLE agendamentos (
     id                 SERIAL PRIMARY KEY,
+    barbearia_id       INTEGER NOT NULL REFERENCES barbearias(id) ON UPDATE CASCADE ON DELETE CASCADE,
     -- RESTRICT: quem tem histórico não pode ser apagado (profissionais/serviços são desativados)
     cliente_id         INTEGER NOT NULL REFERENCES clientes(id) ON UPDATE CASCADE ON DELETE RESTRICT,
     profissional_id    INTEGER NOT NULL REFERENCES profissionais(id) ON UPDATE CASCADE ON DELETE RESTRICT,
@@ -137,12 +176,14 @@ CREATE TABLE agendamentos (
 CREATE INDEX idx_agendamentos_profissional_data ON agendamentos (profissional_id, data_hora);
 CREATE INDEX idx_agendamentos_cliente ON agendamentos (cliente_id);
 CREATE INDEX idx_agendamentos_data_hora ON agendamentos (data_hora);  -- job de lembretes
+CREATE INDEX idx_agendamentos_barbearia ON agendamentos (barbearia_id);
 
 -- ============================================================
 -- Tabela: lista_espera
 -- ============================================================
 CREATE TABLE lista_espera (
     id                 SERIAL PRIMARY KEY,
+    barbearia_id       INTEGER NOT NULL REFERENCES barbearias(id) ON UPDATE CASCADE ON DELETE CASCADE,
     cliente_id         INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
     profissional_id    INTEGER NOT NULL REFERENCES profissionais(id) ON DELETE CASCADE,
     servico_id         INTEGER NOT NULL REFERENCES servicos(id) ON DELETE CASCADE,
@@ -159,6 +200,7 @@ CREATE INDEX idx_lista_espera_cliente ON lista_espera (cliente_id);
 -- ============================================================
 CREATE TABLE mensagens (
     id               SERIAL PRIMARY KEY,
+    barbearia_id     INTEGER REFERENCES barbearias(id) ON UPDATE CASCADE ON DELETE SET NULL,
     cliente_id       INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
     agendamento_id   INTEGER REFERENCES agendamentos(id) ON DELETE SET NULL,
     tipo             enum_mensagens_tipo NOT NULL,
@@ -172,35 +214,13 @@ CREATE TABLE mensagens (
 CREATE INDEX idx_mensagens_cliente ON mensagens (cliente_id);
 
 -- ============================================================
--- Tabela: configuracoes_barbearia (uma única linha, id = 1)
--- Nome, logo, endereço, horários e notificações da barbearia.
--- ============================================================
-CREATE TABLE configuracoes_barbearia (
-    id                  INTEGER PRIMARY KEY DEFAULT 1,
-    nome                VARCHAR(100) NOT NULL,
-    telefone            VARCHAR(20),
-    email               VARCHAR(150),
-    endereco            VARCHAR(255),
-    endereco_detalhado  JSONB NOT NULL DEFAULT '{}',  -- cep, rua, numero, bairro, cidade, estado, pontoReferencia
-    dias_atendimento    JSONB NOT NULL DEFAULT '[]',
-    horario_inicio      VARCHAR(5) NOT NULL DEFAULT '08:00',
-    horario_fim         VARCHAR(5) NOT NULL DEFAULT '18:00',
-    logo_id             UUID REFERENCES imagens(id) ON UPDATE CASCADE ON DELETE SET NULL,
-    latitude            DECIMAL(9, 6),   -- calculadas a partir do endereço ao salvar
-    longitude           DECIMAL(9, 6),
-    email_notificacoes  VARCHAR(150),
-    notificacoes        JSONB NOT NULL DEFAULT '{}',
-    atualizado_em       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT ck_configuracao_unica CHECK (id = 1)
-);
-
--- ============================================================
 -- Tabela: notificacoes_barbearia
 -- Avisos enviados por e-mail para a barbearia (novo agendamento,
 -- cancelamento, reagendamento, lembrete, resumo do dia, teste).
 -- ============================================================
 CREATE TABLE notificacoes_barbearia (
     id              SERIAL PRIMARY KEY,
+    barbearia_id    INTEGER NOT NULL REFERENCES barbearias(id) ON UPDATE CASCADE ON DELETE CASCADE,
     tipo            enum_notificacoes_barbearia_tipo NOT NULL,
     agendamento_id  INTEGER REFERENCES agendamentos(id) ON DELETE SET NULL,
     titulo          VARCHAR(150) NOT NULL,
@@ -213,6 +233,55 @@ CREATE TABLE notificacoes_barbearia (
 );
 
 CREATE INDEX idx_notificacoes_barbearia_data ON notificacoes_barbearia (criado_em DESC);
+CREATE INDEX idx_notificacoes_barbearia_barbearia ON notificacoes_barbearia (barbearia_id);
+CREATE INDEX idx_profissionais_barbearia ON profissionais (barbearia_id);
+CREATE INDEX idx_servicos_barbearia ON servicos (barbearia_id);
+CREATE INDEX idx_lista_espera_barbearia ON lista_espera (barbearia_id);
+CREATE INDEX idx_administradores_barbearia ON administradores (barbearia_id);
+CREATE INDEX idx_mensagens_barbearia ON mensagens (barbearia_id);
+
+-- ============================================================
+-- Tabela: pedidos
+-- Compras de plano pelo Mercado Pago (Checkout Pro). O id vai como
+-- external_reference; quando o pagamento é aprovado o backend cria a
+-- barbearia + conta do painel (tipo "nova") ou soma 30 dias (renovação).
+-- ============================================================
+CREATE TABLE pedidos (
+    id                 UUID PRIMARY KEY,
+    plano              VARCHAR(20) NOT NULL,
+    valor              DECIMAL(10, 2) NOT NULL,       -- preço do plano no momento da compra
+    tipo               VARCHAR(20) NOT NULL DEFAULT 'nova',      -- nova | renovacao
+    nome_responsavel   VARCHAR(100) NOT NULL,
+    email              VARCHAR(150) NOT NULL,         -- login do painel (compra nova)
+    telefone           VARCHAR(20),
+    nome_barbearia     VARCHAR(100) NOT NULL,
+    status             VARCHAR(20) NOT NULL DEFAULT 'pendente',  -- pendente | aprovado | recusado | cancelado
+    mp_preference_id   VARCHAR(100),
+    mp_payment_id      VARCHAR(50),
+    barbearia_id       INTEGER REFERENCES barbearias(id) ON UPDATE CASCADE ON DELETE SET NULL,
+    email_enviado      BOOLEAN NOT NULL DEFAULT FALSE,           -- e-mail com login e senha
+    pago_em            TIMESTAMPTZ,
+    criado_em          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    atualizado_em      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_pedidos_email ON pedidos (email);
+
+-- ============================================================
+-- Tabela: contatos
+-- Mensagens do formulário "Entre em contato" da Home (cópia do que
+-- foi enviado por e-mail para o suporte).
+-- ============================================================
+CREATE TABLE contatos (
+    id             SERIAL PRIMARY KEY,
+    nome           VARCHAR(100) NOT NULL,
+    email          VARCHAR(150) NOT NULL,
+    perfil         VARCHAR(20) NOT NULL DEFAULT 'outro',   -- cliente | barbeiro | outro
+    assunto        VARCHAR(150) NOT NULL,
+    mensagem       TEXT NOT NULL,
+    status_envio   VARCHAR(20) NOT NULL,                   -- enviado | simulado | falhou
+    criado_em      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 -- ============================================================
 -- Controle de migrações (preenchida pelo backend)

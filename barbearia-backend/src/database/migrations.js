@@ -18,6 +18,15 @@ async function nomeDoTipo(sequelize, tabela, coluna) {
   return rows[0].udt_name;
 }
 
+// A tabela existe? (bancos novos já nascem com "barbearias" e não têm a antiga "configuracoes_barbearia")
+async function tabelaExiste(sequelize, tabela, transaction) {
+  const [rows] = await sequelize.query(
+    `SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = :tabela`,
+    { replacements: { tabela }, transaction }
+  );
+  return rows.length > 0;
+}
+
 async function adicionarValorNoEnum(sequelize, tabela, coluna, valor) {
   const tipo = await nomeDoTipo(sequelize, tabela, coluna);
   // ADD VALUE não pode rodar dentro de transação, por isso é executado direto
@@ -121,6 +130,7 @@ const migracoes = [
       await q('ALTER TABLE clientes ADD COLUMN IF NOT EXISTS latitude DECIMAL(9,6)');
       await q('ALTER TABLE clientes ADD COLUMN IF NOT EXISTS longitude DECIMAL(9,6)');
       await q(`ALTER TABLE profissionais ADD COLUMN IF NOT EXISTS foto_id ${fkImagem}`);
+      if (!(await tabelaExiste(sequelize, 'configuracoes_barbearia', transaction))) return; // banco novo
       await q(`ALTER TABLE configuracoes_barbearia ADD COLUMN IF NOT EXISTS logo_id ${fkImagem}`);
       await q('ALTER TABLE configuracoes_barbearia ADD COLUMN IF NOT EXISTS latitude DECIMAL(9,6)');
       await q('ALTER TABLE configuracoes_barbearia ADD COLUMN IF NOT EXISTS longitude DECIMAL(9,6)');
@@ -225,9 +235,11 @@ const migracoes = [
       await q('CREATE INDEX IF NOT EXISTS idx_notificacoes_barbearia_data ON notificacoes_barbearia (criado_em DESC)');
 
       // O resumo diário passa a existir de verdade: deixa ligado para quem já usava as notificações
-      await q(`UPDATE configuracoes_barbearia
+      if (await tabelaExiste(sequelize, 'configuracoes_barbearia', transaction)) {
+        await q(`UPDATE configuracoes_barbearia
                   SET notificacoes = notificacoes || '{"relatorios": true}'::jsonb
                 WHERE NOT (notificacoes ? 'relatorios') OR notificacoes->>'relatorios' IS NULL`);
+      }
     })
   },
   {
@@ -252,6 +264,73 @@ const migracoes = [
                  atualizado_em    TIMESTAMPTZ NOT NULL DEFAULT NOW()
                )`);
       await q('ALTER TABLE clientes ADD COLUMN IF NOT EXISTS token_versao INTEGER NOT NULL DEFAULT 0');
+    })
+  },
+  {
+    // Várias barbearias: cada plano comprado vira uma barbearia com os próprios dados.
+    // A antiga "configuracoes_barbearia" (linha única) vira a barbearia 1, dona de tudo que já existia.
+    nome: '013_multi_barbearia',
+    up: (sequelize) => sequelize.transaction(async (transaction) => {
+      const q = (sql, opcoes = {}) => sequelize.query(sql, { transaction, ...opcoes });
+
+      // Em banco já existente o sync() criou "barbearias" vazia: copia a configuração antiga para ela
+      if (await tabelaExiste(sequelize, 'configuracoes_barbearia', transaction)) {
+        await q(`INSERT INTO barbearias (id, nome, telefone, email, endereco, endereco_detalhado, dias_atendimento,
+                   horario_inicio, horario_fim, logo_id, latitude, longitude, email_notificacoes, notificacoes,
+                   plano, status, criado_em, atualizado_em)
+                 SELECT id, nome, telefone, email, endereco, endereco_detalhado, dias_atendimento,
+                   horario_inicio, horario_fim, logo_id, latitude, longitude, email_notificacoes, notificacoes,
+                   'enterprise', 'ativa', NOW(), atualizado_em
+                   FROM configuracoes_barbearia
+                 ON CONFLICT (id) DO NOTHING`);
+        await q('DROP TABLE configuracoes_barbearia');
+      }
+
+      // Dados antigos sem barbearia (instalação de uma barbearia só) ficam com a barbearia 1
+      const tabelas = ['profissionais', 'servicos', 'agendamentos', 'lista_espera', 'notificacoes_barbearia', 'administradores', 'mensagens'];
+      let temDadosAntigos = false;
+      for (const t of tabelas) {
+        const [[{ total }]] = await q(`SELECT COUNT(*)::int AS total FROM ${t}`);
+        if (total > 0) temDadosAntigos = true;
+      }
+      const [[{ barbearias }]] = await q('SELECT COUNT(*)::int AS barbearias FROM barbearias');
+      if (temDadosAntigos && barbearias === 0) {
+        await q(`INSERT INTO barbearias (id, nome, plano, status) VALUES (1, 'Barbearia', 'enterprise', 'ativa')`);
+      }
+
+      for (const t of tabelas) {
+        await q(`ALTER TABLE ${t} ADD COLUMN IF NOT EXISTS barbearia_id INTEGER`);
+        await q(`UPDATE ${t} SET barbearia_id = (SELECT MIN(id) FROM barbearias) WHERE barbearia_id IS NULL`);
+        const [fks] = await q(
+          `SELECT 1 FROM pg_constraint c JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
+            WHERE c.contype = 'f' AND c.conrelid = '${t}'::regclass AND a.attname = 'barbearia_id'`
+        );
+        if (fks.length === 0) {
+          const aoApagar = t === 'mensagens' ? 'SET NULL' : 'CASCADE';
+          await q(`ALTER TABLE ${t} ADD CONSTRAINT ${t}_barbearia_id_fkey FOREIGN KEY (barbearia_id)
+                     REFERENCES barbearias(id) ON UPDATE CASCADE ON DELETE ${aoApagar}`);
+        }
+        if (t !== 'mensagens') {
+          await q(`ALTER TABLE ${t} ALTER COLUMN barbearia_id SET NOT NULL`);
+        }
+        await q(`CREATE INDEX IF NOT EXISTS idx_${t}_barbearia ON ${t} (barbearia_id)`);
+      }
+
+      // O id da barbearia passa a ser sequencial (antes era sempre 1)
+      await q(`CREATE SEQUENCE IF NOT EXISTS barbearias_id_seq OWNED BY barbearias.id`);
+      await q(`ALTER TABLE barbearias ALTER COLUMN id SET DEFAULT nextval('barbearias_id_seq')`);
+      await q(`SELECT setval('barbearias_id_seq', COALESCE((SELECT MAX(id) FROM barbearias), 0) + 1, false)`);
+
+      // Email de profissional: único dentro da barbearia (não mais no sistema todo)
+      const [unicos] = await q(
+        `SELECT c.conname FROM pg_constraint c JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
+          WHERE c.contype = 'u' AND c.conrelid = 'profissionais'::regclass AND a.attname = 'email' AND array_length(c.conkey, 1) = 1`
+      );
+      for (const { conname } of unicos) await q(`ALTER TABLE profissionais DROP CONSTRAINT "${conname}"`);
+      await q(`CREATE UNIQUE INDEX IF NOT EXISTS profissionais_barbearia_email_unico ON profissionais (barbearia_id, email)`);
+
+      await q('ALTER TABLE administradores ADD COLUMN IF NOT EXISTS senha_temporaria BOOLEAN NOT NULL DEFAULT FALSE');
+      await q('CREATE INDEX IF NOT EXISTS idx_pedidos_email ON pedidos (email)');
     })
   }
 ];

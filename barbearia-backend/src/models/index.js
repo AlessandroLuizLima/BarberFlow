@@ -5,10 +5,26 @@ const Servico = require('./Servico');
 const Agendamento = require('./Agendamento');
 const ListaEspera = require('./ListaEspera');
 const Mensagem = require('./Mensagem');
-const ConfiguracaoBarbearia = require('./ConfiguracaoBarbearia');
+const Barbearia = require('./Barbearia');
 const Imagem = require('./Imagem');
 const NotificacaoBarbearia = require('./NotificacaoBarbearia');
 const Administrador = require('./Administrador');
+const Pedido = require('./Pedido');
+const Contato = require('./Contato');
+
+// Tudo que é de uma barbearia aponta para ela. Excluir a barbearia apaga os dados dela.
+const daBarbearia = { foreignKey: { name: 'barbearia_id', allowNull: false }, onDelete: 'CASCADE', onUpdate: 'CASCADE' };
+Profissional.belongsTo(Barbearia, { ...daBarbearia, as: 'barbearia' });
+Servico.belongsTo(Barbearia, { ...daBarbearia, as: 'barbearia' });
+Agendamento.belongsTo(Barbearia, { ...daBarbearia, as: 'barbearia' });
+ListaEspera.belongsTo(Barbearia, { ...daBarbearia, as: 'barbearia' });
+NotificacaoBarbearia.belongsTo(Barbearia, { ...daBarbearia, as: 'barbearia' });
+Administrador.belongsTo(Barbearia, { ...daBarbearia, as: 'barbearia' });
+Mensagem.belongsTo(Barbearia, { foreignKey: { name: 'barbearia_id', allowNull: true }, as: 'barbearia', onDelete: 'SET NULL' });
+Pedido.belongsTo(Barbearia, { foreignKey: { name: 'barbearia_id', allowNull: true }, as: 'barbearia', onDelete: 'SET NULL' });
+Barbearia.hasMany(Profissional, { foreignKey: 'barbearia_id', as: 'profissionais' });
+Barbearia.hasMany(Servico, { foreignKey: 'barbearia_id', as: 'servicos' });
+Barbearia.hasMany(Agendamento, { foreignKey: 'barbearia_id', as: 'agendamentos' });
 
 // Agendamento pertence a Cliente, Profissional e Servico
 // RESTRICT: não deixa apagar quem tem histórico (profissionais/serviços devem ser desativados)
@@ -35,7 +51,7 @@ Cliente.hasMany(Mensagem, { foreignKey: 'cliente_id', as: 'mensagens' });
 const imagemFk = { onDelete: 'SET NULL', onUpdate: 'CASCADE', constraints: true };
 Cliente.belongsTo(Imagem, { foreignKey: 'foto_id', as: 'foto', ...imagemFk });
 Profissional.belongsTo(Imagem, { foreignKey: 'foto_id', as: 'foto', ...imagemFk });
-ConfiguracaoBarbearia.belongsTo(Imagem, { foreignKey: 'logo_id', as: 'imagemLogo', ...imagemFk });
+Barbearia.belongsTo(Imagem, { foreignKey: 'logo_id', as: 'imagemLogo', ...imagemFk });
 
 NotificacaoBarbearia.belongsTo(Agendamento, { foreignKey: 'agendamento_id', as: 'agendamento', onDelete: 'SET NULL' });
 
@@ -47,8 +63,10 @@ module.exports = {
   Agendamento,
   ListaEspera,
   Mensagem,
-  ConfiguracaoBarbearia,
+  Barbearia,
   Imagem,
   NotificacaoBarbearia,
-  Administrador
+  Administrador,
+  Pedido,
+  Contato
 };

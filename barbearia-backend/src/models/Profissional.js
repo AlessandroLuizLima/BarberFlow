@@ -7,6 +7,11 @@ const Profissional = sequelize.define('Profissional', {
     primaryKey: true,
     autoIncrement: true
   },
+  // Barbearia dona do registro
+  barbearia_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
   nome_completo: {
     type: DataTypes.STRING(100),
     allowNull: false
@@ -14,7 +19,6 @@ const Profissional = sequelize.define('Profissional', {
   email: {
     type: DataTypes.STRING(100),
     allowNull: false,
-    unique: true,
     validate: {
       isEmail: true
     }
@@ -39,6 +43,8 @@ const Profissional = sequelize.define('Profissional', {
   }
 }, {
   tableName: 'profissionais',
+  // O mesmo email pode existir em barbearias diferentes, mas não duas vezes na mesma
+  // (índice único criado pela migração 013, para funcionar também em bancos antigos)
   timestamps: true,
   createdAt: 'criado_em',
   updatedAt: 'atualizado_em',

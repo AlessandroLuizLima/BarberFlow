@@ -10,6 +10,11 @@ const NotificacaoBarbearia = sequelize.define('NotificacaoBarbearia', {
     primaryKey: true,
     autoIncrement: true
   },
+  // Barbearia dona do registro
+  barbearia_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
   tipo: {
     type: DataTypes.ENUM('novo_agendamento', 'cancelamento', 'reagendamento', 'lembrete', 'resumo_diario', 'teste'),
     allowNull: false

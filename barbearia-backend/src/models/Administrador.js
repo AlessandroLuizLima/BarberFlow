@@ -2,13 +2,18 @@ const { DataTypes } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const sequelize = require('../../config/sequelize');
 
-// Contas de acesso ao painel do barbeiro. NÃO existe cadastro público:
-// a primeira conta é criada pelo terminal com "npm run criar-admin".
+// Contas de acesso ao painel do barbeiro, uma por barbearia. São criadas automaticamente
+// quando o pagamento do plano é aprovado (ou pelo terminal com "npm run criar-admin").
 const Administrador = sequelize.define('Administrador', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true
+  },
+  // Barbearia dona do registro
+  barbearia_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false
   },
   nome: {
     type: DataTypes.STRING(100),
@@ -34,6 +39,12 @@ const Administrador = sequelize.define('Administrador', {
     type: DataTypes.INTEGER,
     allowNull: false,
     defaultValue: 0
+  },
+  // Senha gerada automaticamente na compra (enviada por e-mail): o painel obriga a trocar
+  senha_temporaria: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false
   },
   ultimo_login_em: {
     type: DataTypes.DATE,
