@@ -23,21 +23,36 @@ async function verificarLembretes() {
   });
 
   for (const agendamento of agendamentos) {
-    await notificacaoService.enviarLembrete(agendamento);
+    // Marca antes de enviar: se o e-mail demorar, o próximo minuto não manda de novo
     await agendamento.update({ lembrete_enviado: true });
+    await notificacaoService.enviarLembrete(agendamento.id);
   }
 
   return agendamentos.length;
 }
 
-// Roda a cada minuto verificando quem entrou na janela das 2h antes do horário
+// Horário do resumo diário enviado à barbearia (padrão 07:00, horário de Brasília)
+const HORA_RESUMO = /^([01]\d|2[0-3]):[0-5]\d$/.test(process.env.RESUMO_DIARIO_HORA || '')
+  ? process.env.RESUMO_DIARIO_HORA
+  : '07:00';
+
+// Lembretes: roda a cada minuto verificando quem entrou na janela das 2h antes do horário.
+// Resumo do dia: todo dia no HORA_RESUMO, se a preferência estiver ligada.
 function iniciarJobDeLembretes() {
   cron.schedule('* * * * *', () => {
     verificarLembretes().catch((error) => {
       console.error('[lembreteJob] erro ao verificar lembretes:', error.message);
     });
   });
-  console.log('Job de lembretes (2h antes) iniciado.');
+
+  const [hora, minuto] = HORA_RESUMO.split(':').map(Number);
+  cron.schedule(`${minuto} ${hora} * * *`, () => {
+    notificacaoService.enviarResumoDiario().catch((error) => {
+      console.error('[lembreteJob] erro no resumo diário:', error.message);
+    });
+  }, { timezone: 'America/Sao_Paulo' });
+
+  console.log(`Job de lembretes (2h antes) e resumo diário (${HORA_RESUMO}) iniciados.`);
 }
 
 module.exports = { iniciarJobDeLembretes, verificarLembretes };

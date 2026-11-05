@@ -189,6 +189,50 @@ const migracoes = [
         );
       }
     }
+  },
+  {
+    // Notificações de verdade (e-mail): status do envio nas mensagens dos clientes
+    // e a tabela de notificações da barbearia (em banco novo o sync() já cria a tabela).
+    nome: '010_notificacoes_email',
+    up: (sequelize) => sequelize.transaction(async (transaction) => {
+      const q = (sql) => sequelize.query(sql, { transaction });
+      await q(`DO $$ BEGIN
+                 CREATE TYPE enum_mensagens_status_envio AS ENUM ('enviado', 'simulado', 'falhou');
+               EXCEPTION WHEN duplicate_object THEN NULL; END $$`);
+      await q('ALTER TABLE mensagens ADD COLUMN IF NOT EXISTS email_destino VARCHAR(150)');
+      await q('ALTER TABLE mensagens ADD COLUMN IF NOT EXISTS status_envio enum_mensagens_status_envio');
+      await q('ALTER TABLE mensagens ADD COLUMN IF NOT EXISTS erro_envio VARCHAR(500)');
+
+      await q(`DO $$ BEGIN
+                 CREATE TYPE enum_notificacoes_barbearia_tipo AS ENUM
+                   ('novo_agendamento', 'cancelamento', 'reagendamento', 'lembrete', 'resumo_diario', 'teste');
+               EXCEPTION WHEN duplicate_object THEN NULL; END $$`);
+      await q(`DO $$ BEGIN
+                 CREATE TYPE enum_notificacoes_barbearia_status_envio AS ENUM ('enviado', 'simulado', 'falhou');
+               EXCEPTION WHEN duplicate_object THEN NULL; END $$`);
+      await q(`CREATE TABLE IF NOT EXISTS notificacoes_barbearia (
+                 id              SERIAL PRIMARY KEY,
+                 tipo            enum_notificacoes_barbearia_tipo NOT NULL,
+                 agendamento_id  INTEGER REFERENCES agendamentos(id) ON DELETE SET NULL,
+                 titulo          VARCHAR(150) NOT NULL,
+                 conteudo        TEXT NOT NULL,
+                 email_destino   VARCHAR(150),
+                 status_envio    enum_notificacoes_barbearia_status_envio NOT NULL,
+                 erro_envio      VARCHAR(500),
+                 lida            BOOLEAN NOT NULL DEFAULT FALSE,
+                 criado_em       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+               )`);
+      await q('CREATE INDEX IF NOT EXISTS idx_notificacoes_barbearia_data ON notificacoes_barbearia (criado_em DESC)');
+
+      // O resumo diário passa a existir de verdade: deixa ligado para quem já usava as notificações
+      await q(`UPDATE configuracoes_barbearia
+                  SET notificacoes = notificacoes || '{"relatorios": true}'::jsonb
+                WHERE NOT (notificacoes ? 'relatorios') OR notificacoes->>'relatorios' IS NULL`);
+    })
+  },
+  {
+    nome: '011_mensagem_tipo_cancelamento',
+    up: (sequelize) => adicionarValorNoEnum(sequelize, 'mensagens', 'tipo', 'cancelamento')
   }
 ];
 

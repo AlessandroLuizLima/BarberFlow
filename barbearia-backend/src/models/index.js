@@ -7,6 +7,7 @@ const ListaEspera = require('./ListaEspera');
 const Mensagem = require('./Mensagem');
 const ConfiguracaoBarbearia = require('./ConfiguracaoBarbearia');
 const Imagem = require('./Imagem');
+const NotificacaoBarbearia = require('./NotificacaoBarbearia');
 
 // Agendamento pertence a Cliente, Profissional e Servico
 // RESTRICT: não deixa apagar quem tem histórico (profissionais/serviços devem ser desativados)
@@ -35,6 +36,8 @@ Cliente.belongsTo(Imagem, { foreignKey: 'foto_id', as: 'foto', ...imagemFk });
 Profissional.belongsTo(Imagem, { foreignKey: 'foto_id', as: 'foto', ...imagemFk });
 ConfiguracaoBarbearia.belongsTo(Imagem, { foreignKey: 'logo_id', as: 'imagemLogo', ...imagemFk });
 
+NotificacaoBarbearia.belongsTo(Agendamento, { foreignKey: 'agendamento_id', as: 'agendamento', onDelete: 'SET NULL' });
+
 module.exports = {
   sequelize,
   Cliente,
@@ -44,5 +47,6 @@ module.exports = {
   ListaEspera,
   Mensagem,
   ConfiguracaoBarbearia,
-  Imagem
+  Imagem,
+  NotificacaoBarbearia
 };

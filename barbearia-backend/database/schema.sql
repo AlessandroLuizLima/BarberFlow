@@ -34,7 +34,10 @@ CREATE TABLE imagens (
 -- agendado/confirmado/remarcado = ativos (ocupam o horário); concluido/cancelado = finais
 CREATE TYPE enum_agendamentos_status AS ENUM ('agendado', 'confirmado', 'remarcado', 'cancelado', 'concluido');
 CREATE TYPE enum_lista_espera_status AS ENUM ('aguardando', 'notificado', 'expirado');
-CREATE TYPE enum_mensagens_tipo AS ENUM ('confirmacao', 'lembrete', 'lista_espera', 'remarcacao');
+CREATE TYPE enum_mensagens_tipo AS ENUM ('confirmacao', 'lembrete', 'lista_espera', 'remarcacao', 'cancelamento');
+CREATE TYPE enum_mensagens_status_envio AS ENUM ('enviado', 'simulado', 'falhou');
+CREATE TYPE enum_notificacoes_barbearia_tipo AS ENUM ('novo_agendamento', 'cancelamento', 'reagendamento', 'lembrete', 'resumo_diario', 'teste');
+CREATE TYPE enum_notificacoes_barbearia_status_envio AS ENUM ('enviado', 'simulado', 'falhou');
 
 -- ============================================================
 -- Tabela: clientes
@@ -142,6 +145,9 @@ CREATE TABLE mensagens (
     agendamento_id   INTEGER REFERENCES agendamentos(id) ON DELETE SET NULL,
     tipo             enum_mensagens_tipo NOT NULL,
     conteudo         TEXT NOT NULL,
+    email_destino    VARCHAR(150),                  -- e-mail para onde a mensagem foi enviada
+    status_envio     enum_mensagens_status_envio,   -- enviado / simulado (sem SMTP) / falhou
+    erro_envio       VARCHAR(500),
     enviada_em       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -157,7 +163,7 @@ CREATE TABLE configuracoes_barbearia (
     telefone            VARCHAR(20),
     email               VARCHAR(150),
     endereco            VARCHAR(255),
-    endereco_detalhado  JSONB NOT NULL DEFAULT '{}',
+    endereco_detalhado  JSONB NOT NULL DEFAULT '{}',  -- cep, rua, numero, bairro, cidade, estado, pontoReferencia
     dias_atendimento    JSONB NOT NULL DEFAULT '[]',
     horario_inicio      VARCHAR(5) NOT NULL DEFAULT '08:00',
     horario_fim         VARCHAR(5) NOT NULL DEFAULT '18:00',
@@ -169,6 +175,26 @@ CREATE TABLE configuracoes_barbearia (
     atualizado_em       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT ck_configuracao_unica CHECK (id = 1)
 );
+
+-- ============================================================
+-- Tabela: notificacoes_barbearia
+-- Avisos enviados por e-mail para a barbearia (novo agendamento,
+-- cancelamento, reagendamento, lembrete, resumo do dia, teste).
+-- ============================================================
+CREATE TABLE notificacoes_barbearia (
+    id              SERIAL PRIMARY KEY,
+    tipo            enum_notificacoes_barbearia_tipo NOT NULL,
+    agendamento_id  INTEGER REFERENCES agendamentos(id) ON DELETE SET NULL,
+    titulo          VARCHAR(150) NOT NULL,
+    conteudo        TEXT NOT NULL,
+    email_destino   VARCHAR(150),
+    status_envio    enum_notificacoes_barbearia_status_envio NOT NULL,
+    erro_envio      VARCHAR(500),
+    lida            BOOLEAN NOT NULL DEFAULT FALSE,
+    criado_em       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_notificacoes_barbearia_data ON notificacoes_barbearia (criado_em DESC);
 
 -- ============================================================
 -- Controle de migrações (preenchida pelo backend)

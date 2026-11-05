@@ -20,12 +20,27 @@ const Mensagem = sequelize.define('Mensagem', {
     // lembrete: enviada 2h antes do horário
     // lista_espera: enviada quando um horário vaga
     // remarcacao: enviada quando o agendamento muda de horário/profissional
-    type: DataTypes.ENUM('confirmacao', 'lembrete', 'lista_espera', 'remarcacao'),
+    // cancelamento: enviada quando o agendamento é cancelado
+    type: DataTypes.ENUM('confirmacao', 'lembrete', 'lista_espera', 'remarcacao', 'cancelamento'),
     allowNull: false
   },
   conteudo: {
     type: DataTypes.TEXT,
     allowNull: false
+  },
+  // Canal real de envio: e-mail para o endereço cadastrado do cliente
+  email_destino: {
+    type: DataTypes.STRING(150),
+    allowNull: true
+  },
+  // enviado = e-mail saiu; simulado = SMTP não configurado; falhou = erro do provedor
+  status_envio: {
+    type: DataTypes.ENUM('enviado', 'simulado', 'falhou'),
+    allowNull: true
+  },
+  erro_envio: {
+    type: DataTypes.STRING(500),
+    allowNull: true
   },
   enviada_em: {
     type: DataTypes.DATE,
