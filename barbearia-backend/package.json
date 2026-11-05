@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "seed": "node database/seed.js"
+    "seed": "node database/seed.js",
+    "criar-admin": "node database/criar-admin.js",
+    "reset-db": "node database/reset.js"
   },
   "keywords": [],
   "author": "",
@@ -17,10 +19,19 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.1.0",
+    "express-rate-limit": "^8.2.1",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.3",
     "node-cron": "^4.6.0",
-    "nodemailer": "^7.0.13",
+    "nodemailer": "^10.1.7",
     "pg": "^8.16.3",
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.37.7"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

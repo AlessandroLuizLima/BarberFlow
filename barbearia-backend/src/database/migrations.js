@@ -233,6 +233,26 @@ const migracoes = [
   {
     nome: '011_mensagem_tipo_cancelamento',
     up: (sequelize) => adicionarValorNoEnum(sequelize, 'mensagens', 'tipo', 'cancelamento')
+  },
+  {
+    // Segurança: contas do painel do barbeiro (login de verdade) e versão do token,
+    // que invalida sessões antigas quando a senha muda.
+    nome: '012_autenticacao',
+    up: (sequelize) => sequelize.transaction(async (transaction) => {
+      const q = (sql) => sequelize.query(sql, { transaction });
+      await q(`CREATE TABLE IF NOT EXISTS administradores (
+                 id               SERIAL PRIMARY KEY,
+                 nome             VARCHAR(100) NOT NULL,
+                 email            VARCHAR(150) NOT NULL UNIQUE,
+                 senha            VARCHAR(100) NOT NULL,
+                 ativo            BOOLEAN NOT NULL DEFAULT TRUE,
+                 token_versao     INTEGER NOT NULL DEFAULT 0,
+                 ultimo_login_em  TIMESTAMPTZ,
+                 criado_em        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                 atualizado_em    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+               )`);
+      await q('ALTER TABLE clientes ADD COLUMN IF NOT EXISTS token_versao INTEGER NOT NULL DEFAULT 0');
+    })
   }
 ];
 

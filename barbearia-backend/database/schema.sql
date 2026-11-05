@@ -64,8 +64,26 @@ CREATE TABLE clientes (
     longitude       DECIMAL(9, 6),
 
     foto_id         UUID REFERENCES imagens(id) ON UPDATE CASCADE ON DELETE SET NULL,
+    token_versao    INTEGER NOT NULL DEFAULT 0,  -- muda ao trocar a senha: derruba sessões antigas
     criado_em       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     atualizado_em   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
+-- Tabela: administradores
+-- Contas de acesso ao painel do barbeiro. Não há cadastro pelo
+-- site: são criadas com "npm run criar-admin".
+-- ============================================================
+CREATE TABLE administradores (
+    id               SERIAL PRIMARY KEY,
+    nome             VARCHAR(100) NOT NULL,
+    email            VARCHAR(150) NOT NULL UNIQUE,
+    senha            VARCHAR(100) NOT NULL,          -- hash bcrypt
+    ativo            BOOLEAN NOT NULL DEFAULT TRUE,
+    token_versao     INTEGER NOT NULL DEFAULT 0,
+    ultimo_login_em  TIMESTAMPTZ,
+    criado_em        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    atualizado_em    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ============================================================

@@ -8,6 +8,7 @@ const Mensagem = require('./Mensagem');
 const ConfiguracaoBarbearia = require('./ConfiguracaoBarbearia');
 const Imagem = require('./Imagem');
 const NotificacaoBarbearia = require('./NotificacaoBarbearia');
+const Administrador = require('./Administrador');
 
 // Agendamento pertence a Cliente, Profissional e Servico
 // RESTRICT: não deixa apagar quem tem histórico (profissionais/serviços devem ser desativados)
@@ -48,5 +49,6 @@ module.exports = {
   Mensagem,
   ConfiguracaoBarbearia,
   Imagem,
-  NotificacaoBarbearia
+  NotificacaoBarbearia,
+  Administrador
 };

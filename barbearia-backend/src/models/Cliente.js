@@ -71,6 +71,12 @@ const Cliente = sequelize.define('Cliente', {
   foto_id: {
     type: DataTypes.UUID,
     allowNull: true
+  },
+  // Aumenta a cada troca de senha: sessões abertas antes deixam de valer
+  token_versao: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0
   }
 }, {
   tableName: 'clientes',
@@ -94,13 +100,14 @@ const Cliente = sequelize.define('Cliente', {
       // Só re-hasheia se a senha foi de fato alterada nesta operação
       if (cliente.changed('senha') && cliente.senha) {
         cliente.senha = await bcrypt.hash(cliente.senha, 10);
+        cliente.token_versao = (cliente.token_versao || 0) + 1;
       }
     }
   }
 });
 
 Cliente.prototype.verificarSenha = function (senhaDigitada) {
-  return bcrypt.compare(senhaDigitada, this.senha);
+  return bcrypt.compare(String(senhaDigitada || ''), this.senha);
 };
 
 module.exports = Cliente;
