@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import './ClientHome.css';
-import { FaMapMarkerAlt, FaBell, FaSearch } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaBell, FaSearch, FaLocationArrow, FaDirections } from 'react-icons/fa';
 import { obterClienteLogado } from '../../../services/authStorage';
 import { listarAgendamentos, cancelarAgendamento } from '../../../services/agendamentoService';
 import { proximosAgendamentos } from '../../../utils/agendamentosCliente';
 import { linkGoogleMaps } from '../../../data/barbearias';
 import useBarbearias from '../../../hooks/useBarbearias';
+import useLocalizacao from '../../../hooks/useLocalizacao';
+import { ordenarPorDistancia, linkRotaGoogleMaps } from '../../../utils/geo';
 import AgendamentoItem from '../components/AgendamentoItem/AgendamentoItem';
 
 function Header(props) {
@@ -126,6 +128,65 @@ function BarbershopList(props) {
   );
 }
 
+// Destaque da barbearia mais próxima do cliente
+function BarbeariaMaisProxima({ shop, origem, onAgendar }) {
+  return (
+    <section className="nearest-card" aria-label="Barbearia mais próxima">
+      <div className="nearest-header">
+        <span className="nearest-label"><FaLocationArrow size={12} /> Mais próxima de você</span>
+        <span className="nearest-distance">{shop.distance}</span>
+      </div>
+      <div className="nearest-body">
+        <BarbershopAvatar logo={shop.logo} name={shop.name} />
+        <BarbershopInfo name={shop.name} address={shop.address} real={shop.real} />
+      </div>
+      <div className="nearest-actions">
+        <button type="button" className="nearest-btn nearest-btn--primary" onClick={() => onAgendar(shop)}>
+          {shop.real ? 'Agendar agora' : 'Ver barbearia'}
+        </button>
+        <a
+          className="nearest-btn"
+          href={linkRotaGoogleMaps(origem, shop)}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <FaDirections size={16} /> Como chegar
+        </a>
+      </div>
+    </section>
+  );
+}
+
+// Mensagem sobre a localização: carregando, negada, usando o endereço cadastrado...
+function StatusLocalizacao({ status, origem, onTentarDeNovo }) {
+  if (status === 'carregando') {
+    return <p className="location-status">Buscando sua localização para mostrar as barbearias mais próximas...</p>;
+  }
+  if (origem === 'navegador') return null;
+
+  const motivo = {
+    negada: 'Você não permitiu o acesso à localização (dá para liberar no ícone de cadeado da barra de endereço).',
+    indisponivel: 'Seu navegador não oferece localização nesta página.',
+    erro: 'Não foi possível obter sua localização agora.'
+  }[status] || '';
+
+  return (
+    <div className="location-status location-status--aviso">
+      <span>
+        {motivo}{' '}
+        {origem === 'endereco'
+          ? 'As distâncias foram calculadas a partir do seu endereço cadastrado.'
+          : 'Ative a localização (ou cadastre seu CEP nas Configurações) para ver a barbearia mais próxima.'}
+      </span>
+      {status !== 'indisponivel' && (
+        <button type="button" className="location-retry" onClick={onTentarDeNovo}>
+          <FaLocationArrow size={12} /> Usar minha localização
+        </button>
+      )}
+    </div>
+  );
+}
+
 function MainContent(props) {
   return (
     <main className="main-content">
@@ -208,8 +269,20 @@ const HomePage = () => {
   };
 
   const { barbearias } = useBarbearias();
-  const filteredBarbershops = barbearias.filter((shop) =>
-    shop.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const localizacao = useLocalizacao();
+
+  // Com a posição do cliente, a lista fica da mais perto para a mais longe (com a distância em cada card)
+  const barbeariasOrdenadas = useMemo(
+    () => ordenarPorDistancia(barbearias, localizacao.posicao),
+    [barbearias, localizacao.posicao]
+  );
+  const maisProxima = barbeariasOrdenadas.find((shop) => Number.isFinite(shop.distanciaKm)) || null;
+
+  const termo = searchTerm.trim().toLowerCase();
+  const filteredBarbershops = barbeariasOrdenadas.filter((shop) =>
+    !termo ||
+    shop.name.toLowerCase().includes(termo) ||
+    (shop.address || '').toLowerCase().includes(termo)
   );
 
   const handleSearchChange = (e) => {
@@ -238,7 +311,7 @@ const HomePage = () => {
       />
 
       <SearchBar
-        placeholder="Encontrar barbearia"
+        placeholder="Encontrar barbearia por nome ou endereço"
         value={searchTerm}
         onChange={handleSearchChange}
       />
@@ -254,8 +327,18 @@ const HomePage = () => {
         cancelandoId={cancelandoId}
       />
 
+      <StatusLocalizacao
+        status={localizacao.status}
+        origem={localizacao.origem}
+        onTentarDeNovo={localizacao.solicitar}
+      />
+
+      {maisProxima && !termo && (
+        <BarbeariaMaisProxima shop={maisProxima} origem={localizacao.posicao} onAgendar={handleCardClick} />
+      )}
+
       <MainContent
-        title="Barbearias"
+        title={maisProxima ? 'Barbearias perto de você' : 'Barbearias'}
         barbershops={filteredBarbershops}
         onCardClick={handleCardClick}
       />

@@ -54,13 +54,16 @@ export const logoPadrao = (nome, cor = '#3b82f6') => {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 };
 
-const criar = (id, name, cor, rating, distance, phone, street, neighborhood, city, state, fator, totalReviews) => ({
+// [latitude, longitude] aproximados do endereço de cada barbearia de demonstração
+const criar = (id, name, cor, rating, [latitude, longitude], phone, street, neighborhood, city, state, fator, totalReviews) => ({
   id,
   real: false,
   name,
   logo: logoPadrao(name, cor),
   rating,
-  distance,
+  latitude,
+  longitude,
+  distance: '', // calculada na Home a partir da localização do cliente
   phone,
   email: `contato@${name.toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, '')}.com`,
   address: `${street}, ${neighborhood} - ${city}/${state}`,
@@ -77,13 +80,13 @@ const criar = (id, name, cor, rating, distance, phone, street, neighborhood, cit
 });
 
 const demonstracao = [
-  criar(2, 'Estilo Clássico', '#2563eb', 4.9, '1,2 km', '(41) 99811-2200', 'Rua XV de Novembro, 1200', 'Centro', 'Curitiba', 'PR', 1.2, 214),
-  criar(3, 'Navalha de Ouro', '#d97706', 4.8, '2,4 km', '(11) 99722-3344', 'Avenida Paulista, 1578', 'Bela Vista', 'São Paulo', 'SP', 1.6, 187),
-  criar(4, 'Corte & Cia', '#059669', 4.6, '3,1 km', '(41) 99655-1020', 'Rua das Flores, 345', 'Batel', 'Curitiba', 'PR', 1.0, 96),
-  criar(5, 'The Barber House', '#7c3aed', 4.7, '3,8 km', '(11) 99588-7766', 'Avenida Brigadeiro Faria Lima, 2200', 'Pinheiros', 'São Paulo', 'SP', 1.8, 142),
-  criar(6, 'Barba Negra', '#dc2626', 4.5, '4,5 km', '(11) 99433-0912', 'Rua Augusta, 900', 'Consolação', 'São Paulo', 'SP', 1.1, 73),
-  criar(7, 'Dom Navalha', '#0891b2', 4.4, '5,2 km', '(41) 99377-4521', 'Avenida Sete de Setembro, 4100', 'Batel', 'Curitiba', 'PR', 1.3, 58),
-  criar(8, 'Vila Barber Club', '#db2777', 4.8, '6,0 km', '(11) 99266-8800', 'Rua Oscar Freire, 650', 'Jardins', 'São Paulo', 'SP', 2.0, 163),
+  criar(2, 'Estilo Clássico', '#2563eb', 4.9, [-25.4296, -49.2713], '(41) 99811-2200', 'Rua XV de Novembro, 1200', 'Centro', 'Curitiba', 'PR', 1.2, 214),
+  criar(3, 'Navalha de Ouro', '#d97706', 4.8, [-23.5614, -46.6559], '(11) 99722-3344', 'Avenida Paulista, 1578', 'Bela Vista', 'São Paulo', 'SP', 1.6, 187),
+  criar(4, 'Corte & Cia', '#059669', 4.6, [-25.4322, -49.2733], '(41) 99655-1020', 'Rua das Flores, 345', 'Batel', 'Curitiba', 'PR', 1.0, 96),
+  criar(5, 'The Barber House', '#7c3aed', 4.7, [-23.5776, -46.6872], '(11) 99588-7766', 'Avenida Brigadeiro Faria Lima, 2200', 'Pinheiros', 'São Paulo', 'SP', 1.8, 142),
+  criar(6, 'Barba Negra', '#dc2626', 4.5, [-23.5531, -46.6527], '(11) 99433-0912', 'Rua Augusta, 900', 'Consolação', 'São Paulo', 'SP', 1.1, 73),
+  criar(7, 'Dom Navalha', '#0891b2', 4.4, [-25.4421, -49.2869], '(41) 99377-4521', 'Avenida Sete de Setembro, 4100', 'Batel', 'Curitiba', 'PR', 1.3, 58),
+  criar(8, 'Vila Barber Club', '#db2777', 4.8, [-23.5627, -46.6698], '(11) 99266-8800', 'Rua Oscar Freire, 650', 'Jardins', 'São Paulo', 'SP', 2.0, 163),
 ];
 
 // Horário de funcionamento no formato da página de detalhes (dias fechados aparecem como "Fechado")
@@ -103,6 +106,9 @@ export function montarBarbeariaReal(config) {
     name: config?.nome || 'Barbearia',
     logo: config?.logo || null,
     rating: 5,
+    // Coordenadas calculadas pelo backend a partir do endereço salvo nas Configurações
+    latitude: config?.latitude ?? null,
+    longitude: config?.longitude ?? null,
     distance: '',
     phone: config?.telefone || '',
     email: config?.email || '',
@@ -126,8 +132,11 @@ export const listarBarbearias = (config) => [montarBarbeariaReal(config), ...dem
 export const obterBarbearia = (id, config) =>
   listarBarbearias(config).find((b) => String(b.id) === String(id));
 
-// Link do Google Maps. Sem endereço cadastrado, procura a barbearia pelo nome.
+// Link do Google Maps. Com coordenadas, abre o ponto exato; sem endereço cadastrado, procura pelo nome.
 export function linkGoogleMaps(barbearia) {
+  if (Number.isFinite(barbearia?.latitude) && Number.isFinite(barbearia?.longitude)) {
+    return `https://www.google.com/maps/search/?api=1&query=${barbearia.latitude},${barbearia.longitude}`;
+  }
   const e = barbearia?.details?.address;
   const partes = e ? [e.street, e.neighborhood, e.city, e.state].filter(Boolean) : [];
   const consulta = partes.length > 0 ? partes.join(', ') : `${barbearia?.name || ''} barbearia`.trim();

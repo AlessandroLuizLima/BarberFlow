@@ -480,3 +480,151 @@ body.light-mode .home-page .avatar--logo {
   object-fit: cover;
   display: block;
 }
+
+/* ========================================
+   LOCALIZAÇÃO / BARBEARIA MAIS PRÓXIMA
+======================================== */
+.home-page .location-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 1.25rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+body:not(.light-mode) .home-page .location-status {
+  color: #9ca3af;
+}
+
+.home-page .location-status--aviso {
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px dashed #d1d5db;
+  background-color: white;
+}
+
+body:not(.light-mode) .home-page .location-status--aviso {
+  background-color: #1f2937;
+  border-color: #374151;
+}
+
+.home-page .location-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--dark-blue);
+  background: transparent;
+  color: var(--dark-blue);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.home-page .location-retry:hover {
+  background-color: var(--dark-blue);
+  color: white;
+}
+
+.home-page .nearest-card {
+  margin-bottom: 2rem;
+  padding: 1.25rem 1.5rem;
+  border-radius: 0.75rem;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-left: 4px solid var(--dark-blue);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  animation: fadeInUp 0.6s ease-out;
+}
+
+body:not(.light-mode) .home-page .nearest-card {
+  background-color: #1f2937;
+  border-color: #374151;
+  border-left-color: var(--dark-blue);
+}
+
+.home-page .nearest-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.home-page .nearest-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--dark-blue);
+}
+
+.home-page .nearest-distance {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-page .nearest-body {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.home-page .nearest-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.home-page .nearest-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #d1d5db;
+  background: transparent;
+  color: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+body:not(.light-mode) .home-page .nearest-btn {
+  border-color: #4b5563;
+}
+
+.home-page .nearest-btn:hover {
+  border-color: var(--dark-blue);
+}
+
+.home-page .nearest-btn--primary,
+body:not(.light-mode) .home-page .nearest-btn--primary {
+  background-color: var(--dark-blue);
+  border-color: var(--dark-blue);
+  color: white;
+}
+
+.home-page .nearest-btn--primary:hover {
+  background-color: #2563eb;
+}
+
+@media (max-width: 480px) {
+  .home-page .nearest-btn {
+    flex: 1;
+  }
+}
