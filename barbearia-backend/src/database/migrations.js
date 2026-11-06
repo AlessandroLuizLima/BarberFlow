@@ -338,6 +338,44 @@ const migracoes = [
       await q('ALTER TABLE administradores ADD COLUMN IF NOT EXISTS senha_temporaria BOOLEAN NOT NULL DEFAULT FALSE');
       await q('CREATE INDEX IF NOT EXISTS idx_pedidos_email ON pedidos (email)');
     })
+  },
+  {
+    // A tabela das contas do painel passa a se chamar "barbeiros" (antes "administradores").
+    // O sync() roda antes das migrações e já criou uma "barbeiros" vazia: ela é descartada e a
+    // tabela antiga é renomeada, mantendo as contas, senhas e ligações com as barbearias.
+    nome: '014_tabela_barbeiros',
+    up: (sequelize) => sequelize.transaction(async (transaction) => {
+      const q = (sql) => sequelize.query(sql, { transaction });
+      if (!(await tabelaExiste(sequelize, 'administradores', transaction))) return;
+
+      const contar = async (t) => (await q(`SELECT COUNT(*)::int AS total FROM ${t}`))[0][0].total;
+      if (await tabelaExiste(sequelize, 'barbeiros', transaction)) {
+        if ((await contar('barbeiros')) > 0) {
+          if ((await contar('administradores')) > 0) {
+            throw new Error('As tabelas "administradores" e "barbeiros" têm dados. Junte as contas manualmente antes de continuar.');
+          }
+          await q('DROP TABLE administradores CASCADE');
+          return;
+        }
+        await q('DROP TABLE barbeiros CASCADE');
+      }
+
+      await q('ALTER TABLE administradores RENAME TO barbeiros');
+      await q('ALTER SEQUENCE IF EXISTS administradores_id_seq RENAME TO barbeiros_id_seq');
+      // Nomes de chaves e índices acompanham o nome novo da tabela
+      const [restricoes] = await q(
+        `SELECT conname FROM pg_constraint WHERE conrelid = 'barbeiros'::regclass AND conname LIKE 'administradores%'`
+      );
+      for (const { conname } of restricoes) {
+        await q(`ALTER TABLE barbeiros RENAME CONSTRAINT "${conname}" TO "${conname.replace(/^administradores/, 'barbeiros')}"`);
+      }
+      const [indices] = await q(
+        `SELECT indexname FROM pg_indexes WHERE tablename = 'barbeiros' AND indexname LIKE '%administradores%'`
+      );
+      for (const { indexname } of indices) {
+        await q(`ALTER INDEX "${indexname}" RENAME TO "${indexname.replace('administradores', 'barbeiros')}"`);
+      }
+    })
   }
 ];
 

@@ -4,8 +4,8 @@ const { executarMigracoes } = require('../src/database/migrations');
 const { perguntar, fecharTerminal } = require('./_terminal');
 
 /**
- * APAGA TODOS OS DADOS do banco configurado no .env: clientes, barbeiros, contas do painel,
- * serviços, agendamentos, lista de espera, mensagens, notificações, imagens e configurações.
+ * APAGA TODOS OS DADOS do banco configurado no .env: barbearias, contas do painel, pedidos de plano,
+ * clientes, barbeiros, serviços, agendamentos, lista de espera, mensagens, contatos, notificações e imagens.
  * A estrutura (tabelas e migrações) continua; os IDs voltam a começar do 1.
  *
  * Não tem volta. Faça um backup antes se houver algo que você queira manter.
@@ -44,9 +44,9 @@ async function main() {
   }
 
   await sequelize.query(`TRUNCATE ${nomes.map((n) => `"${n}"`).join(', ')} RESTART IDENTITY CASCADE`);
-  console.log('\nBanco zerado. Próximos passos:');
-  console.log('  1. npm run criar-admin   (cria a conta do painel do barbeiro)');
-  console.log('  2. npm run seed          (opcional: serviços e barbeiros de exemplo)');
+  console.log('\nBanco zerado. Nenhuma barbearia, cliente ou pedido ficou.');
+  console.log('  - Barbearias novas nascem pela compra de um plano na Home (o login chega por e-mail).');
+  console.log('  - Para criar uma barbearia sem pagamento (a sua, por exemplo): npm run criar-admin');
 }
 
 main()

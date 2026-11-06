@@ -100,12 +100,12 @@ CREATE TABLE clientes (
 );
 
 -- ============================================================
--- Tabela: administradores
+-- Tabela: barbeiros (antes "administradores")
 -- Contas de acesso ao painel do barbeiro. Não há cadastro livre:
 -- a conta nasce quando o pagamento do plano é aprovado (login e
 -- senha temporária chegam por e-mail) ou com "npm run criar-admin".
 -- ============================================================
-CREATE TABLE administradores (
+CREATE TABLE barbeiros (
     id               SERIAL PRIMARY KEY,
     barbearia_id     INTEGER NOT NULL REFERENCES barbearias(id) ON UPDATE CASCADE ON DELETE CASCADE,
     nome             VARCHAR(100) NOT NULL,
@@ -237,8 +237,48 @@ CREATE INDEX idx_notificacoes_barbearia_barbearia ON notificacoes_barbearia (bar
 CREATE INDEX idx_profissionais_barbearia ON profissionais (barbearia_id);
 CREATE INDEX idx_servicos_barbearia ON servicos (barbearia_id);
 CREATE INDEX idx_lista_espera_barbearia ON lista_espera (barbearia_id);
-CREATE INDEX idx_administradores_barbearia ON administradores (barbearia_id);
+CREATE INDEX idx_barbeiros_barbearia ON barbeiros (barbearia_id);
 CREATE INDEX idx_mensagens_barbearia ON mensagens (barbearia_id);
+
+-- ============================================================
+-- Tabela: produtos
+-- Produtos vendidos no balcão de cada barbearia, com estoque.
+-- ============================================================
+CREATE TYPE enum_produtos_categoria AS ENUM ('cuidados', 'styling', 'barba', 'acessorios');
+
+CREATE TABLE produtos (
+    id             SERIAL PRIMARY KEY,
+    barbearia_id   INTEGER NOT NULL REFERENCES barbearias(id) ON UPDATE CASCADE ON DELETE CASCADE,
+    nome           VARCHAR(100) NOT NULL,
+    descricao      VARCHAR(255),
+    categoria      enum_produtos_categoria NOT NULL DEFAULT 'cuidados',
+    preco          DECIMAL(10, 2) NOT NULL CHECK (preco >= 0),   -- preço de venda
+    custo          DECIMAL(10, 2) NOT NULL DEFAULT 0 CHECK (custo >= 0),
+    quantidade     INTEGER NOT NULL DEFAULT 0 CHECK (quantidade >= 0), -- estoque
+    ativo          BOOLEAN NOT NULL DEFAULT TRUE,
+    criado_em      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    atualizado_em  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_produtos_barbearia ON produtos (barbearia_id);
+
+-- ============================================================
+-- Tabela: vendas_produtos
+-- Cada venda registrada no painel: baixa o estoque e entra no
+-- Financeiro. Guarda preço e custo do momento da venda.
+-- ============================================================
+CREATE TABLE vendas_produtos (
+    id              SERIAL PRIMARY KEY,
+    barbearia_id    INTEGER NOT NULL REFERENCES barbearias(id) ON UPDATE CASCADE ON DELETE CASCADE,
+    produto_id      INTEGER NOT NULL REFERENCES produtos(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    quantidade      INTEGER NOT NULL CHECK (quantidade >= 1),
+    valor_unitario  DECIMAL(10, 2) NOT NULL,
+    custo_unitario  DECIMAL(10, 2) NOT NULL DEFAULT 0,
+    criado_em       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_vendas_produtos_barbearia_data ON vendas_produtos (barbearia_id, criado_em);
+CREATE INDEX idx_vendas_produtos_produto ON vendas_produtos (produto_id);
 
 -- ============================================================
 -- Tabela: pedidos

@@ -2,8 +2,9 @@ const { DataTypes } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const sequelize = require('../../config/sequelize');
 
-// Contas de acesso ao painel do barbeiro, uma por barbearia. São criadas automaticamente
-// quando o pagamento do plano é aprovado (ou pelo terminal com "npm run criar-admin").
+// Contas de acesso ao painel do barbeiro (tabela "barbeiros"), uma por barbearia. São criadas
+// automaticamente quando o pagamento do plano é aprovado (ou pelo terminal com "npm run criar-admin").
+// Os barbeiros que atendem os clientes (e aparecem no agendamento) ficam em "profissionais".
 const Administrador = sequelize.define('Administrador', {
   id: {
     type: DataTypes.INTEGER,
@@ -51,7 +52,7 @@ const Administrador = sequelize.define('Administrador', {
     allowNull: true
   }
 }, {
-  tableName: 'administradores',
+  tableName: 'barbeiros',
   freezeTableName: true,
   timestamps: true,
   createdAt: 'criado_em',
