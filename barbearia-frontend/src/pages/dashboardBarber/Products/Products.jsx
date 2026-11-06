@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { 
   FiEdit, 
   FiTrash2, 
@@ -17,66 +17,55 @@ import {
   FiBox,
   FiFilter
 } from "react-icons/fi";
+import {
+  listarProdutos,
+  criarProduto,
+  atualizarProduto,
+  excluirProduto,
+  venderProduto
+} from "../../../services/produtoService";
 import "./Products.css";
 
+// API -> formato usado na tela
+const deApi = (p) => ({
+  id: p.id,
+  name: p.nome,
+  price: Number(p.preco),
+  quantity: p.quantidade,
+  category: p.categoria,
+  description: p.descricao || "",
+  cost: Number(p.custo || 0),
+  totalSold: p.vendidos || 0,
+  active: p.ativo !== false
+});
+
 const Products = () => {
-  const [products, setProducts] = useState([
-    { 
-      id: 1, 
-      name: "Shampoo Masculino", 
-      price: 45.0, 
-      quantity: 15,
-      category: "cuidados",
-      description: "Shampoo para cabelos masculinos",
-      cost: 25.0,
-      totalSold: 89,
-      active: true
-    },
-    { 
-      id: 2, 
-      name: "Pomada Modeladora", 
-      price: 35.0, 
-      quantity: 8,
-      category: "styling",
-      description: "Pomada para modelar cabelo",
-      cost: 18.0,
-      totalSold: 156,
-      active: true
-    },
-    { 
-      id: 3, 
-      name: "Óleo para Barba", 
-      price: 28.0, 
-      quantity: 12,
-      category: "barba",
-      description: "Óleo nutritivo para barba",
-      cost: 15.0,
-      totalSold: 234,
-      active: true
-    },
-    {
-      id: 4,
-      name: "Cera Fixadora",
-      price: 32.0,
-      quantity: 3,
-      category: "styling",
-      description: "Cera para fixação forte",
-      cost: 20.0,
-      totalSold: 67,
-      active: false
-    },
-    {
-      id: 5,
-      name: "Condicionador",
-      price: 38.0,
-      quantity: 0,
-      category: "cuidados",
-      description: "Condicionador hidratante",
-      cost: 22.0,
-      totalSold: 45,
-      active: true
+  // Produtos da barbearia (banco). Vendas registradas aqui entram no Financeiro.
+  const [products, setProducts] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erroLista, setErroLista] = useState("");
+  const [aviso, setAviso] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+  const [vendendo, setVendendo] = useState(null); // produto no modal de venda
+  const [qtdVenda, setQtdVenda] = useState("1");
+
+  const carregar = useCallback(async () => {
+    setErroLista("");
+    try {
+      setProducts((await listarProdutos()).map(deApi));
+    } catch (error) {
+      setErroLista(error.response?.data?.error || "Não foi possível carregar os produtos.");
+    } finally {
+      setCarregando(false);
     }
-  ]);
+  }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
+
+  const avisar = (texto, tipo = "ok") => {
+    setAviso({ texto, tipo });
+    setTimeout(() => setAviso(null), 4000);
+  };
 
   const [showModal, setShowModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -237,61 +226,77 @@ const Products = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-
-    const formattedName = formatName(formProduct.name);
-
-    const productData = {
-      name: formattedName,
-      price: parseFloat(formProduct.price),
-      quantity: parseInt(formProduct.quantity, 10),
-      category: formProduct.category,
-      description: formProduct.description || "",
-      cost: parseFloat(formProduct.cost) || 0,
-      totalSold: editingProduct ? editingProduct.totalSold : Math.floor(Math.random() * 100) + 10,
-      active: editingProduct ? editingProduct.active : true
+    if (!validateForm()) return;
+    const dados = {
+      nome: formatName(formProduct.name.trim()),
+      preco: parseFloat(formProduct.price),
+      quantidade: parseInt(formProduct.quantity, 10),
+      categoria: formProduct.category,
+      descricao: formProduct.description || "",
+      custo: parseFloat(formProduct.cost) || 0
     };
-
-    if (editingProduct) {
-      setProducts((prev) =>
-        prev.map((p) =>
-          p.id === editingProduct.id
-            ? { ...p, ...productData }
-            : p
-        )
-      );
-    } else {
-      setProducts((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          ...productData
-        },
-      ]);
+    setSalvando(true);
+    try {
+      if (editingProduct) await atualizarProduto(editingProduct.id, dados);
+      else await criarProduto(dados);
+      avisar(editingProduct ? "Produto atualizado." : "Produto cadastrado.");
+      closeModal();
+      carregar();
+    } catch (error) {
+      setFormErrors({ geral: error.response?.data?.error || "Não foi possível salvar o produto." });
+    } finally {
+      setSalvando(false);
     }
-    closeModal();
   };
 
-  const confirmRemove = () => {
-    if (productToDelete) {
-      setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
+  const confirmRemove = async () => {
+    if (!productToDelete) return;
+    setSalvando(true);
+    try {
+      await excluirProduto(productToDelete.id);
+      avisar("Produto excluído.");
+      carregar();
+    } catch (error) {
+      avisar(error.response?.data?.error || "Não foi possível excluir o produto.", "erro");
+    } finally {
+      setSalvando(false);
       closeDeleteConfirm();
     }
   };
 
-  const toggleProductStatus = (productId) => {
-    setProducts(prev => 
-      prev.map(product => 
-        product.id === productId 
-          ? { ...product, active: !product.active }
-          : product
-      )
-    );
+  const toggleProductStatus = async (productId) => {
+    const produto = products.find((p) => p.id === productId);
+    if (!produto) return;
+    try {
+      await atualizarProduto(productId, { ativo: !produto.active });
+      setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, active: !p.active } : p)));
+    } catch (error) {
+      avisar(error.response?.data?.error || "Não foi possível alterar o produto.", "erro");
+    }
+  };
+
+  const abrirVenda = (product) => {
+    setVendendo(product);
+    setQtdVenda("1");
+  };
+
+  const confirmarVenda = async (e) => {
+    e.preventDefault();
+    const quantidade = parseInt(qtdVenda, 10);
+    if (!Number.isInteger(quantidade) || quantidade < 1) return;
+    setSalvando(true);
+    try {
+      await venderProduto(vendendo.id, quantidade);
+      avisar(`Venda registrada: ${quantidade}x ${vendendo.name}. Já entrou no Financeiro.`);
+      setVendendo(null);
+      carregar();
+    } catch (error) {
+      avisar(error.response?.data?.error || "Não foi possível registrar a venda.", "erro");
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const toggleValuesVisibility = () => {
@@ -344,7 +349,7 @@ const Products = () => {
         <div className="header">
           <div>
             <h1>Gestão de Produtos</h1>
-            <p>Configure e gerencie todos os produtos da barbearia</p>
+            <p>Estoque e vendas de balcão. Cada venda registrada entra no Financeiro</p>
           </div>
           <div className="header-actions">
             <button 
@@ -363,6 +368,8 @@ const Products = () => {
             </button>
           </div>
         </div>
+
+        {aviso && <div className={`products-aviso ${aviso.tipo === "erro" ? "products-aviso--erro" : ""}`} role="status">{aviso.texto}</div>}
 
         {/* Cards de Estatísticas */}
         <div className="stats-grid">
@@ -530,7 +537,14 @@ const Products = () => {
           </div>
           
           <div className="products-list-content">
-            {filteredProducts.length === 0 ? (
+            {carregando ? (
+              <div className="no-products"><p>Carregando produtos...</p></div>
+            ) : erroLista ? (
+              <div className="no-products" role="alert">
+                <h3>{erroLista}</h3>
+                <button type="button" className="button-secondary" onClick={carregar}>Tentar de novo</button>
+              </div>
+            ) : filteredProducts.length === 0 ? (
               <div className="no-products" role="alert">
                 <div className="no-products-icon">
                   <FiPackage size={48} />
@@ -543,7 +557,7 @@ const Products = () => {
                 <p>
                   {searchTerm || filterCategory !== "todos"
                     ? "Tente alterar os filtros ou termos de busca"
-                    : "Cadastre seu primeiro produto para começar"}
+                    : "Cadastre os produtos que você vende no balcão (pomada, shampoo, óleo para barba...)"}
                 </p>
               </div>
             ) : (
@@ -602,6 +616,16 @@ const Products = () => {
                         </div>
                         
                         <div className="product-actions">
+                          <button
+                            type="button"
+                            className="action-button sell"
+                            onClick={() => abrirVenda(product)}
+                            disabled={!product.active || product.quantity === 0}
+                            title={product.quantity === 0 ? "Sem estoque" : "Registrar venda"}
+                            aria-label={`Registrar venda de ${product.name}`}
+                          >
+                            <FiShoppingCart size={16} />
+                          </button>
                           <button
                             type="button"
                             className={`action-button toggle ${product.active ? 'active' : 'inactive'}`}
@@ -779,12 +803,13 @@ const Products = () => {
                   </div>
                 </div>
                 
+                {formErrors.geral && <p className="products-erro" role="alert"><FiAlertTriangle size={16} /> {formErrors.geral}</p>}
                 <div className="modal-footer">
                   <button type="button" className="button-secondary" onClick={closeModal}>
                     Cancelar
                   </button>
-                  <button type="submit" className="button-primary">
-                    {editingProduct ? "Salvar Alterações" : "Cadastrar Produto"}
+                  <button type="submit" className="button-primary" disabled={salvando}>
+                    {salvando ? "Salvando..." : editingProduct ? "Salvar Alterações" : "Cadastrar Produto"}
                   </button>
                 </div>
               </form>
@@ -813,7 +838,7 @@ const Products = () => {
                   </p>
                   <div className="delete-warning">
                     <FiAlertTriangle size={16} />
-                    <span>Esta ação não pode ser desfeita</span>
+                    <span>Produtos com vendas registradas não podem ser excluídos: desative-os (ícone do olho).</span>
                   </div>
                 </div>
               </div>
@@ -826,6 +851,41 @@ const Products = () => {
                   Confirmar Exclusão
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+        {vendendo && (
+          <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="venda-titulo">
+            <div className="modal modal-delete">
+              <div className="modal-header">
+                <h2 id="venda-titulo"><FiShoppingCart aria-hidden="true" /> Registrar venda</h2>
+                <button className="modal-close" onClick={() => setVendendo(null)} aria-label="Fechar"><FiX size={20} /></button>
+              </div>
+              <form onSubmit={confirmarVenda}>
+                <div className="modal-content">
+                  <p><strong>{vendendo.name}</strong> · {formatPrice(vendendo.price)} cada · {vendendo.quantity} em estoque</p>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="qtd-venda">Quantidade vendida</label>
+                    <input
+                      id="qtd-venda"
+                      type="number"
+                      min="1"
+                      max={vendendo.quantity}
+                      className="form-input"
+                      value={qtdVenda}
+                      onChange={(e) => setQtdVenda(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  <p className="products-total-venda">
+                    Total: <strong>{formatPrice(vendendo.price * (parseInt(qtdVenda, 10) || 0))}</strong>
+                  </p>
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="button-secondary" onClick={() => setVendendo(null)}>Cancelar</button>
+                  <button type="submit" className="button-primary" disabled={salvando}>{salvando ? "Registrando..." : "Confirmar venda"}</button>
+                </div>
+              </form>
             </div>
           </div>
         )}

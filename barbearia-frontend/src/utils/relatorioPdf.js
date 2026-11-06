@@ -149,7 +149,7 @@ function criarDesenho(doc) {
     const esq = x + 4;
     const base = y + h - 6;
     const topo = y + 4;
-    const maximo = Math.max(...dados.map((d) => d.clients));
+    const maximo = Math.max(1, ...dados.map((d) => d.clients));
     const vao = (w - 8) / dados.length;
     const larguraBarra = vao * 0.62;
     dados.forEach((d, i) => {
@@ -194,6 +194,10 @@ function criarDesenho(doc) {
  * @param {Array}  p.analises - [{ titulo, texto, tipo: 'positivo'|'neutro'|'atencao' }]
  * @param {string} p.nomeArquivo
  */
+// Variação vinda de utils/estatisticas.js (null = sem período anterior)
+const varTexto = (v, sufixo = '%') =>
+  v === null || v === undefined ? 'sem período anterior' : `${v > 0 ? '+' : ''}${String(v).replace('.', ',')}${sufixo} vs anterior`;
+
 export async function gerarRelatorioPdf(p) {
   const [{ jsPDF }, { default: autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
   const logo = await carregarLogo(p.logoUrl);
@@ -202,7 +206,7 @@ export async function gerarRelatorioPdf(p) {
   const d = criarDesenho(doc);
   const geradoEm = limparEspacos(new Date().toLocaleString('pt-BR', { dateStyle: 'long', timeStyle: 'short' }));
   const m = p.metricas;
-  const ticket = m.totalServices ? m.totalRevenue / m.totalServices : 0;
+  const ticket = m.avgTicket ?? (m.totalServices ? m.totalRevenue / m.totalServices : 0); // só serviços
   const pico = p.horarios.reduce((a, b) => (b.clients > a.clients ? b : a), p.horarios[0]);
   const melhor = p.dados.reduce((a, b) => (b.revenue > a.revenue ? b : a), p.dados[0]);
 
@@ -233,14 +237,14 @@ export async function gerarRelatorioPdf(p) {
   d.texto('Visão geral', MARGEM, y, { tamanho: 12, negrito: true });
   y += 4;
   const kpis = [
-    { rotulo: 'Total de clientes', valor: numero(m.totalClients), variacao: '+15,2% vs período anterior', rgb: COR.azul, bom: true },
+    { rotulo: 'Total de clientes', valor: numero(m.totalClients), variacao: varTexto(m.variacao?.clients), rgb: COR.azul, bom: (m.variacao?.clients ?? -1) >= 0 },
     { rotulo: 'Serviços realizados', valor: numero(m.totalServices), variacao: `${numero(Math.round(m.totalServices / p.dados.length))} por ${p.periodo === 'Anual' ? 'ano' : 'período'}`, rgb: COR.verde },
     { rotulo: 'Faturamento', valor: moeda(m.totalRevenue), variacao: `Melhor: ${melhor.name} (${moedaCurta(melhor.revenue)})`, rgb: COR.verde },
     { rotulo: 'Ticket médio', valor: moeda(ticket), variacao: 'por serviço realizado', rgb: COR.roxo },
-    { rotulo: 'Retenção de clientes', valor: `${String(m.clientRetention).replace('.', ',')}%`, variacao: '+2,1% vs período anterior', rgb: COR.roxo, bom: true },
-    { rotulo: 'Tempo médio', valor: `${m.avgTime} min`, variacao: '-1,5 min vs período anterior', rgb: COR.vermelho, bom: true },
-    { rotulo: 'Satisfação', valor: `${String(m.satisfaction).replace('.', ',')}%`, variacao: '+4,3% vs período anterior', rgb: COR.verde, bom: true },
-    { rotulo: 'Horário de pico', valor: pico.name.replace('h', ':00'), variacao: `${pico.clients} clientes em média`, rgb: COR.laranja }
+    { rotulo: 'Retenção de clientes', valor: `${String(m.clientRetention).replace('.', ',')}%`, variacao: 'voltaram 2+ vezes no período', rgb: COR.roxo },
+    { rotulo: 'Tempo médio', valor: `${m.avgTime} min`, variacao: varTexto(m.variacao?.avgTime, ' min'), rgb: COR.vermelho },
+    { rotulo: 'Cancelamentos', valor: `${m.taxaCancelamento ?? 0}%`, variacao: 'dos agendamentos do período', rgb: COR.verde, bom: (m.taxaCancelamento ?? 0) < 15 },
+    { rotulo: 'Horário de pico', valor: pico && pico.clients ? pico.name.replace('h', ':00') : '—', variacao: pico && pico.clients ? `${pico.clients} agendamento(s)` : 'sem agendamentos', rgb: COR.laranja }
   ];
   const gap = 4;
   const wKpi = (LARGURA_UTIL - gap * 3) / 4;
@@ -272,10 +276,10 @@ export async function gerarRelatorioPdf(p) {
 
   const xSat = MARGEM + wMetade + gap;
   d.cartao(xSat, y, wMetade, hLinha);
-  d.tituloDoCartao(xSat, y, 'Satisfação dos clientes', 'Avaliação dos atendimentos');
+  d.tituloDoCartao(xSat, y, 'Situação dos agendamentos', 'Concluídos, a atender e cancelados');
   d.barrasPercentuais(xSat + 5, y + 22, wMetade - 10, p.satisfacao);
-  const satisfeitos = p.satisfacao.slice(0, 2).reduce((s, i) => s + i.value, 0);
-  d.texto(`${satisfeitos}% satisfeitos ou muito satisfeitos`, xSat + 5, y + hLinha - 5, { tamanho: 7, negrito: true, rgb: COR.verde });
+  const concluidos = p.satisfacao[0]?.value ?? 0;
+  d.texto(`${concluidos}% dos agendamentos do período foram concluídos`, xSat + 5, y + hLinha - 5, { tamanho: 7, negrito: true, rgb: COR.verde });
 
   // ---------------- Página 2 ----------------
   doc.addPage();

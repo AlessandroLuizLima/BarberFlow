@@ -1467,3 +1467,52 @@ select:focus {
     display: none;
   }
 }
+/* ---- Dados reais: avisos e venda ---- */
+.products-aviso {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.products-aviso--erro {
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+
+body:not(.light-mode) .products-aviso { color: #a7f3d0; }
+body:not(.light-mode) .products-aviso--erro { color: #fecaca; }
+
+.products-erro {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 1.5rem 1rem;
+  color: #ef4444;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.action-button.sell {
+  color: #10b981;
+}
+
+.action-button.sell:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.products-total-venda {
+  margin: 0.75rem 0 0;
+  font-size: 1rem;
+}
+
+.button-primary:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}

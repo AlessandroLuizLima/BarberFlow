@@ -7,86 +7,42 @@ import {
   FiUsers,
   FiScissors,
   FiEye,
-  FiEyeOff
+  FiEyeOff,
+  FiShoppingBag,
+  FiClock,
+  FiAlertTriangle
 } from 'react-icons/fi';
+import useMovimentoBarbearia from '../../../hooks/useMovimentoBarbearia';
+import { calcularEstatisticas, textoVariacao } from '../../../utils/estatisticas';
 import './Financial.css';
+
+// Painel financeiro com os números reais da barbearia: atendimentos concluídos e vendas de produtos.
+const ICONES_ANALISE = { positivo: FiTrendingUp, neutro: FiScissors, atencao: FiAlertTriangle };
+const CLASSE_ANALISE = { positivo: 'positive', neutro: 'neutral', atencao: 'warning' };
 
 const Financial = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('mensal');
   const [showValues, setShowValues] = useState(true);
+  const { agendamentos, vendas, carregando, erro, recarregar } = useMovimentoBarbearia();
 
-  // Dados simulados
-  const dailyData = [
-    { name: 'Seg', revenue: 450, services: 12 },
-    { name: 'Ter', revenue: 680, services: 18 },
-    { name: 'Qua', revenue: 520, services: 14 },
-    { name: 'Qui', revenue: 750, services: 20 },
-    { name: 'Sex', revenue: 920, services: 25 },
-    { name: 'Sáb', revenue: 1200, services: 32 },
-    { name: 'Dom', revenue: 380, services: 10 }
-  ];
+  const estatisticas = calcularEstatisticas(agendamentos, vendas, selectedPeriod);
+  const serie = estatisticas.serie;
+  const metrics = estatisticas.metricas;
+  const serviceDistribution = estatisticas.distribuicao;
+  const getCurrentData = () => serie;
+  const temFaturamento = metrics.totalRevenue > 0;
 
-  const weeklyData = [
-    { name: 'Sem 1', revenue: 4200, services: 112 },
-    { name: 'Sem 2', revenue: 4800, services: 128 },
-    { name: 'Sem 3', revenue: 3900, services: 104 },
-    { name: 'Sem 4', revenue: 5200, services: 138 }
-  ];
-
-  const monthlyData = [
-    { name: 'Jan', revenue: 18500, services: 485 },
-    { name: 'Fev', revenue: 16200, services: 421 },
-    { name: 'Mar', revenue: 19800, services: 512 },
-    { name: 'Abr', revenue: 21200, services: 548 },
-    { name: 'Mai', revenue: 18900, services: 492 },
-    { name: 'Jun', revenue: 22800, services: 589 },
-    { name: 'Jul', revenue: 20400, services: 528 },
-    { name: 'Ago', revenue: 23100, services: 598 },
-    { name: 'Set', revenue: 19700, services: 512 },
-    { name: 'Out', revenue: 24500, services: 635 },
-    { name: 'Nov', revenue: 22900, services: 594 },
-    { name: 'Dez', revenue: 26800, services: 695 }
-  ];
-
-  const yearlyData = [
-    { name: '2021', revenue: 185000, services: 4850 },
-    { name: '2022', revenue: 198000, services: 5120 },
-    { name: '2023', revenue: 215000, services: 5580 },
-    { name: '2024', revenue: 248000, services: 6420 }
-  ];
-
-  const serviceDistribution = [
-    { name: 'Corte Tradicional', value: 35, color: '#8884d8' },
-    { name: 'Barba', value: 25, color: '#82ca9d' },
-    { name: 'Corte + Barba', value: 30, color: '#ffc658' },
-    { name: 'Outros', value: 10, color: '#ff7c7c' }
-  ];
-
-  const getCurrentData = () => {
-    switch (selectedPeriod) {
-      case 'diario': return dailyData;
-      case 'semanal': return weeklyData;
-      case 'mensal': return monthlyData;
-      case 'anual': return yearlyData;
-      default: return monthlyData;
-    }
+  const Variacao = ({ valor, sufixo = '%', inverso = false }) => {
+    const bom = valor === null ? null : inverso ? valor <= 0 : valor >= 0;
+    const classe = bom === null ? 'neutral' : bom ? 'positive' : 'negative';
+    const Icone = valor === null ? FiCalendar : valor >= 0 ? FiTrendingUp : FiTrendingDown;
+    return (
+      <div className={`stat-change ${classe}`}>
+        <Icone size={16} />
+        <span>{textoVariacao(valor, sufixo)}</span>
+      </div>
+    );
   };
-
-  const getCurrentMetrics = () => {
-    const data = getCurrentData();
-    const totalRevenue = data.reduce((sum, item) => sum + item.revenue, 0);
-    const totalServices = data.reduce((sum, item) => sum + item.services, 0);
-    const avgTicket = totalServices ? totalRevenue / totalServices : 0;
-
-    return {
-      totalRevenue,
-      totalServices,
-      avgTicket,
-      growth: 12.5 // Simulado
-    };
-  };
-
-  const metrics = getCurrentMetrics();
 
   const formatCurrency = (value) => {
     if (!showValues) return '***';
@@ -95,6 +51,9 @@ const Financial = () => {
       currency: 'BRL'
     }).format(value);
   };
+
+  // Eixo do gráfico: "R$ 120", "R$ 1,2 mil"
+  const moedaCurta = (v) => (v >= 1000 ? `R$ ${(v / 1000).toFixed(1).replace('.', ',')} mil` : `R$ ${Math.round(v)}`);
 
   const formatNumber = (value) => {
     if (!showValues) return '***';
@@ -112,10 +71,10 @@ const Financial = () => {
 
     if (!data.length) return null;
 
-    const maxRevenue = Math.max(...data.map(d => d.revenue));
+    const maxRevenue = Math.max(1, ...data.map(d => d.revenue));
     const width = 600;
     const height = 200;
-    const padding = 40;
+    const padding = 56;
     const points = data.map((d, i) => {
       const x = padding + (i * (width - 2 * padding)) / (data.length - 1);
       const y = height - padding - (d.revenue / maxRevenue) * (height - 2 * padding);
@@ -230,7 +189,7 @@ const Financial = () => {
               opacity={isVisible ? 1 : 0}
               style={{ transition: 'opacity 0.8s ease-in-out' }}
             >
-              {showValues ? formatCurrency(val) : '***'}
+              {showValues ? moedaCurta(val) : '***'}
             </text>
           );
         })}
@@ -249,12 +208,14 @@ const Financial = () => {
 
     if (!data.length) return null;
 
-    const maxServices = Math.max(...data.map(d => d.services));
-    const barWidth = 30;
-    const gap = 15;
-    const height = 200;
-    const padding = 40;
-    const width = data.length * (barWidth + gap) + padding * 2;
+    const maxServices = Math.max(1, ...data.map(d => d.services));
+    // Largura fixa: as barras se ajustam à quantidade de períodos (7, 4, 12...)
+    const height = 220;
+    const padding = 30;
+    const width = 300;
+    const passo = (width - padding * 2) / data.length;
+    const barWidth = Math.min(40, passo * 0.6);
+    const gap = passo - barWidth;
 
     return (
       <svg width="100%" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Gráfico de barras do número de serviços">
@@ -298,7 +259,7 @@ const Financial = () => {
         {/* Bars */}
         {data.map((d, i) => {
           const barHeight = (d.services / maxServices) * (height - 2 * padding);
-          const x = padding + i * (barWidth + gap);
+          const x = padding + i * (barWidth + gap) + gap / 2;
           const y = height - padding - barHeight;
           return (
             <g key={i}>
@@ -316,7 +277,7 @@ const Financial = () => {
                   filter: 'drop-shadow(0 2px 4px rgba(16, 185, 129, 0.3))'
                 }}
               />
-              <text
+              {(data.length <= 7 || i % 2 === 0) && <text
                 x={x + barWidth / 2}
                 y={height - padding + 20}
                 fontSize="12"
@@ -326,14 +287,14 @@ const Financial = () => {
                 style={{ transition: `opacity 0.8s ease-in-out ${i * 0.05}s` }}
               >
                 {d.name}
-              </text>
+              </text>}
             </g>
           );
         })}
         {/* Y axis labels */}
         {[0, 0.25, 0.5, 0.75, 1].map((t) => {
           const y = height - padding - t * (height - 2 * padding);
-          const val = Math.round(maxServices * t);
+          const val = Math.round(maxServices * t * 10) / 10;
           return (
             <text
               key={t}
@@ -422,22 +383,6 @@ const Financial = () => {
             />
           );
         })}
-        {/* Labels */}
-        <g transform={`translate(${center * 2 + 10}, 20)`}>
-          {data.map((slice, i) => (
-            <g 
-              key={i} 
-              transform={`translate(0, ${i * 25})`}
-              opacity={isVisible ? 1 : 0}
-              style={{ transition: `opacity 0.8s ease-in-out ${i * 0.1}s` }}
-            >
-              <rect width="18" height="18" fill={slice.color} rx="4" ry="4" />
-              <text x="24" y="14" fontSize="14" fill="#333">
-                {slice.name} {showValues ? `(${slice.value}%)` : '(***)'}
-              </text>
-            </g>
-          ))}
-        </g>
       </svg>
     );
   };
@@ -448,7 +393,7 @@ const Financial = () => {
         <div className="header">
           <div>
             <h1>Painel Financeiro</h1>
-            <p>Controle completo das finanças da barbearia</p>
+            <p>Atendimentos concluídos e vendas de produtos · {estatisticas.periodo.descricao}</p>
           </div>
           <div className="header-actions">
             <div className="period-selector" role="group" aria-label="Selecionar período">
@@ -480,16 +425,25 @@ const Financial = () => {
           </div>
         </div>
 
+        {erro && (
+          <div className="financial-aviso" role="alert">
+            {erro} <button type="button" onClick={recarregar}>Tentar de novo</button>
+          </div>
+        )}
+        {!carregando && !erro && !temFaturamento && (
+          <div className="financial-aviso financial-aviso--info" role="status">
+            Ainda não há faturamento neste período. Os valores entram aqui quando você marca um atendimento como
+            concluído na Agenda ou registra a venda de um produto.
+          </div>
+        )}
+
         <div className="stats-grid">
-          <div className="stat-card" tabIndex={0} aria-label={`Faturamento total: ${showValues ? formatCurrency(metrics.totalRevenue) : '***'}`}>
+          <div className="stat-card" tabIndex={0}>
             <div className="stat-card-content">
               <div>
                 <p>Faturamento Total</p>
-                <p className="stat-number total">{formatCurrency(metrics.totalRevenue)}</p>
-                <div className="stat-change positive" aria-label={`Crescimento de ${metrics.growth} por cento`}>
-                  <FiTrendingUp size={16} />
-                  <span>+{metrics.growth}% vs período anterior</span>
-                </div>
+                <p className="stat-number total">{carregando ? '...' : formatCurrency(metrics.totalRevenue)}</p>
+                <Variacao valor={metrics.variacao.revenue} />
               </div>
               <div className="stat-icon blue">
                 <FiDollarSign size={24} />
@@ -497,15 +451,12 @@ const Financial = () => {
             </div>
           </div>
 
-          <div className="stat-card" tabIndex={0} aria-label={`Total de serviços: ${showValues ? formatNumber(metrics.totalServices) : '***'}`}>
+          <div className="stat-card" tabIndex={0}>
             <div className="stat-card-content">
               <div>
-                <p>Total de Serviços</p>
-                <p className="stat-number new">{formatNumber(metrics.totalServices)}</p>
-                <div className="stat-change positive" aria-label="Crescimento de 8.2 por cento">
-                  <FiTrendingUp size={16} />
-                  <span>+8.2% vs período anterior</span>
-                </div>
+                <p>Serviços Realizados</p>
+                <p className="stat-number new">{carregando ? '...' : formatNumber(metrics.totalServices)}</p>
+                <Variacao valor={metrics.variacao.services} />
               </div>
               <div className="stat-icon green">
                 <FiScissors size={24} />
@@ -513,15 +464,12 @@ const Financial = () => {
             </div>
           </div>
 
-          <div className="stat-card" tabIndex={0} aria-label={`Ticket médio: ${showValues ? formatCurrency(metrics.avgTicket) : '***'}`}>
+          <div className="stat-card" tabIndex={0}>
             <div className="stat-card-content">
               <div>
                 <p>Ticket Médio</p>
-                <p className="stat-number average">{formatCurrency(metrics.avgTicket)}</p>
-                <div className="stat-change positive" aria-label="Crescimento de 3.8 por cento">
-                  <FiTrendingUp size={16} />
-                  <span>+3.8% vs período anterior</span>
-                </div>
+                <p className="stat-number average">{carregando ? '...' : formatCurrency(metrics.avgTicket)}</p>
+                <Variacao valor={metrics.variacao.ticket} />
               </div>
               <div className="stat-icon purple">
                 <FiUsers size={24} />
@@ -529,24 +477,14 @@ const Financial = () => {
             </div>
           </div>
 
-          <div className="stat-card" tabIndex={0} aria-label={`Período analisado: ${
-            selectedPeriod === 'diario' ? 'Esta Semana' :
-            selectedPeriod === 'semanal' ? 'Este Mês' :
-            selectedPeriod === 'mensal' ? 'Este Ano' :
-            'Últimos 4 Anos'
-          }`}>
+          <div className="stat-card" tabIndex={0}>
             <div className="stat-card-content">
               <div>
-                <p>Período Analisado</p>
-                <p className="stat-number period">
-                  {selectedPeriod === 'diario' && 'Esta Semana'}
-                  {selectedPeriod === 'semanal' && 'Este Mês'}
-                  {selectedPeriod === 'mensal' && 'Este Ano'}
-                  {selectedPeriod === 'anual' && 'Últimos 4 Anos'}
-                </p>
-                <div className="stat-change neutral" aria-label="Atualizado agora">
-                  <FiCalendar size={16} />
-                  <span>Atualizado agora</span>
+                <p>A Receber</p>
+                <p className="stat-number period">{carregando ? '...' : formatCurrency(metrics.aReceber)}</p>
+                <div className="stat-change neutral">
+                  <FiClock size={16} />
+                  <span>Agendamentos ainda não concluídos</span>
                 </div>
               </div>
               <div className="stat-icon red">
@@ -554,6 +492,13 @@ const Financial = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="financial-split">
+          <div><span>Serviços</span><strong>{formatCurrency(metrics.receitaServicos)}</strong></div>
+          <div><span><FiShoppingBag size={14} /> Produtos</span><strong>{formatCurrency(metrics.receitaProdutos)}</strong></div>
+          <div><span>Lucro com produtos</span><strong>{formatCurrency(metrics.lucroProdutos)}</strong></div>
+          <div><span>Clientes atendidos</span><strong>{formatNumber(metrics.totalClients)}</strong></div>
         </div>
 
         <div className="charts-container">
@@ -573,7 +518,20 @@ const Financial = () => {
               <p>Participação de cada serviço no faturamento</p>
             </div>
             <div className="chart-wrapper">
-              <PieChartSimple data={serviceDistribution} />
+              {serviceDistribution.length ? (
+                <>
+                  <PieChartSimple data={serviceDistribution} />
+                  <ul className="financial-legenda">
+                    {serviceDistribution.map((fatia) => (
+                      <li key={fatia.name}>
+                        <span className="financial-legenda-cor" style={{ backgroundColor: fatia.color }} />
+                        <span className="financial-legenda-nome">{fatia.name}</span>
+                        <strong>{showValues ? `${fatia.value}%` : '***'}</strong>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : <p className="financial-vazio">Sem faturamento no período.</p>}
             </div>
           </div>
 
@@ -591,33 +549,20 @@ const Financial = () => {
         <div className="insights-section" aria-label="Insights e recomendações">
           <h2>Insights e Recomendações</h2>
           <div className="insights-grid">
-            <div className="insight-card" tabIndex={0}>
-              <div className="insight-icon positive" aria-hidden="true">
-                <FiTrendingUp size={20} />
-              </div>
-              <div className="insight-content">
-                <h3>Crescimento Consistente</h3>
-                <p>O faturamento apresenta crescimento de 12.5% em relação ao período anterior, indicando boa performance do negócio.</p>
-              </div>
-            </div>
-            <div className="insight-card" tabIndex={0}>
-              <div className="insight-icon neutral" aria-hidden="true">
-                <FiScissors size={20} />
-              </div>
-              <div className="insight-content">
-                <h3>Serviços Populares</h3>
-                <p>Corte + Barba representa 30% dos serviços. Considere criar pacotes promocionais para aumentar a margem.</p>
-              </div>
-            </div>
-            <div className="insight-card" tabIndex={0}>
-              <div className="insight-icon positive" aria-hidden="true">
-                <FiDollarSign size={20} />
-              </div>
-              <div className="insight-content">
-                <h3>Ticket Médio em Alta</h3>
-                <p>O ticket médio aumentou 3.8%, sugerindo que os clientes estão optando por serviços de maior valor.</p>
-              </div>
-            </div>
+            {estatisticas.analises.map((analise) => {
+              const Icone = ICONES_ANALISE[analise.tipo];
+              return (
+                <div key={analise.titulo} className="insight-card" tabIndex={0}>
+                  <div className={`insight-icon ${CLASSE_ANALISE[analise.tipo]}`} aria-hidden="true">
+                    <Icone size={20} />
+                  </div>
+                  <div className="insight-content">
+                    <h3>{analise.titulo}</h3>
+                    <p>{analise.texto}</p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

@@ -13,6 +13,8 @@ import {
   FiFilter
 } from 'react-icons/fi';
 import useConfiguracaoBarbearia from '../../../hooks/useConfiguracaoBarbearia';
+import useMovimentoBarbearia from '../../../hooks/useMovimentoBarbearia';
+import { calcularEstatisticas, textoVariacao } from '../../../utils/estatisticas';
 import './Report.css';
 
 const PERIODOS = { diario: 'Diário', semanal: 'Semanal', mensal: 'Mensal', anual: 'Anual' };
@@ -23,15 +25,8 @@ const paraNomeDeArquivo = (texto) =>
   String(texto || 'barbearia').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/['’`]/g, '')
     .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-// Análises exibidas na tela e no PDF
-const ANALISES = [
-  { icone: FiTrendingUp, tipo: 'positivo', titulo: 'Crescimento de Clientes', texto: 'A base de clientes cresceu 15,2% no período analisado, indicando boa atração e retenção de novos clientes.' },
-  { icone: FiClock, tipo: 'neutro', titulo: 'Otimização do Tempo', texto: 'O tempo médio de atendimento diminuiu 1,5 minuto, melhorando a eficiência sem comprometer a qualidade.' },
-  { icone: FiUsers, tipo: 'atencao', titulo: 'Horários de Pico', texto: 'Os horários de maior movimento são entre 15h e 17h. Considere ajustar a equipe nestes períodos.' },
-  { icone: FiScissors, tipo: 'positivo', titulo: 'Alta Satisfação', texto: '93% dos clientes estão satisfeitos ou muito satisfeitos com os serviços, um excelente indicador de qualidade.' },
-  { icone: FiTrendingUp, tipo: 'positivo', titulo: 'Retenção Excelente', texto: 'A taxa de retenção de 87,3% mostra que os clientes estão fiéis ao estabelecimento e retornam regularmente.' },
-  { icone: FiFilter, tipo: 'neutro', titulo: 'Oportunidades', texto: 'Considere expandir o horário de funcionamento nos fins de semana para atender mais clientes nos horários de pico.' }
-];
+// Análises: geradas a partir dos números reais (utils/estatisticas.js)
+const ICONE_ANALISE = { positivo: FiTrendingUp, neutro: FiFilter, atencao: FiClock };
 const CLASSE_ICONE = { positivo: 'positive', neutro: 'neutral', atencao: 'warning' };
 
 const Reports = () => {
@@ -42,96 +37,15 @@ const Reports = () => {
   const { config } = useConfiguracaoBarbearia();
   const nomeBarbearia = config?.nome || 'Barbearia';
 
-  // Dados simulados para relatórios
-  const dailyReports = [
-    { name: 'Seg', clients: 8, services: 12, revenue: 450, avgTime: 35 },
-    { name: 'Ter', revenue: 680, clients: 12, services: 18, avgTime: 38 },
-    { name: 'Qua', revenue: 520, clients: 10, services: 14, avgTime: 37 },
-    { name: 'Qui', revenue: 750, clients: 15, services: 20, avgTime: 40 },
-    { name: 'Sex', revenue: 920, clients: 18, services: 25, avgTime: 42 },
-    { name: 'Sáb', revenue: 1200, clients: 24, services: 32, avgTime: 38 },
-    { name: 'Dom', revenue: 380, clients: 8, services: 10, avgTime: 35 }
-  ];
-
-  const weeklyReports = [
-    { name: 'Sem 1', clients: 95, services: 131, revenue: 4900, avgTime: 38 },
-    { name: 'Sem 2', clients: 108, services: 148, revenue: 5400, avgTime: 37 },
-    { name: 'Sem 3', clients: 89, services: 124, revenue: 4200, avgTime: 34 },
-    { name: 'Sem 4', clients: 118, services: 162, revenue: 5800, avgTime: 36 }
-  ];
-
-  const monthlyReports = [
-    { name: 'Jan', clients: 385, services: 485, revenue: 18500, avgTime: 38 },
-    { name: 'Fev', clients: 321, services: 421, revenue: 16200, avgTime: 39 },
-    { name: 'Mar', clients: 412, services: 512, revenue: 19800, avgTime: 39 },
-    { name: 'Abr', clients: 448, services: 548, revenue: 21200, avgTime: 39 },
-    { name: 'Mai', clients: 392, services: 492, revenue: 18900, avgTime: 38 },
-    { name: 'Jun', clients: 489, services: 589, revenue: 22800, avgTime: 39 },
-    { name: 'Jul', clients: 428, services: 528, revenue: 20400, avgTime: 39 },
-    { name: 'Ago', clients: 498, services: 598, revenue: 23100, avgTime: 39 },
-    { name: 'Set', clients: 412, services: 512, revenue: 19700, avgTime: 38 },
-    { name: 'Out', clients: 535, services: 635, revenue: 24500, avgTime: 39 },
-    { name: 'Nov', clients: 494, services: 594, revenue: 22900, avgTime: 39 },
-    { name: 'Dez', clients: 595, services: 695, revenue: 26800, avgTime: 39 }
-  ];
-
-  const yearlyReports = [
-    { name: '2021', clients: 4850, services: 5850, revenue: 185000, avgTime: 38 },
-    { name: '2022', clients: 5120, services: 6120, revenue: 198000, avgTime: 39 },
-    { name: '2023', clients: 5580, services: 6680, revenue: 215000, avgTime: 38 },
-    { name: '2024', clients: 6420, services: 7520, revenue: 248000, avgTime: 39 }
-  ];
-
-  const clientSatisfaction = [
-    { name: 'Muito Satisfeito', value: 65, color: '#10b981' },
-    { name: 'Satisfeito', value: 28, color: '#60a5fa' },
-    { name: 'Neutro', value: 5, color: '#fbbf24' },
-    { name: 'Insatisfeito', value: 2, color: '#ef4444' }
-  ];
-
-  const peakHours = [
-    { name: '08h', clients: 2, color: '#e0e7ff' },
-    { name: '09h', clients: 4, color: '#c7d2fe' },
-    { name: '10h', clients: 8, color: '#a5b4fc' },
-    { name: '11h', clients: 12, color: '#818cf8' },
-    { name: '12h', clients: 6, color: '#6366f1' },
-    { name: '13h', clients: 3, color: '#5b21b6' },
-    { name: '14h', clients: 10, color: '#7c3aed' },
-    { name: '15h', clients: 15, color: '#8b5cf6' },
-    { name: '16h', clients: 18, color: '#a855f7' },
-    { name: '17h', clients: 14, color: '#c084fc' },
-    { name: '18h', clients: 11, color: '#d8b4fe' },
-    { name: '19h', clients: 7, color: '#e9d5ff' }
-  ];
-
-  const getCurrentData = () => {
-    switch (selectedPeriod) {
-      case 'diario': return dailyReports;
-      case 'semanal': return weeklyReports;
-      case 'mensal': return monthlyReports;
-      case 'anual': return yearlyReports;
-      default: return monthlyReports;
-    }
-  };
-
-  const getCurrentMetrics = () => {
-    const data = getCurrentData();
-    const totalRevenue = data.reduce((sum, item) => sum + item.revenue, 0);
-    const totalClients = data.reduce((sum, item) => sum + item.clients, 0);
-    const totalServices = data.reduce((sum, item) => sum + item.services, 0);
-    const avgTime = data.reduce((sum, item) => sum + item.avgTime, 0) / data.length;
-
-    return {
-      totalRevenue,
-      totalClients,
-      totalServices,
-      avgTime: Math.round(avgTime),
-      clientRetention: 87.3,
-      satisfaction: 93.2
-    };
-  };
-
-  const metrics = getCurrentMetrics();
+  // Números reais: atendimentos concluídos e vendas de produtos da barbearia
+  const { agendamentos, vendas, carregando } = useMovimentoBarbearia();
+  const estatisticas = calcularEstatisticas(agendamentos, vendas, selectedPeriod);
+  const peakHours = estatisticas.horarios;
+  const situacao = estatisticas.situacao;
+  const ANALISES = estatisticas.analises.map((a) => ({ ...a, icone: ICONE_ANALISE[a.tipo] }));
+  const getCurrentData = () => estatisticas.serie;
+  const variacaoTexto = textoVariacao;
+  const metrics = estatisticas.metricas;
 
   // ---------- Baixar PDF ----------
   // Gera um PDF com layout próprio (cabeçalho com logo, indicadores, gráficos, tabela e análises).
@@ -148,7 +62,7 @@ const Reports = () => {
         metricas: metrics,
         dados: getCurrentData(),
         horarios: peakHours,
-        satisfacao: clientSatisfaction,
+        satisfacao: situacao,
         analises: ANALISES.map(({ tipo, titulo, texto }) => ({ tipo, titulo, texto })),
         nomeArquivo: `relatorio-${paraNomeDeArquivo(nomeBarbearia)}-${selectedPeriod}-${new Date().toLocaleDateString('en-CA')}.pdf`
       });
@@ -198,7 +112,7 @@ const Reports = () => {
 
     if (!data.length) return null;
 
-    const maxValue = Math.max(...data.map(d => d[dataKey]));
+    const maxValue = Math.max(1, ...data.map(d => d[dataKey]));
     const width = 600;
     const height = 200;
     const padding = 40;
@@ -299,7 +213,7 @@ const Reports = () => {
         {/* Y axis labels */}
         {[0, 0.25, 0.5, 0.75, 1].map((t) => {
           const y = height - padding - t * (height - 2 * padding);
-          const val = Math.round(maxValue * t);
+          const val = Math.round(maxValue * t * 10) / 10;
           return (
             <text
               key={t}
@@ -327,12 +241,14 @@ const Reports = () => {
       return () => clearTimeout(timer);
     }, [data]);
 
-    const maxValue = Math.max(...data.map(d => d.clients));
-    const barWidth = 25;
-    const gap = 8;
+    const maxValue = Math.max(1, ...data.map(d => d.clients));
+    // Largura fixa: as barras se ajustam à quantidade de horários
     const height = 200;
-    const padding = 40;
-    const width = data.length * (barWidth + gap) + padding * 2;
+    const padding = 30;
+    const width = 420;
+    const passo = (width - padding * 2) / Math.max(1, data.length);
+    const barWidth = Math.min(28, passo * 0.65);
+    const gap = passo - barWidth;
 
     return (
       <svg width="100%" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Gráfico de barras dos horários de pico">
@@ -360,7 +276,7 @@ const Reports = () => {
         {/* Bars */}
         {data.map((d, i) => {
           const barHeight = (d.clients / maxValue) * (height - 2 * padding);
-          const x = padding + i * (barWidth + gap);
+          const x = padding + i * (barWidth + gap) + gap / 2;
           const y = height - padding - barHeight;
           
           return (
@@ -400,7 +316,7 @@ const Reports = () => {
         <div className="header">
           <div>
             <h1>Relatórios Detalhados</h1>
-            <p>Análises completas e insights do negócio</p>
+            <p>{carregando ? 'Carregando dados...' : `Dados reais da barbearia · ${estatisticas.periodo.descricao}`}</p>
           </div>
           <div className="header-actions">
             {/* Filtro de relatório */}
@@ -491,9 +407,9 @@ const Reports = () => {
               <div>
                 <p>Total de Clientes</p>
                 <p className="stat-number total">{formatNumber(metrics.totalClients)}</p>
-                <div className="stat-change positive" aria-label="Crescimento de 15.2 por cento">
-                  <FiTrendingUp size={16} />
-                  <span>+15.2% vs período anterior</span>
+                <div className={`stat-change ${metrics.variacao.clients === null ? 'neutral' : metrics.variacao.clients >= 0 ? 'positive' : 'negative'}`}>
+                  {metrics.variacao.clients !== null && metrics.variacao.clients < 0 ? <FiTrendingDown size={16} /> : <FiTrendingUp size={16} />}
+                  <span>{variacaoTexto(metrics.variacao.clients)}</span>
                 </div>
               </div>
               <div className="stat-icon blue">
@@ -507,9 +423,9 @@ const Reports = () => {
               <div>
                 <p>Retenção de Clientes</p>
                 <p className="stat-number average">{showValues ? `${metrics.clientRetention}%` : '***'}</p>
-                <div className="stat-change positive" aria-label="Crescimento de 2.1 por cento">
-                  <FiTrendingUp size={16} />
-                  <span>+2.1% vs período anterior</span>
+                <div className="stat-change neutral">
+                  <FiUsers size={16} />
+                  <span>Clientes que voltaram 2+ vezes</span>
                 </div>
               </div>
               <div className="stat-icon purple">
@@ -523,9 +439,9 @@ const Reports = () => {
               <div>
                 <p>Tempo Médio de Atendimento</p>
                 <p className="stat-number period">{showValues ? `${metrics.avgTime}min` : '***'}</p>
-                <div className="stat-change negative" aria-label="Redução de 1.5 minutos">
-                  <FiTrendingDown size={16} />
-                  <span>-1.5min vs período anterior</span>
+                <div className={`stat-change ${metrics.variacao.avgTime === null ? 'neutral' : 'positive'}`}>
+                  <FiClock size={16} />
+                  <span>{variacaoTexto(metrics.variacao.avgTime, ' min')}</span>
                 </div>
               </div>
               <div className="stat-icon red">
@@ -534,14 +450,14 @@ const Reports = () => {
             </div>
           </div>
 
-          <div className="stat-card" tabIndex={0} aria-label={`Satisfação dos clientes: ${showValues ? metrics.satisfaction + '%' : '***'}`}>
+          <div className="stat-card" tabIndex={0} aria-label={`Faturamento: ${formatCurrency(metrics.totalRevenue)}`}>
             <div className="stat-card-content">
               <div>
-                <p>Satisfação dos Clientes</p>
-                <p className="stat-number new">{showValues ? `${metrics.satisfaction}%` : '***'}</p>
-                <div className="stat-change positive" aria-label="Crescimento de 4.3 por cento">
-                  <FiTrendingUp size={16} />
-                  <span>+4.3% vs período anterior</span>
+                <p>Faturamento</p>
+                <p className="stat-number new">{formatCurrency(metrics.totalRevenue)}</p>
+                <div className={`stat-change ${metrics.variacao.revenue === null ? 'neutral' : metrics.variacao.revenue >= 0 ? 'positive' : 'negative'}`}>
+                  {metrics.variacao.revenue !== null && metrics.variacao.revenue < 0 ? <FiTrendingDown size={16} /> : <FiTrendingUp size={16} />}
+                  <span>{variacaoTexto(metrics.variacao.revenue)}</span>
                 </div>
               </div>
               <div className="stat-icon green">
@@ -556,7 +472,7 @@ const Reports = () => {
           <div className="chart-section main-chart" aria-label="Evolução de clientes">
             <div className="chart-header">
               <h2>Evolução de Clientes</h2>
-              <p>Acompanhe o crescimento da base de clientes</p>
+              <p>Clientes diferentes atendidos em cada período</p>
             </div>
             <div className="chart-wrapper">
               <LineChart data={getCurrentData()} dataKey="clients" color="#2563eb" />
@@ -575,11 +491,11 @@ const Reports = () => {
 
           <div className="chart-section" aria-label="Satisfação dos clientes">
             <div className="chart-header">
-              <h2>Satisfação</h2>
-              <p>Avaliação dos clientes</p>
+              <h2>Situação dos Agendamentos</h2>
+              <p>Concluídos, a atender e cancelados no período</p>
             </div>
             <div className="satisfaction-bars">
-              {clientSatisfaction.map((item, index) => {
+              {situacao.map((item, index) => {
                 const percentage = showValues ? item.value : 0;
                 return (
                   <div key={index} className="satisfaction-item">
@@ -596,7 +512,7 @@ const Reports = () => {
                       />
                     </div>
                     <div className="satisfaction-value">
-                      {showValues ? `${item.value}%` : '***'}
+                      {showValues ? `${item.value}% (${item.quantidade})` : '***'}
                     </div>
                   </div>
                 );

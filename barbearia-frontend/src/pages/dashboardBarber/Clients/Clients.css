@@ -538,3 +538,20 @@ body:not(.light-mode) .action-button.delete:hover {
     align-items: stretch;
   }
 }
+/* Foto do cliente (quando ele cadastrou uma no app) */
+.client-avatar,
+.profile-avatar {
+  overflow: hidden;
+}
+
+.client-foto {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.top-client-card,
+.client-item {
+  cursor: pointer;
+}

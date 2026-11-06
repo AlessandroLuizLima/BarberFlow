@@ -609,3 +609,109 @@ button:focus,
   outline: 2px solid var(--dark-blue);
   outline-offset: 2px;
 }
+/* ---- Dados reais: avisos, divisão serviços x produtos ---- */
+.financial-aviso {
+  margin-bottom: 1.25rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.1);
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+
+.financial-aviso button {
+  margin-left: 0.5rem;
+  background: none;
+  border: 0;
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.financial-aviso--info {
+  border-color: rgba(59, 130, 246, 0.45);
+  background: rgba(59, 130, 246, 0.08);
+  color: #1d4ed8;
+}
+
+body:not(.light-mode) .financial-aviso { color: #fecaca; }
+body:not(.light-mode) .financial-aviso--info { color: #bfdbfe; }
+
+.financial-split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.financial-split div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.5rem;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+body:not(.light-mode) .financial-split div {
+  background: #1f2937;
+}
+
+.financial-split span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+body:not(.light-mode) .financial-split span { color: #9ca3af; }
+
+.financial-split strong {
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.financial-vazio {
+  margin: 3rem 0;
+  text-align: center;
+  color: #9ca3af;
+}
+
+.insight-icon.warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #d97706;
+}
+
+.financial-legenda {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.financial-legenda li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.financial-legenda-cor {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.financial-legenda-nome {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
