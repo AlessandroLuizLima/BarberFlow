@@ -36,7 +36,7 @@ const STATUS_ATIVOS = ['agendado', 'confirmado', 'remarcado'];
 const DURACAO_MAXIMA_MS = 12 * 60 * 60 * 1000; // nenhum serviço dura mais que isso
 
 const includePadrao = [
-  { model: Barbearia, as: 'barbearia', attributes: ['id', 'nome', 'endereco', 'telefone', 'logo_id'] },
+  { model: Barbearia, as: 'barbearia', attributes: ['id', 'nome', 'endereco', 'endereco_detalhado', 'latitude', 'longitude', 'telefone', 'logo_id'] },
   { model: Cliente, as: 'cliente', attributes: ['id', 'nome_completo', 'email', 'telefone', 'foto_id'] },
   { model: Profissional, as: 'profissional', attributes: ['id', 'nome_completo', 'especialidade', 'foto_id', 'ativo'] },
   { model: Servico, as: 'servico' }

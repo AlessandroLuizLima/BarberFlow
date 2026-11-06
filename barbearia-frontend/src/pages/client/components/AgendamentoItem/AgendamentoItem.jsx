@@ -1,7 +1,22 @@
 import React from 'react';
-import { FiScissors, FiClock, FiUser, FiMapPin } from 'react-icons/fi';
+import { FiScissors, FiClock, FiUser, FiMapPin, FiNavigation } from 'react-icons/fi';
 import { STATUS_LABEL, STATUS_ATIVOS, formatarMoeda, valorDoAgendamento } from '../../../../utils/agendamentosCliente';
 import './AgendamentoItem.css';
+
+// Link do Google Maps para a barbearia do agendamento: endereço escrito (o Maps acha melhor),
+// senão as coordenadas, senão o nome da barbearia
+function linkDaBarbearia(b) {
+  if (!b) return null;
+  const d = b.endereco_detalhado || {};
+  const rua = [d.rua, d.numero].filter(Boolean).join(', ');
+  const partes = [rua, d.bairro, d.cidade, d.estado, d.cep].filter(Boolean);
+  let destino = partes.length && (d.cidade || rua) ? [...partes, 'Brasil'].join(', ') : (b.endereco || '').trim();
+  const lat = Number(b.latitude);
+  const lng = Number(b.longitude);
+  if (!destino && b.latitude != null && Number.isFinite(lat) && Number.isFinite(lng)) destino = `${lat},${lng}`;
+  if (!destino) destino = `${b.nome || ''} barbearia`.trim();
+  return destino ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destino)}` : null;
+}
 
 // Mesmo visual dos "próximos agendamentos" do dashboard do barbeiro, usado em toda a área do cliente.
 const AgendamentoItem = ({ agendamento, onCancelar, cancelando = false, destaque = false }) => {
@@ -26,8 +41,21 @@ const AgendamentoItem = ({ agendamento, onCancelar, cancelando = false, destaque
           <FiUser size={13} /> com {agendamento.profissional?.nome_completo || 'profissional'}
         </p>
         {agendamento.barbearia?.nome && (
-          <p className="ag-meta">
-            <FiMapPin size={13} /> {agendamento.barbearia.nome}
+          <p className="ag-meta ag-local">
+            <FiMapPin size={13} />
+            <span className="ag-local-nome">{agendamento.barbearia.nome}</span>
+            {linkDaBarbearia(agendamento.barbearia) && (
+              <a
+                className="ag-mapa"
+                href={linkDaBarbearia(agendamento.barbearia)}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={agendamento.barbearia.endereco ? `Ver no mapa: ${agendamento.barbearia.endereco}` : 'Ver no mapa'}
+                aria-label={`Ver ${agendamento.barbearia.nome} no Google Maps`}
+              >
+                <FiNavigation size={12} /> Ver no mapa
+              </a>
+            )}
           </p>
         )}
         {agendamento.servico?.duracao_minutos && (
