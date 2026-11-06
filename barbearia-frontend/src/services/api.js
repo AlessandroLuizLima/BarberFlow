@@ -39,7 +39,12 @@ api.interceptors.response.use(
     const status = erro.response?.status;
     const ehLogin = /\/login$/.test(erro.config?.url || '');
     // 401 = sessão inválida; 403 na área do barbeiro = token que não é de barbeiro
-    if ((status === 401 || (status === 403 && naAreaDoBarbeiro())) && !ehLogin) {
+    // Pedido que saiu com um token antigo (ex.: logo antes de trocar a senha, que gera um token novo):
+    // a sessão atual continua valendo, então não desloga
+    const tokenDoPedido = String(erro.config?.headers?.Authorization || '').replace(/^Bearer /, '');
+    const tokenAtual = naAreaDoBarbeiro() ? obterTokenBarbeiro() : obterTokenCliente();
+    const tokenAntigo = tokenDoPedido && tokenAtual && tokenDoPedido !== tokenAtual;
+    if ((status === 401 || (status === 403 && naAreaDoBarbeiro())) && !ehLogin && !tokenAntigo) {
       if (naAreaDoBarbeiro()) {
         encerrarSessaoBarbeiro();
         window.location.assign('/auth/barbeiro');
