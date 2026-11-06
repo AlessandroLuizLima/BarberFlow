@@ -11,6 +11,8 @@ const NotificacaoBarbearia = require('./NotificacaoBarbearia');
 const Administrador = require('./Administrador');
 const Pedido = require('./Pedido');
 const Contato = require('./Contato');
+const Produto = require('./Produto');
+const VendaProduto = require('./VendaProduto');
 
 // Tudo que é de uma barbearia aponta para ela. Excluir a barbearia apaga os dados dela.
 const daBarbearia = { foreignKey: { name: 'barbearia_id', allowNull: false }, onDelete: 'CASCADE', onUpdate: 'CASCADE' };
@@ -25,6 +27,12 @@ Pedido.belongsTo(Barbearia, { foreignKey: { name: 'barbearia_id', allowNull: tru
 Barbearia.hasMany(Profissional, { foreignKey: 'barbearia_id', as: 'profissionais' });
 Barbearia.hasMany(Servico, { foreignKey: 'barbearia_id', as: 'servicos' });
 Barbearia.hasMany(Agendamento, { foreignKey: 'barbearia_id', as: 'agendamentos' });
+
+// Produtos e vendas da barbearia. Produto com vendas não pode ser apagado (desative).
+Produto.belongsTo(Barbearia, { ...daBarbearia, as: 'barbearia' });
+VendaProduto.belongsTo(Barbearia, { ...daBarbearia, as: 'barbearia' });
+VendaProduto.belongsTo(Produto, { foreignKey: { name: 'produto_id', allowNull: false }, as: 'produto', onDelete: 'RESTRICT', onUpdate: 'CASCADE' });
+Produto.hasMany(VendaProduto, { foreignKey: 'produto_id', as: 'vendas' });
 
 // Agendamento pertence a Cliente, Profissional e Servico
 // RESTRICT: não deixa apagar quem tem histórico (profissionais/serviços devem ser desativados)
@@ -68,5 +76,7 @@ module.exports = {
   NotificacaoBarbearia,
   Administrador,
   Pedido,
-  Contato
+  Contato,
+  Produto,
+  VendaProduto
 };
