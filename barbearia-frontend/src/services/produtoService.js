@@ -9,3 +9,7 @@ export const excluirProduto = (id) => api.delete(`/produtos/${id}`).then((r) => 
 // Venda no balcão: baixa o estoque e entra no Financeiro
 export const venderProduto = (id, quantidade) => api.post(`/produtos/${id}/vendas`, { quantidade }).then((r) => r.data);
 export const listarVendasProdutos = () => api.get('/vendas-produtos').then((r) => r.data);
+
+// Público: produtos ativos de uma barbearia (página da barbearia no app do cliente)
+export const listarProdutosDaBarbearia = (barbeariaId) =>
+  api.get(`/barbearias/${encodeURIComponent(barbeariaId)}/produtos`).then((r) => r.data);

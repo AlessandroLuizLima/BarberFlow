@@ -144,3 +144,48 @@
       transform: translateY(0);
     }
   }
+/* Produtos reais: descrição, categoria e disponibilidade */
+.barber-products-aviso {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.barber-product-desc {
+  margin: 0 0 0.25rem;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.barber-product-categoria {
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.25);
+  color: #cbd5e1;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.barber-product-estoque {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.barber-product-estoque.on {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+}
+
+.barber-product-estoque.off {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+}
+
+.barber-product-card.esgotado {
+  opacity: 0.6;
+}

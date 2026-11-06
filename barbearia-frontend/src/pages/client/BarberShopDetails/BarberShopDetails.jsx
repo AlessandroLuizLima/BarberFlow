@@ -16,6 +16,7 @@ import BarberAssessment from './BarberAssessment/BarberAssessment';
 import { linkGoogleMaps } from '../../../data/barbearias';
 import useBarbearias from '../../../hooks/useBarbearias';
 import { listarServicos } from '../../../services/servicoService';
+import { listarProdutosDaBarbearia } from '../../../services/produtoService';
 import './BarberShopDetails.css';
 
 const BarberShopDetails = ({ barbershop: barbershopProp, onBack: onBackProp }) => {
@@ -46,6 +47,25 @@ const BarberShopDetails = ({ barbershop: barbershopProp, onBack: onBackProp }) =
       }))))
       .catch((error) => console.error('Erro ao carregar serviços:', error))
       .finally(() => setCarregandoServicos(false));
+  }, [barbeariaId]);
+
+  // Produtos de balcão cadastrados pelo barbeiro (Painel → Produtos)
+  const [produtosReais, setProdutosReais] = useState([]);
+  const [carregandoProdutos, setCarregandoProdutos] = useState(ehReal);
+  useEffect(() => {
+    if (!barbeariaId) return;
+    setCarregandoProdutos(true);
+    listarProdutosDaBarbearia(barbeariaId)
+      .then((lista) => setProdutosReais(lista.map((p) => ({
+        id: p.id,
+        name: p.nome,
+        price: Number(p.preco),
+        description: p.descricao,
+        category: p.categoria,
+        available: p.disponivel
+      }))))
+      .catch((error) => console.error('Erro ao carregar produtos:', error))
+      .finally(() => setCarregandoProdutos(false));
   }, [barbeariaId]);
 
   // Barbearia inexistente na URL (ou com assinatura vencida): volta para a Home
@@ -96,11 +116,6 @@ const BarberShopDetails = ({ barbershop: barbershopProp, onBack: onBackProp }) =
     setIsFavorite(!isFavorite);
   };
 
-  const handleAddToCart = (productId) => {
-    console.log('Adicionar ao carrinho:', productId);
-    // Implementar lógica de carrinho
-  };
-
   const renderStars = (rating) => {
     return Array.from({ length: 5 }, (_, index) => (
       <IoStar
@@ -127,9 +142,8 @@ const BarberShopDetails = ({ barbershop: barbershopProp, onBack: onBackProp }) =
       case 'produtos':
         return (
           <BarberProducts
-            products={barbershopData.products}
-            onAddToCart={handleAddToCart}
-            usarExemplos={!ehReal}
+            products={ehReal ? produtosReais : barbershopData.products}
+            carregando={ehReal && carregandoProdutos}
           />
         );
       case 'detalhes':
