@@ -532,3 +532,15 @@ body:not(.light-mode) .insight-icon.warning {
     break-before: auto;
   }
 }
+
+/* Abas Clientes / Serviços / Tempo */
+.rel-barras {
+  padding-top: 0.5rem;
+}
+
+.rel-vazio {
+  margin: 2rem 0;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.9rem;
+}

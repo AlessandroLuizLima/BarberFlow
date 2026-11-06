@@ -14,7 +14,7 @@ import {
 } from 'react-icons/fi';
 import useConfiguracaoBarbearia from '../../../hooks/useConfiguracaoBarbearia';
 import useMovimentoBarbearia from '../../../hooks/useMovimentoBarbearia';
-import { calcularEstatisticas, textoVariacao } from '../../../utils/estatisticas';
+import { calcularEstatisticas, textoVariacao, topoDoEixo } from '../../../utils/estatisticas';
 import './Report.css';
 
 const PERIODOS = { diario: 'Diário', semanal: 'Semanal', mensal: 'Mensal', anual: 'Anual' };
@@ -112,7 +112,7 @@ const Reports = () => {
 
     if (!data.length) return null;
 
-    const maxValue = Math.max(1, ...data.map(d => d[dataKey]));
+    const maxValue = topoDoEixo(Math.max(...data.map(d => d[dataKey])));
     const width = 600;
     const height = 200;
     const padding = 40;
@@ -213,7 +213,7 @@ const Reports = () => {
         {/* Y axis labels */}
         {[0, 0.25, 0.5, 0.75, 1].map((t) => {
           const y = height - padding - t * (height - 2 * padding);
-          const val = Math.round(maxValue * t * 10) / 10;
+          const val = Math.round(maxValue * t);
           return (
             <text
               key={t}
@@ -241,7 +241,7 @@ const Reports = () => {
       return () => clearTimeout(timer);
     }, [data]);
 
-    const maxValue = Math.max(1, ...data.map(d => d.clients));
+    const maxValue = topoDoEixo(Math.max(...data.map(d => d.clients)));
     // Largura fixa: as barras se ajustam à quantidade de horários
     const height = 200;
     const padding = 30;
@@ -309,6 +309,43 @@ const Reports = () => {
     );
   };
 
+  const detalhes = estatisticas.detalhes;
+
+  // Cartão de indicador e tabela usados nas abas Clientes, Serviços e Tempo
+  const Cartao = ({ titulo, valor, detalhe, cor, Icone }) => (
+    <div className="stat-card" tabIndex={0} aria-label={`${titulo}: ${valor}`}>
+      <div className="stat-card-content">
+        <div>
+          <p>{titulo}</p>
+          <p className="stat-number total">{valor}</p>
+          <div className="stat-change neutral"><span>{detalhe}</span></div>
+        </div>
+        <div className={`stat-icon ${cor}`}>{React.createElement(Icone, { size: 24 })}</div>
+      </div>
+    </div>
+  );
+
+  const Tabela = ({ titulo, subtitulo, colunas, linhas, vazio, embutida = false }) => (
+    <div className={embutida ? 'chart-section' : 'summary-section'}>
+      <div className="chart-header">
+        <h2>{titulo}</h2>
+        <p>{subtitulo}</p>
+      </div>
+      {linhas.length ? (
+        <div className="table-wrapper">
+          <table className="summary-table">
+            <thead><tr>{colunas.map((c) => <th key={c}>{c}</th>)}</tr></thead>
+            <tbody>
+              {linhas.map((linha, i) => (
+                <tr key={i}>{linha.map((v, k) => <td key={k} className={k === 0 ? 'period-cell' : 'number-cell'}>{v}</td>)}</tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : <p className="rel-vazio">{vazio}</p>}
+    </div>
+  );
+
   return (
     <div className="reports-page">
       <div className="container">
@@ -316,7 +353,7 @@ const Reports = () => {
         <div className="header">
           <div>
             <h1>Relatórios Detalhados</h1>
-            <p>{carregando ? 'Carregando dados...' : `Dados reais da barbearia · ${estatisticas.periodo.descricao}`}</p>
+            <p>{carregando ? 'Carregando dados...' : `${{ geral: 'Visão geral', clientes: 'Clientes', servicos: 'Serviços', tempo: 'Tempo e horários' }[selectedReport]} · ${estatisticas.periodo.descricao}`}</p>
           </div>
           <div className="header-actions">
             {/* Filtro de relatório */}
@@ -400,6 +437,8 @@ const Reports = () => {
           </span>
         </div>
 
+        {selectedReport === 'geral' && (
+          <>
         {/* Métricas principais */}
         <div className="stats-grid">
           <div className="stat-card" tabIndex={0} aria-label={`Total de clientes: ${formatNumber(metrics.totalClients)}`}>
@@ -597,6 +636,157 @@ const Reports = () => {
             </table>
           </div>
         </div>
+          </>
+        )}
+
+        {selectedReport === 'clientes' && (
+          <>
+            <div className="stats-grid">
+              <Cartao titulo="Clientes Atendidos" valor={formatNumber(metrics.totalClients)} detalhe={variacaoTexto(metrics.variacao.clients)} cor="blue" Icone={FiUsers} />
+              <Cartao titulo="Clientes Novos" valor={formatNumber(detalhes.novosClientes)} detalhe="Primeiro atendimento neste período" cor="green" Icone={FiTrendingUp} />
+              <Cartao titulo="Voltaram 2+ Vezes" valor={showValues ? `${detalhes.recorrentes} (${metrics.clientRetention}%)` : '***'} detalhe="Clientes recorrentes no período" cor="purple" Icone={FiUsers} />
+              <Cartao titulo="Gasto Médio por Cliente" valor={formatCurrency(detalhes.gastoPorCliente)} detalhe="Só atendimentos concluídos" cor="red" Icone={FiScissors} />
+            </div>
+            <div className="secondary-charts">
+              <div className="chart-section">
+                <div className="chart-header">
+                  <h2>Evolução de Clientes</h2>
+                  <p>Clientes diferentes atendidos em cada período</p>
+                </div>
+                <div className="chart-wrapper">
+                  <LineChart data={getCurrentData()} dataKey="clients" color="#3b82f6" />
+                </div>
+              </div>
+              <div className="chart-section">
+                <div className="chart-header">
+                  <h2>Novos x Recorrentes</h2>
+                  <p>Quem veio pela primeira vez e quem voltou</p>
+                </div>
+                <div className="satisfaction-list rel-barras">
+                  {[
+                    { name: 'Novos', valor: detalhes.novosClientes, color: '#10b981' },
+                    { name: 'Voltaram 2+ vezes', valor: detalhes.recorrentes, color: '#8b5cf6' },
+                    { name: 'Vieram 1 vez', valor: Math.max(0, metrics.totalClients - detalhes.recorrentes), color: '#60a5fa' }
+                  ].map((item) => {
+                    const pct = metrics.totalClients ? Math.round((item.valor / metrics.totalClients) * 100) : 0;
+                    return (
+                      <div key={item.name} className="satisfaction-item">
+                        <div className="satisfaction-info"><span className="satisfaction-label">{item.name}</span></div>
+                        <div className="satisfaction-bar-container">
+                          <div className="satisfaction-bar" style={{ width: `${pct}%`, backgroundColor: item.color }} />
+                        </div>
+                        <span className="satisfaction-value">{showValues ? `${item.valor}` : '***'}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            <Tabela
+              titulo="Clientes que Mais Gastaram"
+              subtitulo="Atendimentos concluídos no período"
+              vazio="Nenhum atendimento concluído no período."
+              colunas={['Cliente', 'Visitas', 'Total gasto', 'Última visita']}
+              linhas={detalhes.topClientes.map((c) => [c.nome, formatNumber(c.visitas), formatCurrency(c.gasto), c.ultima ? c.ultima.toLocaleDateString('pt-BR') : '—'])}
+            />
+          </>
+        )}
+
+        {selectedReport === 'servicos' && (
+          <>
+            <div className="stats-grid">
+              <Cartao titulo="Serviços Realizados" valor={formatNumber(metrics.totalServices)} detalhe={variacaoTexto(metrics.variacao.services)} cor="blue" Icone={FiScissors} />
+              <Cartao titulo="Faturamento em Serviços" valor={formatCurrency(metrics.receitaServicos)} detalhe={`${formatCurrency(metrics.receitaProdutos)} em produtos`} cor="green" Icone={FiTrendingUp} />
+              <Cartao titulo="Ticket Médio" valor={formatCurrency(metrics.avgTicket)} detalhe={variacaoTexto(metrics.variacao.ticket)} cor="purple" Icone={FiUsers} />
+              <Cartao titulo="Cancelamentos" valor={showValues ? `${metrics.taxaCancelamento}%` : '***'} detalhe={`${detalhes.agendamentosNoPeriodo} agendamento(s) no período`} cor="red" Icone={FiClock} />
+            </div>
+            <div className="secondary-charts">
+              <div className="chart-section">
+                <div className="chart-header">
+                  <h2>Evolução de Serviços</h2>
+                  <p>Atendimentos concluídos em cada período</p>
+                </div>
+                <div className="chart-wrapper">
+                  <LineChart data={getCurrentData()} dataKey="services" color="#10b981" />
+                </div>
+              </div>
+              <div className="chart-section">
+                <div className="chart-header">
+                  <h2>Situação dos Agendamentos</h2>
+                  <p>Concluídos, a atender e cancelados</p>
+                </div>
+                <div className="satisfaction-list rel-barras">
+                  {situacao.map((item) => (
+                    <div key={item.name} className="satisfaction-item">
+                      <div className="satisfaction-info"><span className="satisfaction-label">{item.name}</span></div>
+                      <div className="satisfaction-bar-container">
+                        <div className="satisfaction-bar" style={{ width: `${item.value}%`, backgroundColor: item.color }} />
+                      </div>
+                      <span className="satisfaction-value">{showValues ? `${item.value}% (${item.quantidade})` : '***'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <Tabela
+              titulo="Ranking de Serviços"
+              subtitulo="Ordenado pelo faturamento do período"
+              vazio="Nenhum serviço concluído no período."
+              colunas={['Serviço', 'Atendimentos', 'Faturamento', 'Participação', 'Preço médio']}
+              linhas={detalhes.rankingServicos.map((s) => [s.nome, formatNumber(s.quantidade), formatCurrency(s.faturamento), showValues ? `${s.participacao}%` : '***', formatCurrency(s.precoMedio)])}
+            />
+          </>
+        )}
+
+        {selectedReport === 'tempo' && (
+          <>
+            <div className="stats-grid">
+              <Cartao titulo="Tempo Médio" valor={showValues ? `${metrics.avgTime} min` : '***'} detalhe={variacaoTexto(metrics.variacao.avgTime, ' min')} cor="blue" Icone={FiClock} />
+              <Cartao titulo="Horas Atendidas" valor={showValues ? `${detalhes.horasAtendidas.toFixed(1).replace('.', ',')} h` : '***'} detalhe="Soma da duração dos atendimentos" cor="green" Icone={FiScissors} />
+              <Cartao titulo="Horário de Pico" valor={detalhes.horaPico || '—'} detalhe="Horário com mais agendamentos" cor="purple" Icone={FiTrendingUp} />
+              <Cartao titulo="Dia Mais Movimentado" valor={detalhes.diaPico || '—'} detalhe="Dia da semana com mais agendamentos" cor="red" Icone={FiUsers} />
+            </div>
+            <div className="secondary-charts">
+              <div className="chart-section">
+                <div className="chart-header">
+                  <h2>Horários de Pico</h2>
+                  <p>Agendamentos por horário do dia</p>
+                </div>
+                <div className="chart-wrapper">
+                  <BarChart data={peakHours} />
+                </div>
+              </div>
+              <div className="chart-section">
+                <div className="chart-header">
+                  <h2>Movimento por Dia da Semana</h2>
+                  <p>Agendamentos por dia (sem cancelados)</p>
+                </div>
+                <div className="chart-wrapper">
+                  <BarChart data={detalhes.diasSemana} />
+                </div>
+              </div>
+            </div>
+            <div className="secondary-charts">
+              <div className="chart-section">
+                <div className="chart-header">
+                  <h2>Tempo Médio de Atendimento</h2>
+                  <p>Duração média dos atendimentos (minutos)</p>
+                </div>
+                <div className="chart-wrapper">
+                  <LineChart data={getCurrentData()} dataKey="avgTime" color="#8b5cf6" />
+                </div>
+              </div>
+              <Tabela
+                embutida
+                titulo="Duração por Serviço"
+                subtitulo="Tempo de cadeira de cada serviço no período"
+                vazio="Nenhum serviço concluído no período."
+                colunas={['Serviço', 'Atendimentos', 'Duração', 'Horas no total']}
+                linhas={detalhes.rankingServicos.map((s) => [s.nome, formatNumber(s.quantidade), `${s.duracaoMedia} min`, `${s.horas.toFixed(1).replace('.', ',')} h`])}
+              />
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
