@@ -1,29 +1,9 @@
-// Catálogo de barbearias do lado do cliente.
-// - Reais (real: true): barbearias com assinatura ativa, vindas do banco (GET /barbearias). Nome, logo,
-//   endereço e horários são os das Configurações de cada painel, e o agendamento é gravado pela API.
-// - De demonstração (id "demo-N"): FICTÍCIAS, só para testar a navegação (não gravam nada no banco).
+// Catálogo de barbearias do lado do cliente: só as reais, com assinatura ativa (GET /barbearias).
+// Nome, logo, endereço e horários são os das Configurações de cada painel.
 
 const DIAS_SEMANA = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo'];
 
 const pagamentos = ['Dinheiro', 'Cartão de Crédito', 'Cartão de Débito', 'PIX'];
-
-const servicosBase = [
-  { nome: 'Cabelo', preco: 30, duracao: 30 },
-  { nome: 'Barba', preco: 20, duracao: 20 },
-  { nome: 'Cabelo + Barba', preco: 45, duracao: 50 },
-  { nome: 'Sobrancelha', preco: 10, duracao: 10 },
-  { nome: 'Limpeza de pele', preco: 30, duracao: 30 },
-  { nome: 'Pigmentação', preco: 25, duracao: 30 },
-];
-
-// Gera a lista de serviços de uma barbearia aplicando um fator de preço (arredondado de 5 em 5)
-const servicos = (fator = 1) =>
-  servicosBase.map((s, i) => ({
-    id: i + 1,
-    name: s.nome,
-    price: Math.round((s.preco * fator) / 5) * 5,
-    duration: s.duracao,
-  }));
 
 const horarioPadrao = [
   { day: 'Segunda-feira', hours: '09:00 - 19:00' },
@@ -53,39 +33,8 @@ export const logoPadrao = (nome, cor = '#3b82f6') => {
 };
 
 // [latitude, longitude] aproximados do endereço de cada barbearia de demonstração
-const criar = (id, name, cor, rating, [latitude, longitude], phone, street, neighborhood, city, state, fator, totalReviews) => ({
-  id,
-  real: false,
-  name,
-  logo: logoPadrao(name, cor),
-  rating,
-  latitude,
-  longitude,
-  distance: '', // calculada na Home a partir da localização do cliente
-  phone,
-  email: `contato@${name.toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, '')}.com`,
-  address: `${street}, ${neighborhood} - ${city}/${state}`,
-  services: servicos(fator),
-  products: [],
-  reviews: [],
-  averageRating: rating,
-  totalReviews,
-  details: {
-    address: { street, neighborhood, city, state },
-    openingHours: horarioPadrao,
-    paymentMethods: pagamentos,
-  },
-});
 
-const demonstracao = [
-  criar('demo-2', 'Estilo Clássico', '#2563eb', 4.9, [-25.4296, -49.2713], '(41) 99811-2200', 'Rua XV de Novembro, 1200', 'Centro', 'Curitiba', 'PR', 1.2, 214),
-  criar('demo-3', 'Navalha de Ouro', '#d97706', 4.8, [-23.5614, -46.6559], '(11) 99722-3344', 'Avenida Paulista, 1578', 'Bela Vista', 'São Paulo', 'SP', 1.6, 187),
-  criar('demo-4', 'Corte & Cia', '#059669', 4.6, [-25.4322, -49.2733], '(41) 99655-1020', 'Rua das Flores, 345', 'Batel', 'Curitiba', 'PR', 1.0, 96),
-  criar('demo-5', 'The Barber House', '#7c3aed', 4.7, [-23.5776, -46.6872], '(11) 99588-7766', 'Avenida Brigadeiro Faria Lima, 2200', 'Pinheiros', 'São Paulo', 'SP', 1.8, 142),
-  criar('demo-6', 'Barba Negra', '#dc2626', 4.5, [-23.5531, -46.6527], '(11) 99433-0912', 'Rua Augusta, 900', 'Consolação', 'São Paulo', 'SP', 1.1, 73),
-  criar('demo-7', 'Dom Navalha', '#0891b2', 4.4, [-25.4421, -49.2869], '(41) 99377-4521', 'Avenida Sete de Setembro, 4100', 'Batel', 'Curitiba', 'PR', 1.3, 58),
-  criar('demo-8', 'Vila Barber Club', '#db2777', 4.8, [-23.5627, -46.6698], '(11) 99266-8800', 'Rua Oscar Freire, 650', 'Jardins', 'São Paulo', 'SP', 2.0, 163),
-];
+
 
 // Horário de funcionamento no formato da página de detalhes (dias fechados aparecem como "Fechado")
 const horariosDaConfig = (config) =>
@@ -132,8 +81,8 @@ export function montarBarbeariaReal(config) {
   };
 }
 
-// Lista completa: as barbearias reais (do banco) primeiro, depois as de demonstração
-export const listarBarbearias = (reais = []) => [...reais.filter((c) => c?.id).map(montarBarbeariaReal), ...demonstracao];
+// Lista exibida ao cliente: só barbearias reais (assinatura ativa, vindas do banco)
+export const listarBarbearias = (reais = []) => reais.filter((c) => c?.id).map(montarBarbeariaReal);
 
 export const obterBarbearia = (id, reais) =>
   listarBarbearias(reais).find((b) => String(b.id) === String(id));

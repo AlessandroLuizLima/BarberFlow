@@ -207,9 +207,11 @@ const BarberShopDetails = ({ barbershop: barbershopProp, onBack: onBackProp }) =
 
         <div className="barbershop-title-section">
           <h1 className="barbershop-name">{barbershopData.name}</h1>
-          <div className="barbershop-rating">
-            {renderStars(barbershopData.rating)}
-          </div>
+          {barbershopData.totalReviews > 0 && (
+            <div className="barbershop-rating">
+              {renderStars(barbershopData.rating)}
+            </div>
+          )}
           <p className="barbershop-address">{barbershopData.address}</p>
         </div>
       </div>

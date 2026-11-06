@@ -50,7 +50,7 @@ function EscolherBarbearia({ barbearias, busca, setBusca, navigate }) {
       </div>
 
       {lista.length === 0 ? (
-        <p className="cb-muted">Nenhuma barbearia encontrada.</p>
+        <p className="cb-muted">Nenhuma barbearia disponível ainda. Assim que uma barbearia assinar o BarberFlow, ela aparece aqui.</p>
       ) : (
         <div className="cb-grid">
           {lista.map((b) => (
@@ -70,7 +70,7 @@ function EscolherBarbearia({ barbearias, busca, setBusca, navigate }) {
                 </h3>
                 <p className="cb-card-desc">{b.address}</p>
                 <div className="cb-card-meta">
-                  <span><FiStar size={14} /> {Number(b.rating).toFixed(1)}</span>
+                  {b.totalReviews > 0 && <span><FiStar size={14} /> {Number(b.rating).toFixed(1)}</span>}
                   {b.distance && <span><FiMapPin size={14} /> {b.distance}</span>}
                 </div>
               </div>

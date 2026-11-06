@@ -117,7 +117,7 @@ function BarbershopCard({ shop, onClick }) {
 
 function BarbershopList(props) {
   if (props.barbershops.length === 0) {
-    return <p className="section-empty">Nenhuma barbearia encontrada.</p>;
+    return <p className="section-empty">Nenhuma barbearia disponível ainda. Assim que uma barbearia assinar o BarberFlow, ela aparece aqui.</p>;
   }
   return (
     <div className="barbershop-list">
