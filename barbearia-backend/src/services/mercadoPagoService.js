@@ -77,7 +77,9 @@ async function criarPreferencia({ pedido, plano, urlFrontend, urlBackend }) {
   if (urlPublica(urlBackend)) corpo.notification_url = `${urlBackend.replace(/\/$/, '')}/webhooks/mercadopago`;
 
   const preferencia = await chamar('/checkout/preferences', { method: 'POST', corpo, idempotencia: pedido.id });
-  const url = modoTeste() ? (preferencia.sandbox_init_point || preferencia.init_point) : preferencia.init_point;
+  // Só credencial "TEST-" usa o link sandbox. Vendedor de teste (APP_USR- de usuário de teste) usa o link normal.
+  const credencialTest = String(process.env.MP_ACCESS_TOKEN || '').startsWith('TEST-');
+  const url = credencialTest ? (preferencia.sandbox_init_point || preferencia.init_point) : preferencia.init_point;
   return { id: preferencia.id, url };
 }
 

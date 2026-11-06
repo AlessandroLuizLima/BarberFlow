@@ -25,7 +25,7 @@ exports.iniciarCheckout = async (req, res) => {
     const resultado = await assinaturaService.iniciarCheckout(req.body || {}, barbeiro);
     res.status(201).json(resultado);
   } catch (error) {
-    if (error.statusMp) {
+    if (error.statusMp !== undefined) { // 0 = sem conexão com o Mercado Pago
       console.error('[mercadopago]', error.message);
       return res.status(502).json({ error: 'Não foi possível abrir o pagamento agora. Tente novamente em instantes.' });
     }
