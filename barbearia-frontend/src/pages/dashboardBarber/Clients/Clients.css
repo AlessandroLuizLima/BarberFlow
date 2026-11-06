@@ -555,3 +555,273 @@ body:not(.light-mode) .action-button.delete:hover {
 .client-item {
   cursor: pointer;
 }
+
+/* ---- Modal "Histórico do Cliente" ---- */
+.ch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.ch-modal {
+  width: 100%;
+  max-width: 640px;
+  max-height: calc(100vh - 2rem);
+  display: flex;
+  flex-direction: column;
+  border-radius: 0.75rem;
+  background: #fff;
+  color: #111827;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+body:not(.light-mode) .ch-modal {
+  background: #1f2937;
+  color: #f9fafb;
+}
+
+.ch-topo,
+.ch-rodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.ch-rodape {
+  justify-content: flex-end;
+  border-bottom: 0;
+  border-top: 1px solid #e5e7eb;
+}
+
+body:not(.light-mode) .ch-topo,
+body:not(.light-mode) .ch-rodape {
+  border-color: #374151;
+}
+
+.ch-topo h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.ch-fechar {
+  display: inline-flex;
+  padding: 0.35rem;
+  border: 0;
+  border-radius: 0.4rem;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ch-fechar:hover {
+  background: rgba(148, 163, 184, 0.15);
+}
+
+.ch-corpo {
+  padding: 1.25rem;
+  overflow-y: auto;
+}
+
+.ch-perfil {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.ch-avatar {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #3b82f6;
+  color: #fff;
+}
+
+.ch-perfil-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.ch-nome-linha {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.ch-nome-linha h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.ch-contatos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+body:not(.light-mode) .ch-contatos { color: #9ca3af; }
+
+.ch-contatos span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  overflow-wrap: anywhere;
+}
+
+.ch-numeros {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.ch-numeros div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: #f3f4f6;
+  min-width: 0;
+}
+
+body:not(.light-mode) .ch-numeros div { background: #111827; }
+
+.ch-numeros strong {
+  font-size: 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ch-numeros span {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+body:not(.light-mode) .ch-numeros span { color: #9ca3af; }
+
+.ch-proximo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 1rem 0 0;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  background: rgba(59, 130, 246, 0.08);
+  font-size: 0.875rem;
+}
+
+.ch-subtitulo {
+  margin: 1.5rem 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+.ch-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.ch-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+body:not(.light-mode) .ch-item { border-color: #374151; }
+
+.ch-item-principal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.ch-item-servico {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+}
+
+.ch-item-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+body:not(.light-mode) .ch-item-meta { color: #9ca3af; }
+
+.ch-item-lado {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.ch-situacao {
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: rgba(96, 165, 250, 0.18);
+  color: #2563eb;
+}
+
+body:not(.light-mode) .ch-situacao { color: #93c5fd; }
+.ch-situacao--concluido { background: rgba(16, 185, 129, 0.18); color: #059669 !important; }
+.ch-situacao--cancelado { background: rgba(239, 68, 68, 0.15); color: #dc2626 !important; }
+body:not(.light-mode) .ch-situacao--concluido { color: #6ee7b7 !important; }
+body:not(.light-mode) .ch-situacao--cancelado { color: #fca5a5 !important; }
+
+.ch-vazio {
+  margin: 1rem 0;
+  text-align: center;
+  color: #9ca3af;
+}
+
+@media (max-width: 560px) {
+  .ch-numeros {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ch-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ch-item-lado {
+    flex-direction: row;
+    align-items: center;
+  }
+}

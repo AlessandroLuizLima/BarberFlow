@@ -3,6 +3,8 @@
 //
 // Regras:
 // - Faturamento de serviços = agendamentos CONCLUÍDOS (o valor cobrado no dia do agendamento).
+//   Conta na data do horário marcado; se foi concluído ANTES desse horário (cliente adiantou),
+//   conta no dia em que foi concluído.
 // - "A receber" = agendados/confirmados/remarcados do período que ainda não foram concluídos.
 // - Clientes = clientes diferentes atendidos (concluídos) no período.
 // - Cancelados não contam em nada, só na taxa de cancelamento.
@@ -57,8 +59,29 @@ function montarFaixas(periodo, agora = new Date()) {
 
 const dentro = (data, ini, fim) => data >= ini && data < fim;
 
+// Data em que o agendamento entra nos números
+export function dataEfetiva(a, agora = new Date()) {
+  const marcada = new Date(a.data_hora);
+  if (a.status === 'concluido' && marcada > agora && a.atualizado_em) {
+    const concluido = new Date(a.atualizado_em);
+    if (concluido < marcada) return concluido;
+  }
+  return marcada;
+}
+
+// Topo do eixo dos gráficos. Contagens: múltiplo de 4 (as 5 linhas do eixo ficam inteiras).
+// Dinheiro: valor redondo (R$ 100, 150, 200, 250, 300, 400, 500, 600, 800, 1.000...).
+export function topoDoEixo(maximo, { moeda = false } = {}) {
+  const v = Math.max(0, Number(maximo) || 0);
+  if (!moeda) return Math.max(4, Math.ceil(v / 4) * 4);
+  const alvo = Math.max(100, v);
+  const base = 10 ** Math.floor(Math.log10(alvo));
+  const m = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find((x) => x * base >= alvo);
+  return m * base;
+}
+
 function resumir(agendamentos, vendas, ini, fim) {
-  const doPeriodo = agendamentos.filter((a) => dentro(new Date(a.data_hora), ini, fim));
+  const doPeriodo = agendamentos.filter((a) => dentro(dataEfetiva(a), ini, fim));
   const concluidos = doPeriodo.filter((a) => a.status === 'concluido');
   const vendasPeriodo = vendas.filter((v) => dentro(new Date(v.criado_em), ini, fim));
   const receitaServicos = concluidos.reduce((s, a) => s + valorAgendamento(a), 0);
@@ -177,7 +200,70 @@ export function calcularEstatisticas(agendamentos = [], vendas = [], periodo = '
     }
   };
 
-  return { serie, metricas, distribuicao, horarios, situacao, analises: gerarAnalises(metricas, distribuicao, horarios), periodo: PERIODOS[periodo] };
+  // ---- Detalhes de cada aba dos Relatórios ----
+  // Serviços: ranking por faturamento
+  const rankingMapa = {};
+  atual.concluidos.forEach((a) => {
+    const nome = a.servico?.nome || 'Serviço';
+    const item = (rankingMapa[nome] = rankingMapa[nome] || { nome, quantidade: 0, faturamento: 0, duracao: 0 });
+    item.quantidade += 1;
+    item.faturamento += valorAgendamento(a);
+    item.duracao += Number(a.servico?.duracao_minutos || 0);
+  });
+  const rankingServicos = Object.values(rankingMapa)
+    .map((s) => ({
+      ...s,
+      participacao: atual.receitaServicos ? Math.round((s.faturamento / atual.receitaServicos) * 100) : 0,
+      precoMedio: s.faturamento / s.quantidade,
+      duracaoMedia: Math.round(s.duracao / s.quantidade),
+      horas: s.duracao / 60
+    }))
+    .sort((a, b) => b.faturamento - a.faturamento);
+
+  // Clientes: quem mais gastou e quantos são novos (primeiro atendimento da história caiu no período)
+  const primeiroAtendimento = {};
+  agendamentos.filter((a) => a.status === 'concluido').forEach((a) => {
+    const d = dataEfetiva(a);
+    if (!primeiroAtendimento[a.cliente_id] || d < primeiroAtendimento[a.cliente_id]) primeiroAtendimento[a.cliente_id] = d;
+  });
+  const clientesMapa = {};
+  atual.concluidos.forEach((a) => {
+    const c = (clientesMapa[a.cliente_id] = clientesMapa[a.cliente_id] || {
+      id: a.cliente_id, nome: a.cliente?.nome_completo || 'Cliente', visitas: 0, gasto: 0, ultima: null
+    });
+    c.visitas += 1;
+    c.gasto += valorAgendamento(a);
+    const d = dataEfetiva(a);
+    if (!c.ultima || d > c.ultima) c.ultima = d;
+  });
+  const topClientes = Object.values(clientesMapa).sort((a, b) => b.gasto - a.gasto).slice(0, 10);
+  const novosClientes = Object.keys(clientesMapa).filter((id) => dentro(primeiroAtendimento[id], inicio, fim)).length;
+
+  // Tempo: movimento por dia da semana e horas atendidas
+  const porDia = [0, 0, 0, 0, 0, 0, 0];
+  atual.doPeriodo.filter((a) => a.status !== 'cancelado').forEach((a) => { porDia[new Date(a.data_hora).getDay()] += 1; });
+  const maxDia = Math.max(1, ...porDia);
+  const diasSemana = [1, 2, 3, 4, 5, 6, 0].map((d) => ({
+    name: DIAS[d], clients: porDia[d], color: `rgba(16, 185, 129, ${(0.25 + 0.75 * (porDia[d] / maxDia)).toFixed(2)})`
+  }));
+  const diaPico = diasSemana.reduce((a, b) => (b.clients > a.clients ? b : a), diasSemana[0]);
+  const pico = horarios.reduce((a, b) => (b.clients > a.clients ? b : a), horarios[0]);
+  const minutosAtendidos = atual.concluidos.reduce((s, a) => s + Number(a.servico?.duracao_minutos || 0), 0);
+
+  const detalhes = {
+    rankingServicos,
+    topClientes,
+    novosClientes,
+    recorrentes: retornaram,
+    gastoPorCliente: atual.clients ? atual.receitaServicos / atual.clients : 0,
+    diasSemana,
+    diaPico: diaPico.clients ? diaPico.name : null,
+    horaPico: pico?.clients ? pico.name.replace('h', ':00') : null,
+    horasAtendidas: minutosAtendidos / 60,
+    agendamentosNoPeriodo: atual.total
+  };
+
+  return { serie, metricas, distribuicao, horarios, situacao, detalhes, analises: gerarAnalises(metricas, distribuicao, horarios), periodo: PERIODOS[periodo] };
 }
 
 // Frases de análise geradas a partir dos números (nada inventado)

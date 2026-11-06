@@ -328,63 +328,65 @@ const Clients = () => {
       </div>
 
       {selecionado && (
-        <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="cliente-titulo" onClick={() => setSelecionado(null)}>
-          <div className="modal modal-report" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
+        <div className="ch-overlay" role="dialog" aria-modal="true" aria-labelledby="cliente-titulo" onClick={() => setSelecionado(null)}>
+          <div className="ch-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="ch-topo">
               <h2 id="cliente-titulo">Histórico do Cliente</h2>
-              <button onClick={() => setSelecionado(null)} className="modal-close" aria-label="Fechar"><FiX size={20} /></button>
+              <button onClick={() => setSelecionado(null)} className="ch-fechar" aria-label="Fechar"><FiX size={20} /></button>
             </div>
 
-            <div className="modal-content">
-              <div className="client-profile">
-                <div className="profile-header">
-                  <Avatar client={selecionado} size={32} classe="profile-avatar" />
-                  <div className="profile-info">
+            <div className="ch-corpo">
+              <div className="ch-perfil">
+                <Avatar client={selecionado} size={28} classe="ch-avatar" />
+                <div className="ch-perfil-info">
+                  <div className="ch-nome-linha">
                     <h3>{selecionado.name}</h3>
-                    <div className="profile-details">
-                      {selecionado.phone && <span><FiPhone size={14} /> {selecionado.phone}</span>}
-                      {selecionado.email && <span><FiMail size={14} /> {selecionado.email}</span>}
-                      {selecionado.cidade && <span><FiMapPin size={14} /> {selecionado.cidade}</span>}
-                    </div>
+                    <span className={`status-badge ${selecionado.status === 'ativo' ? 'status-active' : 'status-inactive'}`}>{selecionado.status}</span>
                   </div>
-                  <span className={`status-badge ${selecionado.status === 'ativo' ? 'status-active' : 'status-inactive'}`}>{selecionado.status}</span>
-                </div>
-                <div className="profile-stats">
-                  <div className="profile-stat"><span className="stat-number">{formatCurrency(selecionado.totalSpent)}</span><span className="stat-label">Total Gasto</span></div>
-                  <div className="profile-stat"><span className="stat-number">{selecionado.visits}</span><span className="stat-label">Visitas</span></div>
-                  <div className="profile-stat"><span className="stat-number">{selecionado.preferredService || '—'}</span><span className="stat-label">Serviço Preferido</span></div>
-                  <div className="profile-stat"><span className="stat-number">{formatDate(selecionado.lastVisit)}</span><span className="stat-label">Última Visita</span></div>
+                  <div className="ch-contatos">
+                    {selecionado.phone && <span><FiPhone size={14} /> {selecionado.phone}</span>}
+                    {selecionado.email && <span><FiMail size={14} /> {selecionado.email}</span>}
+                    {selecionado.cidade && <span><FiMapPin size={14} /> {selecionado.cidade}</span>}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="report-table">
-              <div className="table-header"><h3>Agendamentos nesta barbearia</h3></div>
-              <div className="services-table">
-                <div className="table-row table-header-row">
-                  <div>Serviço</div>
-                  <div>Data</div>
-                  <div>Barbeiro</div>
-                  <div>Situação</div>
-                  <div>Valor</div>
-                </div>
-                {selecionado.historico.length ? (
-                  selecionado.historico.map((a) => (
-                    <div key={a.id} className="table-row">
-                      <div className="service-name"><FiScissors size={16} />{a.servico?.nome || '—'}</div>
-                      <div className="service-date">{formatDateTime(a.data_hora)}</div>
-                      <div className="service-barber">{a.profissional?.nome_completo || '—'}</div>
-                      <div className="service-duration"><FiClock size={14} />{STATUS[a.status] || a.status}</div>
-                      <div className="service-value">{formatCurrency(valorDoAgendamento(a))}</div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="no-services"><FiScissors size={32} /><p>Nenhum agendamento ainda</p></div>
-                )}
+              <div className="ch-numeros">
+                <div><strong>{formatCurrency(selecionado.totalSpent)}</strong><span>Total gasto</span></div>
+                <div><strong>{selecionado.visits}</strong><span>Visitas concluídas</span></div>
+                <div><strong>{selecionado.preferredService || '—'}</strong><span>Serviço preferido</span></div>
+                <div><strong>{formatDate(selecionado.lastVisit)}</strong><span>Última visita</span></div>
               </div>
+
+              {selecionado.proximo && (
+                <p className="ch-proximo">
+                  <FiCalendar size={15} /> Próximo horário: <strong>{formatDateTime(selecionado.proximo.data_hora)}</strong>
+                  {selecionado.proximo.servico?.nome ? ` · ${selecionado.proximo.servico.nome}` : ''}
+                </p>
+              )}
+
+              <h4 className="ch-subtitulo">Agendamentos nesta barbearia ({selecionado.historico.length})</h4>
+              {selecionado.historico.length ? (
+                <ul className="ch-lista">
+                  {selecionado.historico.map((a) => (
+                    <li key={a.id} className="ch-item">
+                      <div className="ch-item-principal">
+                        <span className="ch-item-servico"><FiScissors size={15} /> {a.servico?.nome || '—'}</span>
+                        <span className="ch-item-meta"><FiClock size={13} /> {formatDateTime(a.data_hora)} · {a.profissional?.nome_completo || '—'}</span>
+                      </div>
+                      <div className="ch-item-lado">
+                        <span className={`ch-situacao ch-situacao--${a.status}`}>{STATUS[a.status] || a.status}</span>
+                        <strong>{formatCurrency(valorDoAgendamento(a))}</strong>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="ch-vazio">Nenhum agendamento ainda.</p>
+              )}
             </div>
 
-            <div className="modal-footer">
+            <div className="ch-rodape">
               <button onClick={() => setSelecionado(null)} className="button-secondary">Fechar</button>
             </div>
           </div>

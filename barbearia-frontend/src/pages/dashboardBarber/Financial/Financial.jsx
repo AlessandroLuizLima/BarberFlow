@@ -13,7 +13,7 @@ import {
   FiAlertTriangle
 } from 'react-icons/fi';
 import useMovimentoBarbearia from '../../../hooks/useMovimentoBarbearia';
-import { calcularEstatisticas, textoVariacao } from '../../../utils/estatisticas';
+import { calcularEstatisticas, textoVariacao, topoDoEixo } from '../../../utils/estatisticas';
 import './Financial.css';
 
 // Painel financeiro com os números reais da barbearia: atendimentos concluídos e vendas de produtos.
@@ -71,7 +71,7 @@ const Financial = () => {
 
     if (!data.length) return null;
 
-    const maxRevenue = Math.max(1, ...data.map(d => d.revenue));
+    const maxRevenue = topoDoEixo(Math.max(...data.map(d => d.revenue)), { moeda: true });
     const width = 600;
     const height = 200;
     const padding = 56;
@@ -208,7 +208,7 @@ const Financial = () => {
 
     if (!data.length) return null;
 
-    const maxServices = Math.max(1, ...data.map(d => d.services));
+    const maxServices = topoDoEixo(Math.max(...data.map(d => d.services)));
     // Largura fixa: as barras se ajustam à quantidade de períodos (7, 4, 12...)
     const height = 220;
     const padding = 30;
@@ -294,7 +294,7 @@ const Financial = () => {
         {/* Y axis labels */}
         {[0, 0.25, 0.5, 0.75, 1].map((t) => {
           const y = height - padding - t * (height - 2 * padding);
-          const val = Math.round(maxServices * t * 10) / 10;
+          const val = Math.round(maxServices * t);
           return (
             <text
               key={t}
