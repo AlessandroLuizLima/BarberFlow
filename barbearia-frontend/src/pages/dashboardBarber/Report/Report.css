@@ -544,3 +544,42 @@ body:not(.light-mode) .insight-icon.warning {
   color: #9ca3af;
   font-size: 0.9rem;
 }
+
+/* Barras de percentual (situação, novos x recorrentes): trilho + preenchimento */
+.satisfaction-info {
+  min-width: 100px;
+  flex-shrink: 0;
+}
+
+.satisfaction-bar-container {
+  flex: 1;
+  min-width: 60px;
+  height: 8px;
+  background: var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.satisfaction-bar-container .satisfaction-bar {
+  flex: none;
+  height: 100%;
+  border-radius: 4px;
+  background: currentColor;
+  transition: width 1s ease-in-out;
+}
+
+.satisfaction-value {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .satisfaction-info,
+  .satisfaction-label {
+    min-width: 84px;
+  }
+
+  .summary-table th,
+  .summary-table td {
+    white-space: nowrap;
+  }
+}

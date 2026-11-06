@@ -171,11 +171,6 @@ const BarberShopDetails = ({ barbershop: barbershopProp, onBack: onBackProp }) =
     <div className="barbershop-details-page">
       {/* Header com imagem de fundo */}
       <div className="barbershop-header">
-        <img 
-          src="https://www.shutterstock.com/image-photo/closeup-black-hair-dryer-hairdresser-600nw-2196301865.jpg" 
-          alt="Background" 
-          className="header-background"
-        />
         <div className="header-content">
           <div className="header-top">
             <button className="back-button" onClick={onBack}>

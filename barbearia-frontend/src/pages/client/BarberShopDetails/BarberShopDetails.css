@@ -34,6 +34,7 @@
   .barbershop-details-page {
     margin-left: 0;
     width: 100%;
+    padding-top: 56px; /* barra superior do celular */
   }
 }
 

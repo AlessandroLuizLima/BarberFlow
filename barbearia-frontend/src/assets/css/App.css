@@ -897,3 +897,49 @@ body:not(.light-mode) .badge-warning {
     font-size: 1.25rem;
   }
 }
+/* ===== Celular: gráficos legíveis (rolam para o lado dentro do cartão) ===== */
+@media (max-width: 640px) {
+  .chart-wrapper {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    padding-bottom: 0.25rem;
+  }
+
+  .chart-wrapper > svg[viewBox^="0 0 600"] {
+    min-width: 560px;
+  }
+
+  .chart-wrapper > svg[viewBox^="0 0 420"] {
+    min-width: 400px;
+  }
+}
+
+/* Campos com fonte de 16px no celular: evita o zoom automático do iPhone ao tocar no campo */
+@media (max-width: 640px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Cartões em grade nunca ficam mais largos que a tela (o gráfico rola dentro do próprio cartão) */
+.charts-container > *,
+.secondary-charts > *,
+.charts-grid > *,
+.stats-grid > * {
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .secondary-charts,
+  .charts-container {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .charts-container > .main-chart {
+    grid-column: auto !important;
+  }
+}
