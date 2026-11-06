@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { sequelize, Produto, VendaProduto } = require('../models');
+const { sequelize, Barbearia, Produto, VendaProduto } = require('../models');
 const { responderErroInterno, respostaDeValidacao } = require('../middlewares/seguranca');
 
 // Produtos e vendas do painel: tudo sempre da barbearia do barbeiro logado.
@@ -154,6 +154,30 @@ exports.listarVendas = async (req, res) => {
       limit: 5000
     });
     res.json(vendas);
+  } catch (error) {
+    responderErro(res, error);
+  }
+};
+
+// Público (página da barbearia no app do cliente): só produtos ativos, sem custo nem quantidade
+// exata do estoque. "disponivel" diz se ainda tem no balcão.
+exports.listarProdutosPublicos = async (req, res) => {
+  try {
+    const barbearia = await Barbearia.findByPk(req.params.barbeariaId);
+    if (!barbearia || !barbearia.estaAtiva()) return res.status(404).json({ error: 'Barbearia não encontrada' });
+    const produtos = await Produto.findAll({
+      where: { barbearia_id: barbearia.id, ativo: true },
+      attributes: ['id', 'nome', 'descricao', 'categoria', 'preco', 'quantidade'],
+      order: [['nome', 'ASC']]
+    });
+    res.json(produtos.map((p) => ({
+      id: p.id,
+      nome: p.nome,
+      descricao: p.descricao,
+      categoria: p.categoria,
+      preco: p.preco,
+      disponivel: p.quantidade > 0
+    })));
   } catch (error) {
     responderErro(res, error);
   }
