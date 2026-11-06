@@ -544,9 +544,28 @@ body:not(.light-mode) .action-button.delete:hover {
   overflow: hidden;
 }
 
+/* Tamanho fixo da bolinha: com foto, a imagem preenche o círculo sem crescer */
+.client-avatar {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.top-client-card .client-avatar {
+  width: 44px;
+  height: 44px;
+}
+
 .client-foto {
+  display: block;
   width: 100%;
   height: 100%;
+  max-width: 100%;
   object-fit: cover;
   border-radius: 50%;
 }
