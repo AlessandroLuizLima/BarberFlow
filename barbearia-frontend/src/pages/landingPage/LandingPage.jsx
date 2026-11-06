@@ -23,7 +23,7 @@ function Button(props) {
 function NavLink(props) {
   return (
     <li className="nav-item">
-      <a href={props.href} className="nav-link">
+      <a href={props.href} className="nav-link" onClick={props.onClick}>
         {props.text}
       </a>
     </li>
@@ -35,7 +35,8 @@ function MobileMenuButton(props) {
     <button 
       onClick={props.onClick}
       className="mobile-menu-btn"
-      aria-label="Open menu"
+      aria-label={props.aberto ? 'Fechar menu' : 'Abrir menu'}
+      aria-expanded={props.aberto}
     >
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -57,24 +58,24 @@ function Navbar(props) {
             className="btn-outline"
             onClick={props.onNavigateCliente}
           >
-            Área do Cliente
+            <span className="rotulo-longo">Área do </span>Cliente
           </Button>
           <Button 
             className="btn-outline" 
             onClick={props.onNavigateBarbeiro}
           >
-            Área do Barbeiro
+            <span className="rotulo-longo">Área do </span>Barbeiro
           </Button>
-          <MobileMenuButton onClick={props.onToggleMenu} />
+          <MobileMenuButton onClick={props.onToggleMenu} aberto={props.mobileMenuOpen} />
         </div>
         
         <div className={`nav-menu ${props.mobileMenuOpen ? 'open' : ''}`}>
           <ul className="nav-list">
-            <NavLink href="#home" text="Início" />
-            <NavLink href="#about" text="Sobre" />
-            <NavLink href="#services" text="Serviços" />
-            <NavLink href="#prices" text="Planos" />
-            <NavLink href="#contact" text="Contato" />
+            <NavLink href="#home" text="Início" onClick={props.onFecharMenu} />
+            <NavLink href="#about" text="Sobre" onClick={props.onFecharMenu} />
+            <NavLink href="#services" text="Serviços" onClick={props.onFecharMenu} />
+            <NavLink href="#prices" text="Planos" onClick={props.onFecharMenu} />
+            <NavLink href="#contact" text="Contato" onClick={props.onFecharMenu} />
           </ul>
         </div>
       </div>
@@ -521,6 +522,7 @@ const LandingPage = () => {
       <Navbar 
         logo={Logo}
         mobileMenuOpen={mobileMenuOpen}
+        onFecharMenu={() => setMobileMenuOpen(false)}
         onToggleMenu={toggleMobileMenu}
         onNavigateCliente={handleNavigateCliente}
         onNavigateBarbeiro={handleNavigateBarbeiro}

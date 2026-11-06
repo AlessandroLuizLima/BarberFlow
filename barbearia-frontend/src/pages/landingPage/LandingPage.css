@@ -822,3 +822,58 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- Celular: menu da Home só aparece quando aberto; botões cabem na linha do logo ---- */
+@media (max-width: 767px) {
+  .navbar-container {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .nav-buttons {
+    gap: 0.4rem;
+    margin-left: auto;
+  }
+
+  .nav-buttons .btn-outline {
+    padding: 0.45rem 0.7rem;
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+
+  .nav-menu {
+    display: none;
+    width: 100%;
+    order: 3;
+  }
+
+  .nav-menu.open {
+    display: block;
+  }
+
+  .nav-menu.open .nav-list {
+    margin-top: 0.25rem;
+  }
+
+  .nav-link {
+    padding: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .logo img {
+    width: 40px;
+  }
+
+  .rotulo-longo {
+    display: none;
+  }
+}
+
+@media (max-width: 340px) {
+  .nav-buttons .btn-outline {
+    padding: 0.4rem 0.5rem;
+    font-size: 0.8rem;
+  }
+}
