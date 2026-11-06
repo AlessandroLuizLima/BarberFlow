@@ -685,14 +685,12 @@ const AuthPage = () => {
           />
         </form>
 
-        {isClientRoute ? (
+        {isClientRoute && (
           <ToggleText
             question={isLogin ? 'Ainda não tem conta?' : 'Já possui uma conta?'}
             linkText={isLogin ? 'Criar conta' : 'Fazer login'}
             onClick={() => setIsLogin(!isLogin)}
           />
-        ) : (
-          <p className="toggle-text">O acesso ao painel é liberado pelo administrador da barbearia.</p>
         )}
 
         <SecurityBadge text="Conexão segura e senha armazenada com criptografia" />
