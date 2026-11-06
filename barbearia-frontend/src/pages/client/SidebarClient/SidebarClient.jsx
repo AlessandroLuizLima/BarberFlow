@@ -1,29 +1,33 @@
 import React, { useState, useEffect } from "react";
 import "./SidebarClient.css";
-import { Link, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
-  FiHome, FiCalendar, FiUser, FiLogOut, FiSun, FiMoon, FiMenu, FiX, FiSettings
+  FiHome, FiCalendar, FiUser, FiLogOut, FiSun, FiMoon, FiSettings
 } from "react-icons/fi"; // Ícones do React Icons
 import { obterClienteLogado, encerrarSessaoCliente, EVENTO_CLIENTE } from "../../../services/authStorage";
 import { urlImagem } from "../../../services/api";
 import { obterTema, aplicarTema, salvarTema } from "../../../utils/tema";
+import BarraMobile from "../../../components/BarraMobile/BarraMobile";
+import useMenuMobile from "../../../hooks/useMenuMobile";
+
+const TITULOS = [
+  ["/cliente/agendamentos", "Agendamentos"],
+  ["/cliente/perfil", "Configurações"],
+  ["/cliente/barbearia", "Barbearia"],
+  ["/cliente", "Início"]
+];
 
 const SidebarClient = () => {  // Renomeei para SidebarClient para consistência com o App.js
   const [clienteLogado, setClienteLogado] = useState(obterClienteLogado());
   const [isLightMode, setIsLightMode] = useState(obterTema() === 'claro');
-  const [isOpen, setIsOpen] = useState(false); // Para mobile
+  const menu = useMenuMobile();
+  const { pathname } = useLocation();
+  const titulo = TITULOS.find(([rota]) => pathname.startsWith(rota))?.[1] || "BarberFlow";
 
   const toggleTheme = () => {
     salvarTema(isLightMode ? 'escuro' : 'claro');
   };
 
-  const toggleSidebar = () => {
-    setIsOpen(!isOpen);
-  };
-
-  const closeSidebar = () => {
-    setIsOpen(false);
-  };
 
   // Aplica o tema salvo e acompanha mudanças feitas em outras telas (ex.: Configurações)
   useEffect(() => {
@@ -48,17 +52,16 @@ const SidebarClient = () => {  // Renomeei para SidebarClient para consistência
 
   return (
     <>
-      {/* Botão Hambúrguer para Mobile */}
-      <button 
-        className="hamburger-btn"
-        onClick={toggleSidebar}
-        aria-label="Toggle sidebar"
-      >
-        {isOpen ? <FiX size={24} /> : <FiMenu size={24} />}
-      </button>
+      <BarraMobile
+        titulo={titulo}
+        subtitulo={clienteLogado?.nome_completo ? `Olá, ${clienteLogado.nome_completo.split(' ')[0]}` : undefined}
+        aberto={menu.aberto}
+        onAlternar={menu.alternar}
+        imagem={clienteLogado?.foto_url ? urlImagem(clienteLogado.foto_url) : null}
+      />
 
       {/* Sidebar */}
-      <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
+      <aside id="menu-lateral" className={`sidebar ${menu.aberto ? 'open' : ''}`}>
         <div className="profile">
           <div className={`profile-icon ${clienteLogado?.foto_url ? 'profile-icon--foto' : ''}`}>
             {clienteLogado?.foto_url
@@ -73,9 +76,9 @@ const SidebarClient = () => {  // Renomeei para SidebarClient para consistência
 
         <nav className="menu">
           <ul>
-            <li><Link to="/cliente" onClick={closeSidebar}><FiHome className="icon" /> Home</Link></li>
-            <li><Link to="/cliente/agendamentos" onClick={closeSidebar}><FiCalendar className="icon" /> Agendamentos</Link></li>
-            <li><Link to="/cliente/perfil" onClick={closeSidebar}><FiSettings className="icon" /> Configurações</Link></li>
+            <li><NavLink to="/cliente" end className={({ isActive }) => (isActive ? 'ativo' : undefined)}><FiHome className="icon" /> Home</NavLink></li>
+            <li><NavLink to="/cliente/agendamentos" className={({ isActive }) => (isActive ? 'ativo' : undefined)}><FiCalendar className="icon" /> Agendamentos</NavLink></li>
+            <li><NavLink to="/cliente/perfil" className={({ isActive }) => (isActive ? 'ativo' : undefined)}><FiSettings className="icon" /> Configurações</NavLink></li>
           </ul>
         </nav>
 
@@ -90,8 +93,7 @@ const SidebarClient = () => {  // Renomeei para SidebarClient para consistência
         </div>
       </aside>
 
-      {/* Overlay para Mobile */}
-      {isOpen && <div className="sidebar-overlay" onClick={closeSidebar}></div>}
+      {menu.aberto && <div className="menu-fundo" onClick={menu.fechar} aria-hidden="true" />}
     </>
   );
 };

@@ -1,0 +1,165 @@
+/* Barra fixa no topo do celular/tablet. As páginas já reservam ~5rem no topo nessa largura. */
+.barra-mobile {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .barra-mobile {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 990;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    height: 56px;
+    padding: 0 0.75rem;
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+    padding-right: max(0.75rem, env(safe-area-inset-right));
+    background: rgba(17, 24, 39, 0.96);
+    border-bottom: 1px solid #1f2937;
+    color: #f9fafb;
+    backdrop-filter: blur(6px);
+  }
+
+  body.light-mode .barra-mobile {
+    background: rgba(244, 244, 244, 0.96);
+    border-bottom-color: #d1d5db;
+    color: #111827;
+  }
+
+  /* Abre espaço para o menu quando ele está aberto (fica por cima da barra) */
+  body.menu-aberto {
+    overflow: hidden;
+  }
+}
+
+.barra-mobile__menu {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.barra-mobile__menu:hover,
+.barra-mobile__menu:focus-visible {
+  background: rgba(148, 163, 184, 0.15);
+}
+
+.barra-mobile__menu:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 1px;
+}
+
+.barra-mobile__texto {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  line-height: 1.2;
+}
+
+.barra-mobile__texto strong {
+  font-size: 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barra-mobile__texto span {
+  font-size: 0.75rem;
+  opacity: 0.65;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barra-mobile__imagem {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+/* Fundo escuro atrás do menu aberto (celular/tablet) */
+.menu-fundo {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .menu-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 995;
+    display: block;
+    background: rgba(0, 0, 0, 0.5);
+    animation: menu-fundo-entrar 0.2s ease;
+  }
+}
+
+@keyframes menu-fundo-entrar {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-fundo { animation: none; }
+}
+
+/* Menu lateral (barbeiro e cliente) por cima da barra e do fundo escuro */
+@media (max-width: 1024px) {
+  .sidebar {
+    z-index: 1000;
+    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.35);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sidebar:not(.open) {
+    box-shadow: none;
+  }
+}
+
+/* Item da tela atual destacado no menu */
+.sidebar .menu li a.ativo {
+  color: #3b82f6;
+  font-weight: 600;
+  background: rgba(59, 130, 246, 0.12);
+  border-radius: 0.5rem;
+}
+
+body.light-mode .sidebar .menu li a.ativo {
+  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.12);
+}
+
+/* Janelas (cadastros, agendamento, histórico...) sempre por cima da barra e do menu */
+.modal-overlay,
+.ch-overlay,
+.reschedule-overlay,
+.schedule-modal-overlay {
+  z-index: 1200 !important;
+}
+
+/* Celular: janela ocupa a tela com folga e rola por dentro */
+@media (max-width: 640px) {
+  .modal-overlay {
+    padding: 0.75rem;
+    align-items: flex-end;
+  }
+
+  .modal-overlay .modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100dvh - 1.5rem);
+  }
+}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LuHouse, LuCalendarDays, LuUser, LuUsers, LuScissors, LuBox,
   LuWallet, LuChartBarDecreasing, LuLogOut, LuSun, LuMoon
@@ -9,6 +9,20 @@ import "./Sidebar.css";
 import Logo from "../../../assets/imagens/logo.png";
 import useConfiguracaoBarbearia from "../../../hooks/useConfiguracaoBarbearia";
 import { obterBarbeiroLogado, encerrarSessaoBarbeiro } from "../../../services/authStorage";
+import BarraMobile from "../../../components/BarraMobile/BarraMobile";
+import useMenuMobile from "../../../hooks/useMenuMobile";
+
+const ITENS = [
+  { para: "/dashboard", rotulo: "Dashboard", Icone: LuHouse, fim: true },
+  { para: "/dashboard/agenda", rotulo: "Agenda", Icone: LuCalendarDays },
+  { para: "/dashboard/clientes", rotulo: "Clientes", Icone: LuUser },
+  { para: "/dashboard/servicos", rotulo: "Serviços", Icone: LuScissors },
+  { para: "/dashboard/barbeiros", rotulo: "Barbeiros", Icone: LuUsers },
+  { para: "/dashboard/produtos", rotulo: "Produtos", Icone: LuBox },
+  { para: "/dashboard/financeiro", rotulo: "Financeiro", Icone: LuWallet },
+  { para: "/dashboard/relatorio", rotulo: "Relatórios", Icone: LuChartBarDecreasing },
+  { para: "/dashboard/configuracoes", rotulo: "Configurações", Icone: GoGear }
+];
 
 const Sidebar = () => {
   const [isLightMode, setIsLightMode] = useState(false);
@@ -31,9 +45,20 @@ const Sidebar = () => {
   }, [isLightMode]);
 
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const menu = useMenuMobile();
+  const telaAtual = ITENS.find((i) => (i.fim ? pathname === i.para : pathname.startsWith(i.para)))?.rotulo || "Painel";
 
   return (
-    <aside className="sidebar">
+    <>
+    <BarraMobile
+      titulo={telaAtual}
+      subtitulo={nomeBarbearia}
+      aberto={menu.aberto}
+      onAlternar={menu.alternar}
+      imagem={config?.logo || Logo}
+    />
+    <aside id="menu-lateral" className={`sidebar ${menu.aberto ? "open" : ""}`}>
       <div className="profile">
         <img
           className={`profile-icon ${config?.logo ? "profile-icon--custom" : ""}`}
@@ -48,15 +73,13 @@ const Sidebar = () => {
 
       <nav className="menu">
         <ul>
-          <li><Link to="/dashboard"><LuHouse className="icon" /> Dashboard</Link></li>
-          <li><Link to="/dashboard/agenda"><LuCalendarDays className="icon" /> Agenda</Link></li>
-          <li><Link to="/dashboard/clientes"><LuUser className="icon" /> Clientes</Link></li>
-          <li><Link to="/dashboard/servicos"><LuScissors className="icon" /> Serviços</Link></li>
-          <li><Link to="/dashboard/barbeiros"><LuUsers className="icon" /> Barbeiros</Link></li>
-          <li><Link to="/dashboard/produtos"><LuBox className="icon" /> Produtos</Link></li>
-          <li><Link to="/dashboard/financeiro"><LuWallet className="icon" /> Financeiro</Link></li>
-          <li><Link to="/dashboard/relatorio"><LuChartBarDecreasing className="icon" /> Relatórios</Link></li>
-          <li><Link to="/dashboard/configuracoes"><GoGear className="icon" /> Configurações</Link></li>
+          {ITENS.map(({ para, rotulo, Icone, fim }) => (
+            <li key={para}>
+              <NavLink to={para} end={fim} className={({ isActive }) => (isActive ? "ativo" : undefined)}>
+                {React.createElement(Icone, { className: "icon" })} {rotulo}
+              </NavLink>
+            </li>
+          ))}
         </ul>
       </nav>
 
@@ -70,6 +93,8 @@ const Sidebar = () => {
         </div>
       </div>
     </aside>
+    {menu.aberto && <div className="menu-fundo" onClick={menu.fechar} aria-hidden="true" />}
+    </>
   );
 };
 
