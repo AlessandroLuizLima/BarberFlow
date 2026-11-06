@@ -59,8 +59,8 @@ dele. Os clientes veem todas as barbearias com assinatura ativa.
   distância até cada barbearia e destaca a mais perto, com botão de rota no
   Google Maps. Sem permissão de localização, usa o endereço cadastrado do cliente.
 - **Várias barbearias**: todas as que têm assinatura ativa aparecem para o
-  cliente, cada uma com os próprios serviços, barbeiros e horários (as marcadas
-  como *Demonstração* são fictícias e não gravam nada).
+  cliente, cada uma com os próprios serviços, barbeiros e horários. Não há
+  barbearias fictícias: a lista começa vazia e cresce com as assinaturas.
 - **Agendamento**: o cliente escolhe a barbearia, abre a página dela (serviços,
   produtos, detalhes, avaliação) e agenda pelo modal: data → horário → barbeiro.
   Só aparecem dias de atendimento e horários realmente livres (expediente,
@@ -86,8 +86,15 @@ dele. Os clientes veem todas as barbearias com assinatura ativa.
 - **Serviços** e **Barbeiros**: cadastro, edição, foto, ativar/desativar e
   exclusão, gravados no banco (o que o cliente vê na página da barbearia). O
   número de barbeiros ativos respeita o limite do plano.
-- Clientes, produtos e financeiro ainda usam dados de exemplo no frontend
-  (ver [limitações](#limitações-conhecidas-e-próximos-passos)).
+- **Clientes**: quem já agendou na barbearia, com total gasto, visitas,
+  cancelamentos, serviço preferido, próximo horário e histórico completo
+  (o cadastro é do próprio cliente; o barbeiro só acompanha).
+- **Produtos**: cadastro com preço, custo e estoque, alertas de estoque baixo e
+  **registro de venda** no balcão (baixa o estoque e entra no Financeiro).
+- **Financeiro** e **Relatórios** (com PDF): calculados dos atendimentos
+  **concluídos** na Agenda e das vendas de produtos: faturamento, ticket médio,
+  a receber, clientes, horários de pico, situação dos agendamentos e comparação
+  com o período anterior. Nada é inventado: sem atendimentos, os números ficam zerados.
 
 ### Automações do backend
 - **Confirmação imediata** por e-mail ao criar o agendamento.
@@ -127,7 +134,7 @@ BarberFlow/
 └── barbearia-frontend/
     ├── server.cjs              Servidor Express que entrega o build no Azure
     └── src/
-        ├── data/               barbearias.js (reais da API + demonstração), planos.js
+        ├── data/               barbearias.js (barbearias da API), planos.js
         ├── hooks/              useBarbearias, useConfiguracaoBarbearia, useLocalizacao
         ├── pages/              landingPage, checkout, auth, client/*, dashboardBarber/*
         ├── routes/             Rotas públicas, do cliente e do barbeiro
@@ -246,7 +253,9 @@ Modelo completo e comentado em [`barbearia-backend/database/schema.sql`](barbear
 
 ```mermaid
 erDiagram
-    barbearias ||--o{ administradores : "conta do painel"
+    barbearias ||--o{ barbeiros : "conta do painel"
+    barbearias ||--o{ produtos : vende
+    produtos ||--o{ vendas_produtos : "vendido em"
     barbearias ||--o{ profissionais : tem
     barbearias ||--o{ servicos : oferece
     barbearias ||--o{ agendamentos : recebe
@@ -268,11 +277,13 @@ erDiagram
 | Tabela | Para que serve |
 |---|---|
 | `barbearias` | Uma por compra: dados, logo, coordenadas, horários, notificações e **assinatura** (`plano`, `status`, `assinatura_expira_em`) |
-| `administradores` | Contas do painel; cada uma é de uma barbearia. `senha_temporaria` = ainda não trocou a senha do e-mail |
+| `barbeiros` | Contas do painel (o dono que faz login); cada uma é de uma barbearia. `senha_temporaria` = ainda não trocou a senha do e-mail. Antes se chamava `administradores` |
+| `produtos` | Produtos de balcão da barbearia: preço, custo, estoque, categoria |
+| `vendas_produtos` | Cada venda registrada (quantidade, preço e custo do momento) |
 | `pedidos` | Compras de plano no Mercado Pago (pendente → aprovado/recusado/cancelado) |
 | `contatos` | Cópia das mensagens do "Entre em contato" |
 | `clientes` | Conta do cliente, endereço (ViaCEP), coordenadas do endereço, foto |
-| `profissionais` | Barbeiros (podem ser desativados sem perder o histórico), foto |
+| `profissionais` | Barbeiros que atendem e aparecem no agendamento (podem ser desativados sem perder o histórico), foto |
 | `servicos` | Nome, duração e preço |
 | `agendamentos` | Quem, com quem, qual serviço, quando, status e **preço cobrado no dia** |
 | `lista_espera` | Fila por profissional + serviço + dia |
@@ -314,8 +325,9 @@ alterar o banco, acrescente uma nova migração no fim da lista. Elas usam
 | 009 | Normaliza e-mails para minúsculo |
 | 010 | Status do envio nas mensagens e tabela `notificacoes_barbearia` |
 | 011 | Mensagem do tipo `cancelamento` |
-| 012 | Contas do painel (`administradores`) e `token_versao` dos clientes |
+| 012 | Contas do painel e `token_versao` dos clientes |
 | 013 | Várias barbearias: `configuracoes_barbearia` vira `barbearias` (a barbearia que já existia vira a nº 1, plano Enterprise), `barbearia_id` em todas as tabelas, `senha_temporaria` |
+| 014 | A tabela `administradores` passa a se chamar `barbeiros` (contas e senhas mantidas) |
 
 ---
 
@@ -494,7 +506,7 @@ pedia login em nenhuma rota. Isso foi corrigido assim:
 
 | Problema encontrado | Correção |
 |---|---|
-| Login do barbeiro falso (qualquer email/senha entrava) e cadastro de barbeiro aberto | Contas do painel na tabela `administradores`, com senha bcrypt. **Não há cadastro pelo site**: a conta é criada com `npm run criar-admin` |
+| Login do barbeiro falso (qualquer email/senha entrava) e cadastro de barbeiro aberto | Contas do painel na tabela `barbeiros`, com senha bcrypt. **Não há cadastro pelo site**: a conta é criada com `npm run criar-admin` |
 | Nenhuma rota exigia login (`POST /profissionais`, `PUT /configuracoes`...) | Token JWT em toda rota privada; ações administrativas exigem papel `barbeiro` |
 | `localStorage.auth = "true"` abria o painel | Sessões separadas de cliente e barbeiro; o painel exige token de barbeiro válido |
 | Qualquer pessoa via/alterava/apagava o cadastro de outro cliente (IDOR) | Cliente só acessa o próprio `:id`, agendamentos, fila e mensagens |
@@ -611,6 +623,14 @@ quem pode chamar: 🌐 público · 👤 cliente (só o que é dele) · ✂️ ba
 | POST | `/configuracoes/notificacoes/teste` | ✂️ | Envia um e-mail de teste para a barbearia |
 | GET | `/notificacoes-barbearia?limite=` | ✂️ | Últimas notificações enviadas para a barbearia |
 
+### Produtos (painel)
+| Método | Rota | Acesso | Descrição |
+|---|---|---|---|
+| GET | `/produtos` | ✂️ | Produtos da barbearia, com o total vendido de cada um |
+| POST · PUT · DELETE | `/produtos[/:id]` | ✂️ | Cadastra, edita, exclui (com vendas: só desativar) |
+| POST | `/produtos/:id/vendas` | ✂️ | Registra venda `{ quantidade }`: baixa o estoque (sem deixar negativo) |
+| GET | `/vendas-produtos?desde=AAAA-MM-DD` | ✂️ | Vendas registradas (base do Financeiro) |
+
 ### Planos, pagamento e contato
 | Método | Rota | Acesso | Descrição |
 |---|---|---|---|
@@ -656,8 +676,8 @@ inicialização depois do deploy.
   `httpOnly` (exige frontend e API no mesmo domínio ou `SameSite=None`).
 - **Recuperação de senha por e-mail** ainda não existe: o barbeiro redefine com
   `npm run criar-admin` (ou pede ao suporte); o cliente troca a senha logado.
-- **Telas do painel com dados de exemplo**: clientes, produtos e financeiro
-  (Serviços, Barbeiros, Agenda, Relatórios e Configurações já usam o banco).
+- **Avaliações das barbearias**: a página da barbearia ainda não tem notas
+  reais de clientes (o sistema não mostra estrelas inventadas).
 - **WhatsApp/SMS**: as notificações saem por e-mail. Para WhatsApp seria
   preciso a API oficial (Meta WhatsApp Cloud API ou Twilio), com conta
   comercial verificada; o ponto de troca é o `notificacaoService`.
